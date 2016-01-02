@@ -116,7 +116,7 @@ op_transaction(DbHandle, Tpb) ->
     list_to_binary([
         byte4(op_val(op_transaction)),
         byte4(DbHandle),
-        Tpb]).
+        byte4(length(Tpb)), Tpb, pad4(Tpb)]).
 
 %%% parse status vector
 parse_status_vector_integer(Sock) ->
