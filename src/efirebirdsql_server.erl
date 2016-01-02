@@ -99,7 +99,17 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
                     end,
                     case R of
                         {ok, DbHandle} ->
-                            {reply, ok, State#state{sock = Sock, db_handle = DbHandle}};
+                            case allocate_statement(Sock, DbHandle) of
+                                {ok, StmtHandle} ->
+                                    {reply, ok,
+                                        State#state{sock = Sock,
+                                        db_handle = DbHandle,
+                                        stmt_handle = StmtHandle}};
+                                {error, _Reason} ->
+                                    {reply, {error, "Can't allocate statement"},
+                                        State#state{sock = Sock,
+                                            db_handle = DbHandle}}
+                            end;
                         {error, _Reason} ->
                             {reply, R, State#state{sock = Sock}}
                     end;

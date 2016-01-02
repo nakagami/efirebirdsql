@@ -60,7 +60,9 @@ uid(Host, Username) ->
 
 %%% create op_connect binary
 op_connect(Host, Username, _Password, Database) ->
-    Protocols = [0,0,0,10,0,0,0,1,0,0,0,0,0,0,0,5,0,0,0,2], %% VERSION10 only
+    %% PROTOCOL_VERSION,ArchType(Generic),MinAcceptType,MaxAcceptType,Weight
+    Protocols = lists:flatten(
+        [byte4(10), byte4(1), byte4(0), byte4(3), byte4(2)]),
     Buf = [
         byte4(op_val(op_connect)),
         byte4(op_val(op_attach)),
