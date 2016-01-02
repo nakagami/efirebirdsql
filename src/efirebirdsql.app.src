@@ -1,0 +1,12 @@
+{application, efirebirdsql,
+ [{description, "Firebird Client"},
+  {vsn, "0.0.1"},
+  {modules, []},
+  {registered, []},
+  {applications, [kernel,
+                  stdlib]},
+  {env, []},
+  {included_applications, []},
+  {licenses, ["MIT"]},
+  {links, [{"Github", "https://github.com/nakagami/efirebirdsql"}]}
+]}.
