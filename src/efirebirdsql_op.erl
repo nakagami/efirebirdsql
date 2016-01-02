@@ -118,7 +118,11 @@ op_transaction(DbHandle, Tpb) ->
         byte4(DbHandle),
         byte4(length(Tpb)), Tpb, pad4(Tpb)]).
 
-%%% begin transaction
+%%% allocate statement
+op_allocate_statement(DbHandle) ->
+    list_to_binary([byte4(op_val(op_allocate_statement)), byte4(DbHandle)]).
+
+%%% commit
 op_commit_retaining(TransHandle) ->
     list_to_binary([byte4(op_val(op_commit_retaining)), byte4(TransHandle)]).
 

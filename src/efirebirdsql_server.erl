@@ -15,6 +15,7 @@
                 sock,
                 db_handle,
                 trans_handle,
+                stmt_handle,
                 data = <<>>,
                 parameters = [],
                 types = [],
@@ -44,6 +45,14 @@ begin_transaction(Sock, DbHandle, Tpb) ->
     case efirebirdsql_op:get_response(Sock) of
         {op_response,  R} -> R;
         _ -> {error, "Can't begin transaction"}
+    end.
+
+allocate_statement(Sock, DbHandle) ->
+    gen_tcp:send(Sock,
+        efirebirdsql_op:op_allocate_statement(DbHandle)),
+    case efirebirdsql_op:get_response(Sock) of
+        {op_response,  R} -> R;
+        _ -> {error, "Allocate statement failed"}
     end.
 
 commit(Sock, TransHandle) ->
@@ -82,9 +91,11 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
                 {op_accept, _} ->
                     case IsCreateDB of
                         true ->
-                            R = create_database(Sock, Username, Password, Database, PageSize);
+                            R = create_database(
+                                Sock, Username, Password, Database, PageSize);
                         false ->
-                            R = attach_database(Sock, Username, Password, Database)
+                            R = attach_database(
+                                Sock, Username, Password, Database)
                     end,
                     case R of
                         {ok, DbHandle} ->
@@ -92,7 +103,8 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
                         {error, _Reason} ->
                             {reply, R, State#state{sock = Sock}}
                     end;
-                op_reject -> {reply, {error, "Connection Rejected"}, State#state{sock = Sock}}
+                op_reject -> {reply, {error, "Connection Rejected"},
+                                                State#state{sock = Sock}}
             end;
         Error = {error, _} -> {reply, Error, State}
     end;
