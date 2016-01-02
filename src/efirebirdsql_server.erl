@@ -65,13 +65,15 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
                 {op_accept, _} ->
                     case IsCreateDB of
                         true ->
-                            R = create_database(Sock, Username, Password, Database, PageSize),
-                            NewState = State#state{sock = Sock},
-                            {reply, R, NewState};
+                            R = create_database(Sock, Username, Password, Database, PageSize);
                         false ->
-                            R = attach_database(Sock, Username, Password, Database),
-                            NewState = State#state{sock = Sock},
-                            {reply, R, NewState}
+                            R = attach_database(Sock, Username, Password, Database)
+                    end,
+                    case R of
+                        {ok, Handle} ->
+                            {reply, ok, State#state{sock = Sock, db_handle = Handle}};
+                        {error, _Reason} ->
+                            {reply, R, State#state{sock = Sock}}
                     end;
                 op_reject -> {reply, {error, "Connection Rejected"}, State#state{sock = Sock}}
             end;
