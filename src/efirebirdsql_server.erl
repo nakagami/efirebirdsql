@@ -38,6 +38,15 @@ create_database(Sock, User, Password, Database, PageSize) ->
         _ -> {error, "Can't create database"}
     end.
 
+begin_transaction(Sock, DbHandle, Tpb) ->
+    gen_tcp:send(Sock,
+        efirebirdsql_op:op_transaction(DbHandle, Tpb)),
+    case efirebirdsql_op:get_response(Sock) of
+        {op_response,  R} -> R;
+        _ -> {error, "Can't begin transaction"}
+    end.
+
+
 %% -- client interface --
 -spec start_link() -> {ok, pid()}.
 start_link() ->
@@ -79,6 +88,14 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
                 op_reject -> {reply, {error, "Connection Rejected"}, State#state{sock = Sock}}
             end;
         Error = {error, _} -> {reply, Error, State}
+    end;
+handle_call({transaction, Tpb}, _From, State) ->
+    R = begin_transaction(State#state.sock, State#state.db_handle, Tpb),
+    case R of
+        {ok, TransHandle} ->
+            {reply, ok, State#state{trans_handle=TransHandle}};
+        {error, _Reason} ->
+            {reply, R, State}
     end;
 handle_call({close}, _From, State) ->
     %%% TODO: Do something
