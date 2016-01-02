@@ -46,6 +46,13 @@ begin_transaction(Sock, DbHandle, Tpb) ->
         _ -> {error, "Can't begin transaction"}
     end.
 
+commit(Sock, TransHandle) ->
+    gen_tcp:send(Sock,
+        efirebirdsql_op:op_commit_retaining(TransHandle)),
+    case efirebirdsql_op:get_response(Sock) of
+        {op_response,  {ok, _}} -> ok;
+        _ -> {error, "Commit failed"}
+    end.
 
 %% -- client interface --
 -spec start_link() -> {ok, pid()}.
@@ -101,7 +108,9 @@ handle_call({transaction, Options}, _From, State) ->
         {error, _Reason} ->
             {reply, R, State}
     end;
-handle_call({close}, _From, State) ->
+handle_call(commit, _From, State) ->
+    {reply, commit(State#state.sock, State#state.trans_handle), State};
+handle_call(close, _From, State) ->
     %%% TODO: Do something
     {reply, ok, State};
 handle_call({get_parameter, Name}, _From, State) ->

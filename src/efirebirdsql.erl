@@ -4,7 +4,7 @@
 -module(efirebirdsql).
 
 -export([start_link/0]).
--export([connect/4, connect/5, execute/2, close/1]).
+-export([connect/4, connect/5, execute/2, commit/1, close/1]).
 
 -export_type([connection/0, connect_option/0,
     connect_error/0, query_error/0]).
@@ -53,7 +53,12 @@ connect(Host, Username, Password, Database) ->
 execute(C, QueryStatement) ->
     gen_server:call(C, {execute, QueryStatement}, infinity).
 
+-spec commit(connection())
+    -> ok | {error, _Reason}.
+commit(C) ->
+    gen_server:call(C, commit, infinity).
+
 -spec close(efirebirdsql:connection())
     -> ok | {error, Reason :: connect_error()}.
 close(C) ->
-    gen_server:call(C, {close}, infinity).
+    gen_server:call(C, close, infinity).
