@@ -16,6 +16,7 @@
     {port, PortNum :: inet:port_number()} |
     {timeout, Timeout :: integer()} |
     {createdb, IsCreateDB :: boolean()} |
+    {auto_commit, AutoCommit :: boolean()} |
     {pagesize, PageSize :: integer()}.
 -type connect_error() :: #error{}.
 -type query_error() :: #error{}.
@@ -32,8 +33,14 @@ connect(Host, Username, Password, Database, Ops) ->
     case gen_server:call(C,
                          {connect, Host, Username, Password, Database, Ops},
                          infinity) of
-        ok -> {ok, C};
-        Error = {error, _} -> Error
+        ok ->
+            case gen_server:call(C, {transaction, Ops}, infinity) of
+                ok -> {ok, C};
+                Error = {error, _}
+                    -> Error
+            end;
+        Error = {error, _}
+            -> Error
     end.
 
 -spec connect(string(), string(), string(), string())

@@ -89,8 +89,12 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
             end;
         Error = {error, _} -> {reply, Error, State}
     end;
-handle_call({transaction, Tpb}, _From, State) ->
-    R = begin_transaction(State#state.sock, State#state.db_handle, Tpb),
+handle_call({transaction, Options}, _From, State) ->
+    AutoCommit = proplists:get_value(auto_commit, Options, true),
+    %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_no_rec_version
+    Tpb = [3, 9, 6, 15, 18],
+    R = begin_transaction(State#state.sock, State#state.db_handle,
+        lists:flatten(Tpb, if AutoCommit =:= true -> [16]; true -> [] end)),
     case R of
         {ok, TransHandle} ->
             {reply, ok, State#state{trans_handle=TransHandle}};
