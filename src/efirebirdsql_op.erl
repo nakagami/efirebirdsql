@@ -111,6 +111,13 @@ op_create(Username, Password, Database, PageSize) ->
     list_to_binary([Buf, pad4(Buf)]).
 
 
+%%% begin transaction
+op_transaction(DbHandle, Tpb) ->
+    list_to_binary([
+        byte4(op_val(op_transaction)),
+        byte4(DbHandle),
+        Tpb]).
+
 %%% parse status vector
 parse_status_vector_integer(Sock) ->
     {ok, <<NumArg:32>>} = gen_tcp:recv(Sock, 4),

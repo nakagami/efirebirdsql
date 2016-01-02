@@ -14,6 +14,7 @@
 -record(state, {mod,
                 sock,
                 db_handle,
+                trans_handle,
                 data = <<>>,
                 parameters = [],
                 types = [],
@@ -70,8 +71,8 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
                             R = attach_database(Sock, Username, Password, Database)
                     end,
                     case R of
-                        {ok, Handle} ->
-                            {reply, ok, State#state{sock = Sock, db_handle = Handle}};
+                        {ok, DbHandle} ->
+                            {reply, ok, State#state{sock = Sock, db_handle = DbHandle}};
                         {error, _Reason} ->
                             {reply, R, State#state{sock = Sock}}
                     end;
