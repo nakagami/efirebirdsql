@@ -124,6 +124,34 @@ op_transaction(DbHandle, Tpb) ->
 op_allocate_statement(DbHandle) ->
     list_to_binary([byte4(op_val(op_allocate_statement)), byte4(DbHandle)]).
 
+%%% prepare statement
+op_prepare_statement(TransHandle, StmtHandle, Sql) ->
+    Head = list_to_binary([
+        byte4(op_val(op_prepare_statement)),
+        byte4(TransHandle),
+        byte4(StmtHandle),
+        byte4(3),
+        byte4(size(Sql))]),
+    DescItems = <<
+        14,     %% length of bellow bytes
+        21,     %% isc_info_sql_stmt_type
+        4,      %% isc_info_sql_select
+        7,      %% isc_info_sql_describe_vars
+        9,      %% isc_info_sql_sqlda_seq
+        11,     %% isc_info_sql_type
+        12,     %% isc_info_sql_sub_type
+        13,     %% isc_info_sql_scale
+        14,     %% isc_info_sql_length
+        15,     %% isc_info_sql_null_ind,
+        16,     %% isc_info_sql_field,
+        17,     %% isc_info_sql_relation,
+        18,     %% isc_info_sql_owner,
+        19,     %% isc_info_sql_alias,
+        8       %% isc_info_sql_describe_end
+        >>,
+    <<Head/binary, Sql/binary, DescItems >>.
+
+
 %%% commit
 op_commit_retaining(TransHandle) ->
     list_to_binary([byte4(op_val(op_commit_retaining)), byte4(TransHandle)]).
