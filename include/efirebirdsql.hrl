@@ -9,9 +9,7 @@
 }).
 
 -record(statement, {
-    handle :: binary(),
-    trans_handle :: pos_integer(),
-    name :: string(),
+    handle :: pos_integer(),
     columns :: [#column{}],
     types :: [atom()]
 }).
