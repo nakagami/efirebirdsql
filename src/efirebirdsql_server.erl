@@ -143,14 +143,15 @@ handle_call(commit, _From, State) ->
 handle_call(close, _From, State) ->
     %%% TODO: Do something
     {reply, ok, State};
+handle_call({prepare, Sql}, _From, State) ->
+    _Statement = prepare_statement(State#state.sock, State#state.trans_handle,
+        State#state.stmt_handle, Sql);
 handle_call({get_parameter, Name}, _From, State) ->
     Value1 = case lists:keysearch(Name, 1, State#state.parameters) of
         {value, {Name, Value}} -> Value;
         false                  -> undefined
     end,
-    {reply, {ok, Value1}, State};
-handle_call(_Msg, _From, State) ->
-    {reply, {error, "Unknown command"}, State}.
+    {reply, {ok, Value1}, State}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
