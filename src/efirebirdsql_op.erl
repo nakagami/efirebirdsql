@@ -135,7 +135,7 @@ op_prepare_statement(TransHandle, StmtHandle, Sql) ->
         byte4(3),
         byte4(size(Sql))]),
     DescItems = <<
-        14,     %% length of bellow bytes
+        0,0,0,14,     %% length of bellow bytes
         21,     %% isc_info_sql_stmt_type
         4,      %% isc_info_sql_select
         7,      %% isc_info_sql_describe_vars
