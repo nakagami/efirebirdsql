@@ -50,6 +50,12 @@ pad4(L) ->
         3 -> [0]
     end.
 
+list_to_xdr_string(L) ->
+    lists:flatten([byte4(length(L)), L, pad4(L)]).
+
+list_to_xdr_bytes(L) ->
+    list_to_xdr_string(L).
+
 uid(Host, Username) ->
     Data = lists:flatten([
         1,  %% CNCT_user
@@ -58,7 +64,7 @@ uid(Host, Username) ->
         4,  %% CNCT_host
         length(Host),
         Host]),
-    [byte4(length(Data)), Data].
+    list_to_xdr_bytes(Data).
 
 %%% create op_connect binary
 op_connect(Host, Username, _Password, Database) ->
@@ -70,11 +76,10 @@ op_connect(Host, Username, _Password, Database) ->
         byte4(op_val(op_attach)),
         byte4(3),  %% CONNECT_VERSION
         byte4(1),  %% arch_generic,
-        byte4(length(Database)),
-        Database,
+        list_to_xdr_string(Database),
         byte4(1),  %% Count of acceptable protocols (VERSION 10 only)
         uid(Host, Username)],
-    list_to_binary([Buf, pad4(Buf), Protocols]).
+    list_to_binary([Buf, Protocols]).
 
 %%% create op_attach binary
 op_attach(Username, Password, Database) ->
@@ -85,12 +90,11 @@ op_attach(Username, Password, Database) ->
         28, length(Username), Username,  %% isc_dpb_user_name 28
         29, length(Password), Password   %% isc_dpb_password = 29
     ]),
-    Buf = lists:flatten([
+    list_to_binary(lists:flatten([
         byte4(op_val(op_attach)),
         byte4(0),
-        byte4(length(Database)), Database,
-        byte4(length(Dpb)), Dpb]),
-    list_to_binary([Buf, pad4(Buf)]).
+        list_to_xdr_string(Database),
+        list_to_xdr_bytes(Dpb)])).
 
 
 %%% create op_connect binary
@@ -107,12 +111,11 @@ op_create(Username, Password, Database, PageSize) ->
         54, 4, byte4(1, little),        %% isc_dpb_overwrite = 54
         4, 4, byte4(PageSize, little)   %% isc_dpb_page_size = 4
     ]),
-    Buf = lists:flatten([
+    list_to_binary(lists:flatten([
         byte4(op_val(op_create)),
         byte4(0),
-        byte4(length(Database)), Database,
-        byte4(length(Dpb)), Dpb]),
-    list_to_binary([Buf, pad4(Buf)]).
+        list_to_xdr_string(Database),
+        list_to_xdr_bytes(Dpb)])).
 
 
 %%% begin transaction
@@ -120,7 +123,7 @@ op_transaction(DbHandle, Tpb) ->
     list_to_binary([
         byte4(op_val(op_transaction)),
         byte4(DbHandle),
-        byte4(length(Tpb)), Tpb, pad4(Tpb)]).
+        list_to_xdr_bytes(Tpb)]).
 
 %%% allocate statement
 op_allocate_statement(DbHandle) ->
@@ -128,14 +131,7 @@ op_allocate_statement(DbHandle) ->
 
 %%% prepare statement
 op_prepare_statement(TransHandle, StmtHandle, Sql) ->
-    Head = list_to_binary([
-        byte4(op_val(op_prepare_statement)),
-        byte4(TransHandle),
-        byte4(StmtHandle),
-        byte4(3),
-        byte4(size(Sql))]),
-    DescItems = <<
-        0,0,0,14,     %% length of bellow bytes
+    DescItems = [
         21,     %% isc_info_sql_stmt_type
         4,      %% isc_info_sql_select
         7,      %% isc_info_sql_describe_vars
@@ -150,8 +146,15 @@ op_prepare_statement(TransHandle, StmtHandle, Sql) ->
         18,     %% isc_info_sql_owner,
         19,     %% isc_info_sql_alias,
         8       %% isc_info_sql_describe_end
-        >>,
-    <<Head/binary, Sql/binary, DescItems/binary, ?BUFSIZE:32 >>.
+        ],
+    list_to_binary([
+        byte4(op_val(op_prepare_statement)),
+        byte4(TransHandle),
+        byte4(StmtHandle),
+        byte4(3),
+        list_to_xdr_string(binary_to_list(Sql)),
+        list_to_xdr_bytes(DescItems),
+        byte4(?BUFSIZE)]).
 
 
 %%% commit
