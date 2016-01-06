@@ -7,6 +7,8 @@
     get_response/1]).
 -compile([export_all]).
 
+-define(BUFSIZE, 1024).
+
 %%% skip 4 byte alignment socket stream
 skip4(Sock, Len) ->
     case Len rem 4 of
@@ -149,7 +151,7 @@ op_prepare_statement(TransHandle, StmtHandle, Sql) ->
         19,     %% isc_info_sql_alias,
         8       %% isc_info_sql_describe_end
         >>,
-    <<Head/binary, Sql/binary, DescItems/binary >>.
+    <<Head/binary, Sql/binary, DescItems/binary, ?BUFSIZE:32 >>.
 
 
 %%% commit
