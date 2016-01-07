@@ -58,10 +58,7 @@ allocate_statement(Sock, DbHandle) ->
 prepare_statement(Sock, TransHandle, StmtHandle, Sql) ->
     gen_tcp:send(Sock,
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
-    case efirebirdsql_op:get_response(Sock) of
-        {op_response,  {ok, Handle, _}} -> Handle;
-        _ -> {error, "Prepare statement failed"}
-    end.
+    efirebirdsql_op:get_prepare_statement_response(Sock).
 
 commit(Sock, TransHandle) ->
     gen_tcp:send(Sock,

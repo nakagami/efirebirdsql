@@ -231,8 +231,6 @@ get_response(Sock) ->
             {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
                     _AcceptArchtecture:32, _AcceptType:32>>} = gen_tcp:recv(Sock, 12),
             {op_accept, AcceptVersion};
-        op_info_sql ->
-            {ok_info_sql, parse_info_sql(Sock)};
         op_reject ->
             op_reject;
         op_dummy ->
@@ -240,6 +238,9 @@ get_response(Sock) ->
         true ->
             {error, "response error"}
     end.
+
+get_prepare_statement_response(Sock) ->
+    get_response(Sock).
 
 op_name(1) -> op_connect;
 op_name(2) -> op_exit;
