@@ -344,3 +344,17 @@ op_val(op_abort_aux_connection) -> 95;
 op_val(op_crypt) -> 96;
 op_val(op_crypt_key_callback) -> 97;
 op_val(op_cond_accept) -> 98.
+
+isc_info_sql_name(Num) ->
+    lists:nth(Num, [
+    isc_info_end, isc_info_truncated, isc_info_error, isc_info_sql_select,
+    isc_info_sql_bind, isc_info_sql_num_variables, isc_info_sql_describe_vars,
+    isc_info_sql_describe_end, isc_info_sql_sqlda_seq, isc_info_sql_message_seq,
+    isc_info_sql_type, isc_info_sql_sub_type, isc_info_sql_scale,
+    isc_info_sql_length, isc_info_sql_null_ind, isc_info_sql_field,
+    isc_info_sql_relation, isc_info_sql_owner, isc_info_sql_alias,
+    isc_info_sql_sqlda_start, isc_info_sql_stmt_type, isc_info_sql_get_plan,
+    isc_info_sql_records, isc_info_sql_batch_fetch,
+    isc_info_sql_relation_alias]).
+
+
