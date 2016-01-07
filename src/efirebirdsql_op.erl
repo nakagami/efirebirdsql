@@ -7,6 +7,8 @@
     get_response/1]).
 -compile([export_all]).
 
+-include("efirebirdsql.hrl").
+
 -define(BUFSIZE, 1024).
 
 %%% skip 4 byte alignment socket stream
@@ -192,6 +194,12 @@ parse_status_vector_args(Sock, Args) ->
 
 parse_status_vector(Sock) ->
     lists:reverse(parse_status_vector_args(Sock, [])).
+
+parse_select_item(Sock) ->
+    #column{}.
+
+parse_select_items(Sock) ->
+    [].
 
 %% recieve and parse response
 get_response(Sock) ->
