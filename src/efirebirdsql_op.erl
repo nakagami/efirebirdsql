@@ -202,25 +202,6 @@ parse_status_vector_args(Sock, Args) ->
 parse_status_vector(Sock) ->
     lists:reverse(parse_status_vector_args(Sock, [])).
 
-more_select_describe_vars(Sock, StmtHandle, StartIndex) ->
-    %% isc_info_sql_sqlda_start + INFO_SQL_SELECT_DESCRIBE_VARS
-    V = lists:flatten([20, byte4(StartIndex), ?INFO_SQL_SELECT_DESCRIBE_VARS]),
-    op_info_sql(StmtHandle, V).
-
-parse_select_item(Sock) ->
-    #column{}.
-
-parse_select_items(Sock) ->
-    [].
-
-parse_info_sql(Sock) ->
-    %% isc_info_sql_name(21) = isc_info_sql_stmt_type
-    {ok, <<21:32, StmtType:32>>} = gen_tcp:recv(Sock, 8),
-    case isc_info_sql_name(StmtType) of
-        isc_info_sql_stmt_select -> parse_select_items(Sock);
-        _ -> {error, "Can't parse info sql"}
-    end.
-
 %% recieve and parse response
 get_response(Sock) ->
     {ok, <<OpCode:32>>} = gen_tcp:recv(Sock, 4),
@@ -249,6 +230,36 @@ get_response(Sock) ->
             get_response(Sock);
         true ->
             {error, "response error"}
+    end.
+
+%% parse select items.
+more_select_describe_vars(Sock, StmtHandle, StartIndex) ->
+    %% isc_info_sql_sqlda_start + INFO_SQL_SELECT_DESCRIBE_VARS
+    V = lists:flatten([20, byte4(StartIndex), ?INFO_SQL_SELECT_DESCRIBE_VARS]),
+    gen_tcp:send(Sock, op_info_sql(StmtHandle, V)),
+    {op_response, {ok, _, Buf, <<_:16,Len:16>>}} = get_response(Sock),
+    <<_:16,Len:16>> = Buf,
+    SkipLen = Len * 8 + 16,
+    <<_:SkipLen, DescVars/binary>> = Buf,
+    DescVars.
+
+parse_select_items(Columns, DescVars) ->
+    %% Parse DescVars and return {reversed columns list, next index}
+    {[], -1}.
+
+parse_select_items(Sock, Columns, DescVars) ->
+    %% Parse DescVars, get more DescVars and return columns list.
+    [].
+
+parse_select_items(Sock) ->
+    [].
+
+parse_info_sql(Sock) ->
+    %% isc_info_sql_name(21) = isc_info_sql_stmt_type
+    {ok, <<21:32, StmtType:32>>} = gen_tcp:recv(Sock, 8),
+    case isc_info_sql_name(StmtType) of
+        isc_info_sql_stmt_select -> parse_select_items(Sock);
+        _ -> {error, "Can't parse info sql"}
     end.
 
 get_prepare_statement_response(Sock) ->
