@@ -10,6 +10,21 @@
 -include("efirebirdsql.hrl").
 
 -define(BUFSIZE, 1024).
+-define(INFO_SQL_SELECT_DESCRIBE_VARS, [
+        4,      %% isc_info_sql_select
+        7,      %% isc_info_sql_describe_vars
+        9,      %% isc_info_sql_sqlda_seq
+        11,     %% isc_info_sql_type
+        12,     %% isc_info_sql_sub_type
+        13,     %% isc_info_sql_scale
+        14,     %% isc_info_sql_length
+        15,     %% isc_info_sql_null_ind,
+        16,     %% isc_info_sql_field,
+        17,     %% isc_info_sql_relation,
+        18,     %% isc_info_sql_owner,
+        19,     %% isc_info_sql_alias,
+        8       %% isc_info_sql_describe_end
+        ]).
 
 %%% skip 4 byte alignment socket stream
 skip4(Sock, Len) ->
@@ -133,22 +148,7 @@ op_allocate_statement(DbHandle) ->
 
 %%% prepare statement
 op_prepare_statement(TransHandle, StmtHandle, Sql) ->
-    DescItems = [
-        21,     %% isc_info_sql_stmt_type
-        4,      %% isc_info_sql_select
-        7,      %% isc_info_sql_describe_vars
-        9,      %% isc_info_sql_sqlda_seq
-        11,     %% isc_info_sql_type
-        12,     %% isc_info_sql_sub_type
-        13,     %% isc_info_sql_scale
-        14,     %% isc_info_sql_length
-        15,     %% isc_info_sql_null_ind,
-        16,     %% isc_info_sql_field,
-        17,     %% isc_info_sql_relation,
-        18,     %% isc_info_sql_owner,
-        19,     %% isc_info_sql_alias,
-        8       %% isc_info_sql_describe_end
-        ],
+    DescItems = [21 | ?INFO_SQL_SELECT_DESCRIBE_VARS], %% isc_info_sql_stmt_type
     list_to_binary([
         byte4(op_val(op_prepare_statement)),
         byte4(TransHandle),
@@ -158,6 +158,13 @@ op_prepare_statement(TransHandle, StmtHandle, Sql) ->
         list_to_xdr_bytes(DescItems),
         byte4(?BUFSIZE)]).
 
+op_info_sql(StmtHandle, V) ->
+    list_to_binary([
+        byte4(op_val(op_info_sql)),
+        byte4(StmtHandle),
+        byte4(0),
+        list_to_xdr_bytes(V),
+        byte4(?BUFSIZE)]).
 
 %%% commit
 op_commit_retaining(TransHandle) ->
@@ -194,6 +201,11 @@ parse_status_vector_args(Sock, Args) ->
 
 parse_status_vector(Sock) ->
     lists:reverse(parse_status_vector_args(Sock, [])).
+
+more_select_describe_vars(Sock, StmtHandle, StartIndex) ->
+    %% isc_info_sql_sqlda_start + INFO_SQL_SELECT_DESCRIBE_VARS
+    V = lists:flatten([20, byte4(StartIndex), ?INFO_SQL_SELECT_DESCRIBE_VARS]),
+    op_info_sql(StmtHandle, V).
 
 parse_select_item(Sock) ->
     #column{}.
