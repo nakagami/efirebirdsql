@@ -201,6 +201,14 @@ parse_select_item(Sock) ->
 parse_select_items(Sock) ->
     [].
 
+parse_info_sql(Sock) ->
+    %% isc_info_sql_name(21) = isc_info_sql_stmt_type
+    {ok, <<21:32, StmtType:32>>} = gen_tcp:recv(Sock, 8),
+    case isc_info_sql_name(StmtType) of
+        isc_info_sql_stmt_select -> parse_select_items(Sock);
+        _ -> {error, "Can't parse info sql"}
+    end.
+
 %% recieve and parse response
 get_response(Sock) ->
     {ok, <<OpCode:32>>} = gen_tcp:recv(Sock, 4),
@@ -223,6 +231,8 @@ get_response(Sock) ->
             {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
                     _AcceptArchtecture:32, _AcceptType:32>>} = gen_tcp:recv(Sock, 12),
             {op_accept, AcceptVersion};
+        op_info_sql ->
+            {ok_info_sql, parse_info_sql(Sock)};
         op_reject ->
             op_reject;
         op_dummy ->
