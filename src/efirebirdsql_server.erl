@@ -27,7 +27,7 @@ attach_database(Sock, User, Password, Database) ->
     gen_tcp:send(Sock,
         efirebirdsql_op:op_attach(User, Password, Database)),
     case efirebirdsql_op:get_response(Sock) of
-        {op_response,  R} -> R;
+        {op_response,  {ok, Handle, _}} -> {ok, Handle};
         _ -> {error, "Can't attach Database"}
     end.
 
@@ -35,7 +35,7 @@ create_database(Sock, User, Password, Database, PageSize) ->
     gen_tcp:send(Sock,
         efirebirdsql_op:op_create(User, Password, Database, PageSize)),
     case efirebirdsql_op:get_response(Sock) of
-        {op_response,  R} -> R;
+        {op_response,  {ok, Handle, _}} -> {ok, Handle};
         _ -> {error, "Can't create database"}
     end.
 
@@ -43,7 +43,7 @@ begin_transaction(Sock, DbHandle, Tpb) ->
     gen_tcp:send(Sock,
         efirebirdsql_op:op_transaction(DbHandle, Tpb)),
     case efirebirdsql_op:get_response(Sock) of
-        {op_response,  R} -> R;
+        {op_response,  {ok, Handle, _}} -> {ok, Handle};
         _ -> {error, "Can't begin transaction"}
     end.
 
@@ -51,7 +51,7 @@ allocate_statement(Sock, DbHandle) ->
     gen_tcp:send(Sock,
         efirebirdsql_op:op_allocate_statement(DbHandle)),
     case efirebirdsql_op:get_response(Sock) of
-        {op_response,  R} -> R;
+        {op_response,  {ok, Handle, _}} -> {ok, Handle};
         _ -> {error, "Allocate statement failed"}
     end.
 
@@ -59,7 +59,7 @@ prepare_statement(Sock, TransHandle, StmtHandle, Sql) ->
     gen_tcp:send(Sock,
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
     case efirebirdsql_op:get_response(Sock) of
-        {op_response,  R} -> R;
+        {op_response,  {ok, Handle, _}} -> Handle;
         _ -> {error, "Prepare statement failed"}
     end.
 
@@ -67,7 +67,7 @@ commit(Sock, TransHandle) ->
     gen_tcp:send(Sock,
         efirebirdsql_op:op_commit_retaining(TransHandle)),
     case efirebirdsql_op:get_response(Sock) of
-        {op_response,  {ok, _}} -> ok;
+        {op_response,  {ok, _, _}} -> ok;
         _ -> {error, "Commit failed"}
     end.
 

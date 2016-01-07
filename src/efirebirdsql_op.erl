@@ -215,16 +215,16 @@ get_response(Sock) ->
     case op_name(OpCode) of
         op_response ->
             {ok, <<Handle:32, _ObjectID:64, Len:32>>} = gen_tcp:recv(Sock, 16),
-            _Buf = if
+            Buf = if
                 Len =/= 0 ->
-                    {ok, Buf} = gen_tcp:recv(Sock, Len),
+                    {ok, RecvBuf} = gen_tcp:recv(Sock, Len),
                     skip4(Sock, Len),
-                    Buf;
-                true -> []
+                    RecvBuf;
+                true -> <<>>
             end,
             R = parse_status_vector(Sock),
             case R of
-                [0] -> {op_response, {ok, Handle}};
+                [0] -> {op_response, {ok, Handle, Buf}};
                 _ -> {op_response, {error, R}}
             end;
         op_accept ->
