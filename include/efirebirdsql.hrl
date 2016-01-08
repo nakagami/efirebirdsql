@@ -3,9 +3,12 @@
 
 -record(column, {
     name :: binary(),
+    seq :: pos_integer(),
     type :: atom(),
-    size :: -1 | pos_integer(),
-    modifier :: -1 | pos_integer()
+    sub_type :: pos_integer(),
+    scale :: -1 | pos_integer(),
+    length :: -1 | pos_integer(),
+    null_ind :: true | false
 }).
 
 -record(statement, {
