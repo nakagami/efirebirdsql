@@ -292,14 +292,14 @@ parse_select_column(Sock, StmtHandle, Column, DescVars) ->
             Rest2 = more_select_describe_vars(Sock, StmtHandle, Column#column.seq),
             parse_select_column(Sock, StmtHandle, Column, Rest2);
         isc_info_sql_describe_end ->
-            Column
+            {Column, Rest}
     end.
 
 parse_select_columns(_Sock, _StmtHandle, Columns, <<>>) ->
     Columns;
 parse_select_columns(Sock, StmtHandle, Columns, DescVars) ->
-    Column = parse_select_column(Sock, StmtHandle, #column{}, DescVars),
-    parse_select_columns(Sock, StmtHandle, [Column | Columns], DescVars).
+    {Column, Rest} = parse_select_column(Sock, StmtHandle, #column{}, DescVars),
+    parse_select_columns(Sock, StmtHandle, [Column | Columns], Rest).
 
 get_prepare_statement_response(Sock, StmtHandle) ->
     {op_response, {ok, _, Buf}} = get_response(Sock),
