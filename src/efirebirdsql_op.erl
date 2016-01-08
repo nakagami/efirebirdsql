@@ -244,7 +244,7 @@ more_select_describe_vars(Sock, StmtHandle, StartIndex) ->
     DescVars.
 
 parse_select_item_elem_binary(DescVars) ->
-    <<L:16, V:L/binary, Rest/binary>> = DescVars,
+    <<L:16/little, V:L/binary, Rest/binary>> = DescVars,
     {V, Rest}.
 
 parse_select_item_elem_int(DescVars) ->
@@ -290,7 +290,7 @@ parse_select_item_elem(DescVars) ->
         isc_info_truncated ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
             {IscInfoName, Num, Rest2};
-        isc_info_end ->
+        isc_info_sql_describe_end ->
             {IscInfoName, Rest}
     end.
 
@@ -310,7 +310,7 @@ parse_select_item(DescVars) ->
             {isc_info_sql_relation, Relation, Rest8} = parse_select_item_elem(Rest7),
             {isc_info_sql_owner, Owner, Rest9} = parse_select_item_elem(Rest8),
             {isc_info_sql_alias, Alias, Rest10} = parse_select_item_elem(Rest9),
-            {isc_info_sql_describe_end, _, Rest} = parse_select_item_elem(Rest10),
+            {isc_info_sql_describe_end, Rest} = parse_select_item_elem(Rest10),
             {#column {
                 name = Field,
                 type = TypeNum,
