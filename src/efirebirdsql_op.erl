@@ -243,34 +243,55 @@ more_select_describe_vars(Sock, StmtHandle, StartIndex) ->
     <<_:SkipLen, DescVars/binary>> = Buf,
     DescVars.
 
+parse_select_item_element_binary(DescVars) ->
+    <<L:16, V:L/binary, Rest/binary>> = DescVars,
+    {V, Rest}.
+
+parse_select_item_element_int(DescVars) ->
+    {V, Rest} = parse_select_item_element_binary(DescVars),
+    L = size(V) * 8,
+    <<Num:L>> = V,
+    {Num, Rest}.
+
 parse_select_item_element(DescVars) ->
     %% Parse DescVars and return items info and rest DescVars
-    <<Num:8, Rest/binary>> = DescVars,
-    case isc_info_sql_name(Num) of
+    <<IscInfoNum:8, Rest/binary>> = DescVars,
+    case IscInfoName = isc_info_sql_name(IscInfoNum) of
         isc_info_sqlda_seq ->
-            <<L:16, Num2:L, Rest2/binary>> = DescVars,
-            {isc_info_sqlda_seq, Num2, Rest2};
+            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {IscInfoName, Num, Rest2};
         isc_info_sql_type ->
-            <<L:16, Num2:L, Rest2/binary>> = DescVars,
-            {isc_info_sql_type, Num2, Rest2};
+            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {IscInfoName, Num, Rest2};
         isc_info_sql_sub_type ->
-            <<L:16, Num2:L, Rest2/binary>> = DescVars,
-            {isc_info_sql_sub_type, Num2, Rest2};
+            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {IscInfoName, Num, Rest2};
         isc_info_sql_scale ->
-            <<L:16, Num2:L, Rest2/binary>> = DescVars,
-            {isc_info_sql_scale, Num2, Rest2};
+            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {IscInfoName, Num, Rest2};
         isc_info_sql_length ->
-            <<L:16, Num2:L, Rest2/binary>> = DescVars,
-            {isc_info_sql_length, Num2, Rest2};
+            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {IscInfoName, Num, Rest2};
         isc_info_sql_null_ind ->
-            <<L:16, Num2:L, Rest2/binary>> = DescVars,
-            {isc_info_sql_null_ind, Num2, Rest2};
-
+            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {IscInfoName, Num, Rest2};
+        isc_info_sql_field ->
+            {S, Rest2} = parse_select_item_element_binary(Rest),
+            {IscInfoName, S, Rest2};
+        isc_info_sql_relation ->
+            {S, Rest2} = parse_select_item_element_binary(Rest),
+            {IscInfoName, S, Rest2};
+        isc_info_sql_owner ->
+            {S, Rest2} = parse_select_item_element_binary(Rest),
+            {IscInfoName, S, Rest2};
+        isc_info_sql_alias ->
+            {S, Rest2} = parse_select_item_element_binary(Rest),
+            {IscInfoName, S, Rest2};
         isc_info_truncated ->
-            <<L:16, Num2:L, Rest2/binary>> = DescVars,
-            {isc_info_truncated, Num2, Rest2};
+            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {IscInfoName, Num, Rest2};
         isc_info_end ->
-            {isc_info_end, Rest}
+            {IscInfoName, Rest}
     end.
 
 parse_select_item(DescVars) ->
