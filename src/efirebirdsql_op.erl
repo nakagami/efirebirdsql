@@ -331,9 +331,10 @@ parse_select_items(Sock, Columns, DescVars) ->
 
 get_prepare_statement_response(Sock) ->
     {op_response, {ok, _, Buf}} = get_response(Sock),
-    << _21:8, _Len:16, StmtType:32/little, DescVars/binary>> = Buf,
+    << _21:8, _Len:16, StmtType:32/little, Rest/binary>> = Buf,
     case isc_info_sql_stmt_name(StmtType) of
         isc_info_sql_stmt_select ->
+            << _Skip:8/binary, DescVars/binary >> = Rest,
             parse_select_items(Sock, [], DescVars)
     end.
 
