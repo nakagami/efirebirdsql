@@ -257,7 +257,7 @@ parse_select_item_elem(DescVars) ->
     %% Parse DescVars and return items info and rest DescVars
     <<IscInfoNum:8, Rest/binary>> = DescVars,
     case IscInfoName = isc_info_sql_name(IscInfoNum) of
-        isc_info_sqlda_seq ->
+        isc_info_sql_sqlda_seq ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
             {IscInfoName, Num, Rest2};
         isc_info_sql_type ->
