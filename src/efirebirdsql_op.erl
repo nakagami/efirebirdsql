@@ -237,7 +237,7 @@ more_select_describe_vars(Sock, StmtHandle, StartIndex) ->
     %% isc_info_sql_sqlda_start + INFO_SQL_SELECT_DESCRIBE_VARS
     V = lists:flatten([20, byte4(StartIndex), ?INFO_SQL_SELECT_DESCRIBE_VARS]),
     gen_tcp:send(Sock, op_info_sql(StmtHandle, V)),
-    {op_response, {ok, _, Buf, <<_:16,Len:16>>}} = get_response(Sock),
+    {op_response, {ok, _, Buf}} = get_response(Sock),
     <<_:16,Len:16>> = Buf,
     SkipLen = Len * 8 + 16,
     <<_:SkipLen, DescVars/binary>> = Buf,
