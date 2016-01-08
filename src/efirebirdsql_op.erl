@@ -250,7 +250,7 @@ parse_select_item_elem_binary(DescVars) ->
 parse_select_item_elem_int(DescVars) ->
     {V, Rest} = parse_select_item_elem_binary(DescVars),
     L = size(V) * 8,
-    <<Num:L>> = V,
+    <<Num:L/little>> = V,
     {Num, Rest}.
 
 parse_select_column(Sock, StmtHandle, Column, DescVars) ->
