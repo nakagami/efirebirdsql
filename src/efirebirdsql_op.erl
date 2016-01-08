@@ -330,7 +330,12 @@ parse_select_items(Sock, Columns, DescVars) ->
     end.
 
 get_prepare_statement_response(Sock) ->
-    get_response(Sock).
+    {op_response, {ok, _, Buf}} = get_response(Sock),
+    << _21:8, _Len:16, StmtType:32/little, DescVars/binary>> = Buf,
+    case isc_info_sql_stmt_name(StmtType) of
+        isc_info_sql_stmt_select ->
+            parse_select_items(Sock, [], DescVars)
+    end.
 
 op_name(1) -> op_connect;
 op_name(2) -> op_exit;
@@ -458,4 +463,13 @@ isc_info_sql_name(Num) ->
     isc_info_sql_records, isc_info_sql_batch_fetch,
     isc_info_sql_relation_alias]).
 
+isc_info_sql_stmt_name(Num) ->
+    lists:nth(Num, [
+    isc_info_sql_stmt_select, isc_info_sql_stmt_insert,
+    isc_info_sql_stmt_update, isc_info_sql_stmt_delete, isc_info_sql_stmt_ddl,
+    isc_info_sql_stmt_get_segment, isc_info_sql_stmt_put_segment,
+    isc_info_sql_stmt_exec_procedure, isc_info_sql_stmt_start_trans,
+    isc_info_sql_stmt_commit, isc_info_sql_stmt_rollback,
+    isc_info_sql_stmt_select_for_upd, isc_info_sql_stmt_set_generator,
+    isc_info_sql_stmt_savepoint]).
 
