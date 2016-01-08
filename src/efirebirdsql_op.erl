@@ -311,7 +311,11 @@ parse_select_item(DescVars) ->
             {isc_info_sql_owner, Owner, Rest9} = parse_select_item_elem(Rest8),
             {isc_info_sql_alias, Alias, Rest10} = parse_select_item_elem(Rest9),
             {isc_info_sql_describe_end, _, Rest} = parse_select_item_elem(Rest10),
-            Rest
+            {#column {
+                name = Field,
+                type = TypeNum,
+                size = Length
+            }, Rest}
     end.
 
 
