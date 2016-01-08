@@ -243,6 +243,39 @@ more_select_describe_vars(Sock, StmtHandle, StartIndex) ->
     <<_:SkipLen, DescVars/binary>> = Buf,
     DescVars.
 
+parse_select_item_element(DescVars) ->
+    %% Parse DescVars and return items info and rest DescVars
+    <<Num:8, Rest/binary>> = DescVars,
+    case isc_info_sql_name(Num) of
+        isc_info_sqlda_seq ->
+            <<L:16, Num2:L, Rest2/binary>> = DescVars,
+            {isc_info_sqlda_seq, Num2, Rest2};
+        isc_info_sql_type ->
+            <<L:16, Num2:L, Rest2/binary>> = DescVars,
+            {isc_info_sql_type, Num2, Rest2};
+        isc_info_sql_sub_type ->
+            <<L:16, Num2:L, Rest2/binary>> = DescVars,
+            {isc_info_sql_sub_type, Num2, Rest2};
+        isc_info_sql_scale ->
+            <<L:16, Num2:L, Rest2/binary>> = DescVars,
+            {isc_info_sql_scale, Num2, Rest2};
+        isc_info_sql_length ->
+            <<L:16, Num2:L, Rest2/binary>> = DescVars,
+            {isc_info_sql_length, Num2, Rest2};
+        isc_info_sql_null_ind ->
+            <<L:16, Num2:L, Rest2/binary>> = DescVars,
+            {isc_info_sql_null_ind, Num2, Rest2};
+
+        isc_info_truncated ->
+            <<L:16, Num2:L, Rest2/binary>> = DescVars,
+            {isc_info_truncated, Num2, Rest2};
+        isc_info_end ->
+            {isc_info_end, Rest}
+    end.
+
+parse_select_item(DescVars) ->
+    {}.
+
 parse_select_items(Columns, DescVars) ->
     %% Parse DescVars and return {reversed columns list, next index}
     {[], -1}.
@@ -253,14 +286,6 @@ parse_select_items(Sock, Columns, DescVars) ->
 
 parse_select_items(Sock) ->
     [].
-
-parse_info_sql(Sock) ->
-    %% isc_info_sql_name(21) = isc_info_sql_stmt_type
-    {ok, <<21:32, StmtType:32>>} = gen_tcp:recv(Sock, 8),
-    case isc_info_sql_name(StmtType) of
-        isc_info_sql_stmt_select -> parse_select_items(Sock);
-        _ -> {error, "Can't parse info sql"}
-    end.
 
 get_prepare_statement_response(Sock) ->
     get_response(Sock).
