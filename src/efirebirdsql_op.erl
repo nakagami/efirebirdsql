@@ -243,59 +243,77 @@ more_select_describe_vars(Sock, StmtHandle, StartIndex) ->
     <<_:SkipLen, DescVars/binary>> = Buf,
     DescVars.
 
-parse_select_item_element_binary(DescVars) ->
+parse_select_item_elem_binary(DescVars) ->
     <<L:16, V:L/binary, Rest/binary>> = DescVars,
     {V, Rest}.
 
-parse_select_item_element_int(DescVars) ->
-    {V, Rest} = parse_select_item_element_binary(DescVars),
+parse_select_item_elem_int(DescVars) ->
+    {V, Rest} = parse_select_item_elem_binary(DescVars),
     L = size(V) * 8,
     <<Num:L>> = V,
     {Num, Rest}.
 
-parse_select_item_element(DescVars) ->
+parse_select_item_elem(DescVars) ->
     %% Parse DescVars and return items info and rest DescVars
     <<IscInfoNum:8, Rest/binary>> = DescVars,
     case IscInfoName = isc_info_sql_name(IscInfoNum) of
         isc_info_sqlda_seq ->
-            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {Num, Rest2} = parse_select_item_elem_int(Rest),
             {IscInfoName, Num, Rest2};
         isc_info_sql_type ->
-            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {Num, Rest2} = parse_select_item_elem_int(Rest),
             {IscInfoName, Num, Rest2};
         isc_info_sql_sub_type ->
-            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {Num, Rest2} = parse_select_item_elem_int(Rest),
             {IscInfoName, Num, Rest2};
         isc_info_sql_scale ->
-            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {Num, Rest2} = parse_select_item_elem_int(Rest),
             {IscInfoName, Num, Rest2};
         isc_info_sql_length ->
-            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {Num, Rest2} = parse_select_item_elem_int(Rest),
             {IscInfoName, Num, Rest2};
         isc_info_sql_null_ind ->
-            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {Num, Rest2} = parse_select_item_elem_int(Rest),
             {IscInfoName, Num, Rest2};
         isc_info_sql_field ->
-            {S, Rest2} = parse_select_item_element_binary(Rest),
+            {S, Rest2} = parse_select_item_elem_binary(Rest),
             {IscInfoName, S, Rest2};
         isc_info_sql_relation ->
-            {S, Rest2} = parse_select_item_element_binary(Rest),
+            {S, Rest2} = parse_select_item_elem_binary(Rest),
             {IscInfoName, S, Rest2};
         isc_info_sql_owner ->
-            {S, Rest2} = parse_select_item_element_binary(Rest),
+            {S, Rest2} = parse_select_item_elem_binary(Rest),
             {IscInfoName, S, Rest2};
         isc_info_sql_alias ->
-            {S, Rest2} = parse_select_item_element_binary(Rest),
+            {S, Rest2} = parse_select_item_elem_binary(Rest),
             {IscInfoName, S, Rest2};
         isc_info_truncated ->
-            {Num, Rest2} = parse_select_item_element_int(Rest),
+            {Num, Rest2} = parse_select_item_elem_int(Rest),
             {IscInfoName, Num, Rest2};
         isc_info_end ->
             {IscInfoName, Rest}
     end.
 
+parse_select_item(DescVars) when size(DescVars) == 0 ->
+    no_more_column;
 parse_select_item(DescVars) ->
-    {}.
+    case parse_select_item_elem(DescVars) of
+        {isc_info_truncated, NextIndex, _} ->
+            {next_index, NextIndex};
+        {isc_info_sql_sqlda_seq, _Seq, Rest1} ->
+            {isc_info_sql_type, TypeNum, Rest2} = parse_select_item_elem(Rest1),
+            {isc_info_sql_sub_type, SubTypeNum, Rest3} = parse_select_item_elem(Rest2),
+            {isc_info_sql_scale, Scale, Rest4} = parse_select_item_elem(Rest3),
+            {isc_info_sql_length, Length, Rest5} = parse_select_item_elem(Rest4),
+            {isc_info_sql_null_ind, NullIndNum, Rest6} = parse_select_item_elem(Rest5),
+            {isc_info_sql_field, Field, Rest7} = parse_select_item_elem(Rest6),
+            {isc_info_sql_relation, Relation, Rest8} = parse_select_item_elem(Rest7),
+            {isc_info_sql_owner, Owner, Rest9} = parse_select_item_elem(Rest8),
+            {isc_info_sql_alias, Alias, Rest10} = parse_select_item_elem(Rest9),
+            {isc_info_sql_describe_end, _, Rest} = parse_select_item_elem(Rest10),
+            Rest
+    end.
+
 
 parse_select_items(Columns, DescVars) ->
     %% Parse DescVars and return {reversed columns list, next index}
