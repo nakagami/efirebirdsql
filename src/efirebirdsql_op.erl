@@ -318,17 +318,16 @@ parse_select_item(DescVars) ->
             }, Rest}
     end.
 
-
-parse_select_items(Columns, DescVars) ->
-    %% Parse DescVars and return {reversed columns list, next index}
-    {[], -1}.
-
 parse_select_items(Sock, Columns, DescVars) ->
-    %% Parse DescVars, get more DescVars and return columns list.
-    [].
-
-parse_select_items(Sock) ->
-    [].
+    R = parse_select_item(DescVars),
+    case R of
+        no_more_column -> lists:reverse(Columns);
+        {next_index, NextIndex} ->
+            %% TODO: more select items.  more_select_describe_vars()
+            Columns;
+        {Column, Rest} = R ->
+            parse_select_items(Sock, [Column | Columns], Rest)
+    end.
 
 get_prepare_statement_response(Sock) ->
     get_response(Sock).
