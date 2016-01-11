@@ -157,6 +157,15 @@ op_prepare_statement(TransHandle, StmtHandle, Sql) ->
         list_to_xdr_bytes(DescItems),
         byte4(?BUFSIZE)]).
 
+op_execute(TransHandle, StmtHandle, _Params) ->
+    list_to_binary([
+        byte4(op_val(op_execute)),
+        byte4(StmtHandle),
+        byte4(TransHandle),
+        list_to_xdr_bytes([]),
+        byte4(0),
+        byte4(0)]).
+
 op_info_sql(StmtHandle, V) ->
     list_to_binary([
         byte4(op_val(op_info_sql)),

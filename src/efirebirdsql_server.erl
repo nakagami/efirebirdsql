@@ -60,6 +60,14 @@ prepare_statement(Sock, TransHandle, StmtHandle, Sql) ->
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
     efirebirdsql_op:get_prepare_statement_response(Sock, StmtHandle).
 
+execute(Sock, TransHandle, StmtHandle, Params) ->
+    gen_tcp:send(Sock,
+        efirebirdsql_op:op_execute(TransHandle, StmtHandle, Params)),
+    case efirebirdsql_op:get_response(Sock) of
+        {op_response,  {ok, Handle, _}} -> {ok, Handle};
+        _ -> {error, "Execute query failed"}
+    end.
+
 commit(Sock, TransHandle) ->
     gen_tcp:send(Sock,
         efirebirdsql_op:op_commit_retaining(TransHandle)),
@@ -144,7 +152,8 @@ handle_call({prepare, Sql}, _From, State) ->
     Columns = prepare_statement(State#state.sock, State#state.trans_handle,
         State#state.stmt_handle, Sql),
     {reply, ok, State#state{columns=Columns}};
-handle_call({execute, _Params}, _From, State) ->
+handle_call({execute, Params}, _From, State) ->
+    ok = execute(State#state.sock, State#state.trans_handle, State#state.stmt_handle, Params),
     {reply, ok, State};
 handle_call({get_parameter, Name}, _From, State) ->
     Value1 = case lists:keysearch(Name, 1, State#state.parameters) of
