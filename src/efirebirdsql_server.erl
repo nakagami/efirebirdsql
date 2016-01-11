@@ -64,7 +64,7 @@ execute(Sock, TransHandle, StmtHandle, Params) ->
     gen_tcp:send(Sock,
         efirebirdsql_op:op_execute(TransHandle, StmtHandle, Params)),
     case efirebirdsql_op:get_response(Sock) of
-        {op_response,  {ok, Handle, _}} -> {ok, Handle};
+        {op_response,  {ok, _, _}} -> ok;
         _ -> {error, "Execute query failed"}
     end.
 
