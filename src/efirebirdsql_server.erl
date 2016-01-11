@@ -144,6 +144,8 @@ handle_call({prepare, Sql}, _From, State) ->
     Columns = prepare_statement(State#state.sock, State#state.trans_handle,
         State#state.stmt_handle, Sql),
     {reply, ok, State#state{columns=Columns}};
+handle_call({execute, _Params}, _From, State) ->
+    {reply, ok, State};
 handle_call({get_parameter, Name}, _From, State) ->
     Value1 = case lists:keysearch(Name, 1, State#state.parameters) of
         {value, {Name, Value}} -> Value;

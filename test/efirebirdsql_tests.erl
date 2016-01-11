@@ -14,6 +14,6 @@ connect_test() ->
     {error, _} = efirebirdsql:connect("localhost", "sysdba", "masterkey", "something_wrong_database"),
     %% crete new database
     {ok, C} = efirebirdsql:connect("localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb", [{createdb, true}]),
-    _ = efirebirdsql:prepare(C, <<"select * from rdb$relations">>),
+    ok = efirebirdsql:execute(C, <<"select * from rdb$relations">>),
     ok = efirebirdsql:commit(C),
     ok = efirebirdsql:close(C).

@@ -20,7 +20,6 @@
     {pagesize, PageSize :: integer()}.
 -type connect_error() :: #error{}.
 -type query_error() :: #error{}.
--type query_statement() :: binary().
 
 -spec start_link() -> {ok, pid()}.
 start_link() ->
@@ -48,13 +47,14 @@ connect(Host, Username, Password, Database, Ops) ->
 connect(Host, Username, Password, Database) ->
     connect(Host, Username, Password, Database, []).
 
-prepare(C, QueryStringBinary) ->
-    gen_server:call(C, {prepare, QueryStringBinary}, infinity).
+prepare(C, QueryString) ->
+    gen_server:call(C, {prepare, QueryString}, infinity).
 
--spec execute(connection(), query_statement())
+-spec execute(connection(), binary())
     -> ok.
-execute(C, QueryStatement) ->
-    gen_server:call(C, {execute, QueryStatement}, infinity).
+execute(C, QueryString) ->
+    gen_server:call(C, {prepare, QueryString}, infinity),
+    gen_server:call(C, {execute, []}, infinity).
 
 -spec commit(connection())
     -> ok | {error, _Reason}.
