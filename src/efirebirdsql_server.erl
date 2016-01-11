@@ -19,6 +19,7 @@
                 data = <<>>,
                 parameters = [],
                 types = [],
+                stmt_type,
                 columns = [],
                 rows = [],
                 results = []}).
@@ -149,9 +150,13 @@ handle_call(close, _From, State) ->
     %%% TODO: Do something
     {reply, ok, State};
 handle_call({prepare, Sql}, _From, State) ->
-    Columns = prepare_statement(State#state.sock, State#state.trans_handle,
-        State#state.stmt_handle, Sql),
-    {reply, ok, State#state{columns=Columns}};
+    case R = prepare_statement(State#state.sock,
+                State#state.trans_handle, State#state.stmt_handle, Sql) of
+        {StmtType, Columns} ->
+            {reply, ok, State#state{stmt_type=StmtType, columns=Columns}};
+        _ ->
+            {reply, ok, State#state{stmt_type=R}}
+    end;
 handle_call({execute, Params}, _From, State) ->
     ok = execute(State#state.sock, State#state.trans_handle, State#state.stmt_handle, Params),
     {reply, ok, State};

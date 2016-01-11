@@ -314,10 +314,11 @@ parse_select_columns(Sock, StmtHandle, Columns, DescVars) ->
 get_prepare_statement_response(Sock, StmtHandle) ->
     {op_response, {ok, _, Buf}} = get_response(Sock),
     << _21:8, _Len:16, StmtType:32/little, Rest/binary>> = Buf,
-    case isc_info_sql_stmt_name(StmtType) of
+    case StmtName = isc_info_sql_stmt_name(StmtType) of
         isc_info_sql_stmt_select ->
             << _Skip:8/binary, DescVars/binary >> = Rest,
-            parse_select_columns(Sock, StmtHandle, [], DescVars)
+            {isc_info_sql_stmt_select, parse_select_columns(Sock, StmtHandle, [], DescVars)};
+        _ -> StmtName
     end.
 
 op_name(1) -> op_connect;
