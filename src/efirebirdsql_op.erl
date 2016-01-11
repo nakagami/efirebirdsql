@@ -9,6 +9,7 @@
 
 -include("efirebirdsql.hrl").
 
+-define(CHARSET, "UTF8").
 -define(BUFSIZE, 1024).
 -define(INFO_SQL_SELECT_DESCRIBE_VARS, [
         4,      %% isc_info_sql_select
@@ -100,10 +101,9 @@ op_connect(Host, Username, _Password, Database) ->
 
 %%% create op_attach binary
 op_attach(Username, Password, Database) ->
-    Charset = "UTF8",
     Dpb = lists:flatten([
         1,
-        48, length(Charset), Charset,    %% isc_dpb_lc_ctype = 48
+        48, length(?CHARSET), ?CHARSET,    %% isc_dpb_lc_ctype = 48
         28, length(Username), Username,  %% isc_dpb_user_name 28
         29, length(Password), Password   %% isc_dpb_password = 29
     ]),
@@ -116,11 +116,10 @@ op_attach(Username, Password, Database) ->
 
 %%% create op_connect binary
 op_create(Username, Password, Database, PageSize) ->
-    Charset = "UTF8",
     Dpb = lists:flatten([
         1,
-        68, length(Charset), Charset,   %% isc_dpb_set_db_charset = 68
-        48, length(Charset), Charset,   %% isc_dpb_lc_ctype = 48
+        68, length(?CHARSET), ?CHARSET,   %% isc_dpb_set_db_charset = 68
+        48, length(?CHARSET), ?CHARSET,   %% isc_dpb_lc_ctype = 48
         28, length(Username), Username, %% isc_dpb_user_name 28
         29, length(Password), Password, %% isc_dpb_password = 29
         63, 4, byte4(3, little),        %% isc_dpb_sql_dialect = 63
