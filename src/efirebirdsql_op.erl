@@ -4,7 +4,7 @@
 -module(efirebirdsql_op).
 
 -export([op_name/1, op_val/1, op_connect/4,
-    get_response/1]).
+    get_response/2]).
 -compile([export_all]).
 
 -include("efirebirdsql.hrl").
@@ -28,12 +28,12 @@
         ]).
 
 %%% skip 4 byte alignment socket stream
-skip4(Sock, Len) ->
+skip4(Mod, Sock, Len) ->
     case Len rem 4 of
         0 -> {ok};
-        1 -> gen_tcp:recv(Sock, 3);
-        2 -> gen_tcp:recv(Sock, 2);
-        3 -> gen_tcp:recv(Sock, 1)
+        1 -> Mod:recv(Sock, 3);
+        2 -> Mod:recv(Sock, 2);
+        3 -> Mod:recv(Sock, 1)
     end.
 
 %%% big endian number list fill 4 byte alignment
@@ -179,51 +179,51 @@ op_commit_retaining(TransHandle) ->
     list_to_binary([byte4(op_val(op_commit_retaining)), byte4(TransHandle)]).
 
 %%% parse status vector
-parse_status_vector_integer(Sock) ->
-    {ok, <<NumArg:32>>} = gen_tcp:recv(Sock, 4),
+parse_status_vector_integer(Mod, Sock) ->
+    {ok, <<NumArg:32>>} = Mod:recv(Sock, 4),
     NumArg.
 
-parse_status_vector_string(Sock) ->
-    Len = parse_status_vector_integer(Sock),
-    {ok, Bin} = gen_tcp:recv(Sock, Len),
-    skip4(Sock, Len),
+parse_status_vector_string(Mod, Sock) ->
+    Len = parse_status_vector_integer(Mod, Sock),
+    {ok, Bin} = Mod:recv(Sock, Len),
+    skip4(Mod, Sock, Len),
     binary_to_list(Bin).
 
-parse_status_vector_args(Sock, Args) ->
+parse_status_vector_args(Mod, Sock, Args) ->
     %% TODO: convert status vector to error message.
-    {ok, <<IscArg:32>>} = gen_tcp:recv(Sock, 4),
+    {ok, <<IscArg:32>>} = Mod:recv(Sock, 4),
     case IscArg of
     0 ->    %% isc_arg_end
         Args;
     1 ->    %% isc_arg_gds
-        parse_status_vector_args(Sock, [parse_status_vector_integer(Sock) | Args]);
+        parse_status_vector_args(Mod, Sock, [parse_status_vector_integer(Mod, Sock) | Args]);
     2 ->    %% isc_arg_string
-        parse_status_vector_args(Sock, [parse_status_vector_string(Sock) | Args]);
+        parse_status_vector_args(Mod, Sock, [parse_status_vector_string(Mod, Sock) | Args]);
     4 ->    %% isc_arg_number
-        parse_status_vector_args(Sock, [parse_status_vector_integer(Sock) | Args]);
+        parse_status_vector_args(Mod, Sock, [parse_status_vector_integer(Mod, Sock) | Args]);
     5 ->    %% isc_arg_interpreted
-        parse_status_vector_args(Sock, [parse_status_vector_string(Sock) | Args]);
+        parse_status_vector_args(Mod, Sock, [parse_status_vector_string(Mod, Sock) | Args]);
     19 ->   %% isc_arg_sql_state
-        parse_status_vector_args(Sock, [parse_status_vector_string(Sock) | Args])
+        parse_status_vector_args(Mod, Sock, [parse_status_vector_string(Mod, Sock) | Args])
     end.
 
-parse_status_vector(Sock) ->
-    lists:reverse(parse_status_vector_args(Sock, [])).
+parse_status_vector(Mod, Sock) ->
+    lists:reverse(parse_status_vector_args(Mod, Sock, [])).
 
 %% recieve and parse response
-get_response(Sock) ->
-    {ok, <<OpCode:32>>} = gen_tcp:recv(Sock, 4),
+get_response(Mod, Sock) ->
+    {ok, <<OpCode:32>>} = Mod:recv(Sock, 4),
     case op_name(OpCode) of
         op_response ->
             {ok, <<Handle:32, _ObjectID:64, Len:32>>} = gen_tcp:recv(Sock, 16),
             Buf = if
                 Len =/= 0 ->
                     {ok, RecvBuf} = gen_tcp:recv(Sock, Len),
-                    skip4(Sock, Len),
+                    skip4(Mod, Sock, Len),
                     RecvBuf;
                 true -> <<>>
             end,
-            R = parse_status_vector(Sock),
+            R = parse_status_vector(Mod, Sock),
             case R of
                 [0] -> {op_response, {ok, Handle, Buf}};
                 _ -> {op_response, {error, R}}
@@ -235,18 +235,18 @@ get_response(Sock) ->
         op_reject ->
             op_reject;
         op_dummy ->
-            get_response(Sock);
+            get_response(Mod, Sock);
         true ->
             {error, "response error"}
     end.
 
 %% parse select items.
-more_select_describe_vars(Sock, StmtHandle, Start) ->
+more_select_describe_vars(Mod, Sock, StmtHandle, Start) ->
     %% isc_info_sql_sqlda_start + INFO_SQL_SELECT_DESCRIBE_VARS
     V = lists:flatten(
         [20, 2, Start rem 256, Start div 256, ?INFO_SQL_SELECT_DESCRIBE_VARS]),
     gen_tcp:send(Sock, op_info_sql(StmtHandle, V)),
-    {op_response, {ok, _, Buf}} = get_response(Sock),
+    {op_response, {ok, _, Buf}} = get_response(Mod, Sock),
     <<_:8/binary, DescVars/binary>> = Buf,
     DescVars.
 
@@ -260,64 +260,64 @@ parse_select_item_elem_int(DescVars) ->
     <<Num:L/little>> = V,
     {Num, Rest}.
 
-parse_select_column(Sock, StmtHandle, Column, DescVars) ->
+parse_select_column(Mod, Sock, StmtHandle, Column, DescVars) ->
     %% Parse DescVars and return items info and rest DescVars
     <<IscInfoNum:8, Rest/binary>> = DescVars,
     case isc_info_sql_name(IscInfoNum) of
         isc_info_sql_sqlda_seq ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(Sock, StmtHandle, Column#column{seq=Num}, Rest2);
+            parse_select_column(Mod, Sock, StmtHandle, Column#column{seq=Num}, Rest2);
         isc_info_sql_type ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(Sock, StmtHandle, Column#column{type=Num}, Rest2);
+            parse_select_column(Mod, Sock, StmtHandle, Column#column{type=Num}, Rest2);
         isc_info_sql_sub_type ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(Sock, StmtHandle, Column#column{sub_type=Num}, Rest2);
+            parse_select_column(Mod, Sock, StmtHandle, Column#column{sub_type=Num}, Rest2);
         isc_info_sql_scale ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(Sock, StmtHandle, Column#column{scale=Num}, Rest2);
+            parse_select_column(Mod, Sock, StmtHandle, Column#column{scale=Num}, Rest2);
         isc_info_sql_length ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(Sock, StmtHandle, Column#column{length=Num}, Rest2);
+            parse_select_column(Mod, Sock, StmtHandle, Column#column{length=Num}, Rest2);
         isc_info_sql_null_ind ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
             NullInd = if Num =/= 0 -> true; Num =:= 0 -> false end,
-            parse_select_column(Sock, StmtHandle, Column#column{null_ind=NullInd}, Rest2);
+            parse_select_column(Mod, Sock, StmtHandle, Column#column{null_ind=NullInd}, Rest2);
         isc_info_sql_field ->
             {S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(Sock, StmtHandle, Column#column{name=S}, Rest2);
+            parse_select_column(Mod, Sock, StmtHandle, Column#column{name=S}, Rest2);
         isc_info_sql_relation ->
             {_S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(Sock, StmtHandle, Column, Rest2);
+            parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
         isc_info_sql_owner ->
             {_S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(Sock, StmtHandle, Column, Rest2);
+            parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
         isc_info_sql_alias ->
             {_S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(Sock, StmtHandle, Column, Rest2);
+            parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
         isc_info_truncated ->
-            Rest2 = more_select_describe_vars(Sock, StmtHandle, Column#column.seq),
-            parse_select_column(Sock, StmtHandle, Column, Rest2);
+            Rest2 = more_select_describe_vars(Mod, Sock, StmtHandle, Column#column.seq),
+            parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
         isc_info_sql_describe_end ->
             {Column, Rest};
         isc_info_end ->
             no_more_column
     end.
 
-parse_select_columns(Sock, StmtHandle, Columns, DescVars) ->
-    case parse_select_column(Sock, StmtHandle, #column{}, DescVars) of
+parse_select_columns(Mod, Sock, StmtHandle, Columns, DescVars) ->
+    case parse_select_column(Mod, Sock, StmtHandle, #column{}, DescVars) of
         {Column, Rest} -> parse_select_columns(
-            Sock, StmtHandle, [Column | Columns], Rest);
+            Mod, Sock, StmtHandle, [Column | Columns], Rest);
         no_more_column -> Columns
     end.
 
-get_prepare_statement_response(Sock, StmtHandle) ->
-    {op_response, {ok, _, Buf}} = get_response(Sock),
+get_prepare_statement_response(Mod, Sock, StmtHandle) ->
+    {op_response, {ok, _, Buf}} = get_response(Mod, Sock),
     << _21:8, _Len:16, StmtType:32/little, Rest/binary>> = Buf,
     case StmtName = isc_info_sql_stmt_name(StmtType) of
         isc_info_sql_stmt_select ->
             << _Skip:8/binary, DescVars/binary >> = Rest,
-            {isc_info_sql_stmt_select, parse_select_columns(Sock, StmtHandle, [], DescVars)};
+            {isc_info_sql_stmt_select, parse_select_columns(Mod, Sock, StmtHandle, [], DescVars)};
         _ -> StmtName
     end.
 

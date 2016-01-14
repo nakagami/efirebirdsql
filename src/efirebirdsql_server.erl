@@ -24,55 +24,55 @@
                 rows = [],
                 results = []}).
 
-attach_database(Sock, User, Password, Database) ->
-    gen_tcp:send(Sock,
+attach_database(Mod, Sock, User, Password, Database) ->
+    Mod:send(Sock,
         efirebirdsql_op:op_attach(User, Password, Database)),
-    case efirebirdsql_op:get_response(Sock) of
+    case efirebirdsql_op:get_response(Mod, Sock) of
         {op_response,  {ok, Handle, _}} -> {ok, Handle};
         _ -> {error, "Can't attach Database"}
     end.
 
-create_database(Sock, User, Password, Database, PageSize) ->
-    gen_tcp:send(Sock,
+create_database(Mod, Sock, User, Password, Database, PageSize) ->
+    Mod:send(Sock,
         efirebirdsql_op:op_create(User, Password, Database, PageSize)),
-    case efirebirdsql_op:get_response(Sock) of
+    case efirebirdsql_op:get_response(Mod, Sock) of
         {op_response,  {ok, Handle, _}} -> {ok, Handle};
         _ -> {error, "Can't create database"}
     end.
 
-begin_transaction(Sock, DbHandle, Tpb) ->
-    gen_tcp:send(Sock,
+begin_transaction(Mod, Sock, DbHandle, Tpb) ->
+    Mod:send(Sock,
         efirebirdsql_op:op_transaction(DbHandle, Tpb)),
-    case efirebirdsql_op:get_response(Sock) of
+    case efirebirdsql_op:get_response(Mod, Sock) of
         {op_response,  {ok, Handle, _}} -> {ok, Handle};
         _ -> {error, "Can't begin transaction"}
     end.
 
-allocate_statement(Sock, DbHandle) ->
-    gen_tcp:send(Sock,
+allocate_statement(Mod, Sock, DbHandle) ->
+    Mod:send(Sock,
         efirebirdsql_op:op_allocate_statement(DbHandle)),
-    case efirebirdsql_op:get_response(Sock) of
+    case efirebirdsql_op:get_response(Mod, Sock) of
         {op_response,  {ok, Handle, _}} -> {ok, Handle};
         _ -> {error, "Allocate statement failed"}
     end.
 
-prepare_statement(Sock, TransHandle, StmtHandle, Sql) ->
-    gen_tcp:send(Sock,
+prepare_statement(Mod, Sock, TransHandle, StmtHandle, Sql) ->
+    Mod:send(Sock,
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
-    efirebirdsql_op:get_prepare_statement_response(Sock, StmtHandle).
+    efirebirdsql_op:get_prepare_statement_response(Mod, Sock, StmtHandle).
 
-execute(Sock, TransHandle, StmtHandle, Params) ->
-    gen_tcp:send(Sock,
+execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
+    Mod:send(Sock,
         efirebirdsql_op:op_execute(TransHandle, StmtHandle, Params)),
-    case efirebirdsql_op:get_response(Sock) of
+    case efirebirdsql_op:get_response(Mod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
         _ -> {error, "Execute query failed"}
     end.
 
-commit(Sock, TransHandle) ->
-    gen_tcp:send(Sock,
+commit(Mod, Sock, TransHandle) ->
+    Mod:send(Sock,
         efirebirdsql_op:op_commit_retaining(TransHandle)),
-    case efirebirdsql_op:get_response(Sock) of
+    case efirebirdsql_op:get_response(Mod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
         _ -> {error, "Commit failed"}
     end.
@@ -101,19 +101,19 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
         {ok, Sock} ->
             gen_tcp:send(Sock,
                 efirebirdsql_op:op_connect(Host, Username, Password, Database)),
-            case efirebirdsql_op:get_response(Sock) of
+            case efirebirdsql_op:get_response(gen_tcp, Sock) of
                 {op_accept, _} ->
                     case IsCreateDB of
                         true ->
-                            R = create_database(
+                            R = create_database(gen_tcp,
                                 Sock, Username, Password, Database, PageSize);
                         false ->
-                            R = attach_database(
+                            R = attach_database(gen_tcp,
                                 Sock, Username, Password, Database)
                     end,
                     case R of
                         {ok, DbHandle} ->
-                            case allocate_statement(Sock, DbHandle) of
+                            case allocate_statement(gen_tcp, Sock, DbHandle) of
                                 {ok, StmtHandle} ->
                                     {reply, ok,
                                         State#state{sock = Sock,
@@ -136,7 +136,8 @@ handle_call({transaction, Options}, _From, State) ->
     AutoCommit = proplists:get_value(auto_commit, Options, true),
     %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_no_rec_version
     Tpb = [3, 9, 6, 15, 18],
-    R = begin_transaction(State#state.sock, State#state.db_handle,
+    R = begin_transaction(State#state.mod,
+        State#state.sock, State#state.db_handle,
         lists:flatten(Tpb, if AutoCommit =:= true -> [16]; true -> [] end)),
     case R of
         {ok, TransHandle} ->
@@ -145,12 +146,13 @@ handle_call({transaction, Options}, _From, State) ->
             {reply, R, State}
     end;
 handle_call(commit, _From, State) ->
-    {reply, commit(State#state.sock, State#state.trans_handle), State};
+    {reply, commit(State#state.mod,
+        State#state.sock, State#state.trans_handle), State};
 handle_call(close, _From, State) ->
     %%% TODO: Do something
     {reply, ok, State};
 handle_call({prepare, Sql}, _From, State) ->
-    case R = prepare_statement(State#state.sock,
+    case R = prepare_statement(State#state.mod, State#state.sock,
                 State#state.trans_handle, State#state.stmt_handle, Sql) of
         {StmtType, Columns} ->
             {reply, ok, State#state{stmt_type=StmtType, columns=Columns}};
@@ -158,7 +160,8 @@ handle_call({prepare, Sql}, _From, State) ->
             {reply, ok, State#state{stmt_type=R}}
     end;
 handle_call({execute, Params}, _From, State) ->
-    ok = execute(State#state.sock, State#state.trans_handle, State#state.stmt_handle, Params),
+    ok = execute(State#state.mod, State#state.sock,
+        State#state.trans_handle, State#state.stmt_handle, Params),
     {reply, ok, State};
 handle_call({get_parameter, Name}, _From, State) ->
     Value1 = case lists:keysearch(Name, 1, State#state.parameters) of
