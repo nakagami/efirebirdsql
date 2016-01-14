@@ -90,7 +90,7 @@ get_parameter(C, Name) when is_list(Name) ->
 %% -- gen_server implementation --
 
 init([]) ->
-    {ok, #state{}}.
+    {ok, #state{mod=gen_tcp}}.
 
 handle_call({connect, Host, Username, Password, Database, Options}, _From, State) ->
     SockOptions = [{active, false}, {packet, raw}, binary],
