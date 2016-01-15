@@ -269,7 +269,7 @@ parse_select_column(Mod, Sock, StmtHandle, Column, DescVars) ->
             parse_select_column(Mod, Sock, StmtHandle, Column#column{seq=Num}, Rest2);
         isc_info_sql_type ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column#column{type=Num}, Rest2);
+            parse_select_column(Mod, Sock, StmtHandle, Column#column{type=sql_type(Num)}, Rest2);
         isc_info_sql_sub_type ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
             parse_select_column(Mod, Sock, StmtHandle, Column#column{sub_type=Num}, Rest2);
@@ -434,6 +434,24 @@ op_val(op_abort_aux_connection) -> 95;
 op_val(op_crypt) -> 96;
 op_val(op_crypt_key_callback) -> 97;
 op_val(op_cond_accept) -> 98.
+
+sql_type(X) when X rem 2 == 1 -> sql_type(X div 2 * 2);
+sql_type(452) -> text;
+sql_type(448) -> varying;
+sql_type(500) -> short;
+sql_type(496) -> long;
+sql_type(482) -> float;
+sql_type(480) -> double;
+sql_type(530) -> d_float;
+sql_type(510) -> timestamp;
+sql_type(520) -> blob;
+sql_type(540) -> array;
+sql_type(550) -> quad;
+sql_type(560) -> time;
+sql_type(570) -> date;
+sql_type(580) -> int64;
+sql_type(32764) -> boolean;
+sql_type(32766) -> null.
 
 isc_info_sql_name(Num) ->
     lists:nth(Num, [
