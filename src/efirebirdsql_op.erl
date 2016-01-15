@@ -308,7 +308,7 @@ parse_select_columns(Mod, Sock, StmtHandle, Columns, DescVars) ->
     case parse_select_column(Mod, Sock, StmtHandle, #column{}, DescVars) of
         {Column, Rest} -> parse_select_columns(
             Mod, Sock, StmtHandle, [Column | Columns], Rest);
-        no_more_column -> Columns
+        no_more_column -> lists:reverse(Columns)
     end.
 
 get_prepare_statement_response(Mod, Sock, StmtHandle) ->
