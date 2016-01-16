@@ -220,6 +220,14 @@ op_info_sql(StmtHandle, V) ->
         list_to_xdr_bytes(V),
         byte4(?BUFSIZE)]).
 
+op_fetch(StmtHandle, Columns) ->
+    list_to_binary([
+        byte4(op_val(op_fetch)),
+        byte4(StmtHandle),
+        list_to_xdr_bytes(calc_blr(Columns)),
+        byte4(0),
+        byte4(400)]).
+
 %%% commit
 op_commit_retaining(TransHandle) ->
     list_to_binary([byte4(op_val(op_commit_retaining)), byte4(TransHandle)]).
