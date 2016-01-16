@@ -412,10 +412,10 @@ get_fetch_response_row_length(Mod, Sock, XSqlVar) ->
 get_fetch_response_row(Mod, Sock, [], Columns) ->
     lists:reverse(Columns);
 get_fetch_response_row(Mod, Sock, XSqlVars, Columns) ->
-    [X | Rest] = XSqlVars,
+    [X | RestVars] = XSqlVars,
     L = get_fetch_response_row_length(Mod, Sock, X),
     {ok, V} = Mod:recv(Sock, L),
-    [{X#column.name, V} | Columns].
+    get_fetch_response_row(Mod, Sock, RestVars, [{X#column.name, V} | Columns]).
 
 get_fetch_response(_Mod, _Sock, Status, 0, _XSqlVars, Results) ->
     %% {list_of_response, more_data}
