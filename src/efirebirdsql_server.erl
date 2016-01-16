@@ -16,13 +16,9 @@
                 db_handle,
                 trans_handle,
                 stmt_handle,
-                data = <<>>,
                 parameters = [],
-                types = [],
                 stmt_type,
-                xsqlvars = [],
-                rows = [],
-                results = []}).
+                xsqlvars = []}).
 
 attach_database(Mod, Sock, User, Password, Database) ->
     Mod:send(Sock,
