@@ -240,7 +240,7 @@ op_get_segment(BlobHandle) ->
         byte4(?BUFSIZE),
         byte4(0)]).
 
-op_close_blog(BlobHandle) ->
+op_close_blob(BlobHandle) ->
     list_to_binary([
         byte4(op_val(op_close_blob)),
         byte4(BlobHandle)]).
