@@ -10,12 +10,6 @@
     null_ind :: true | false
 }).
 
--record(statement, {
-    handle :: pos_integer(),
-    columns :: [#column{}],
-    types :: [atom()]
-}).
-
 -record(error, {
     code :: binary()
 }).
