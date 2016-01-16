@@ -5,6 +5,7 @@
 
 -export([op_name/1, op_val/1, op_connect/4,
     get_response/2, get_fetch_response/3]).
+-compile(export_all).
 
 -include("efirebirdsql.hrl").
 
