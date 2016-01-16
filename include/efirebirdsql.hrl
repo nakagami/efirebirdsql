@@ -5,7 +5,6 @@
     name :: binary(),
     seq :: pos_integer(),
     type :: atom(),
-    sub_type :: pos_integer(),
     scale :: -1 | pos_integer(),
     length :: -1 | pos_integer(),
     null_ind :: true | false

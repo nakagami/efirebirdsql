@@ -271,8 +271,8 @@ parse_select_column(Mod, Sock, StmtHandle, Column, DescVars) ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
             parse_select_column(Mod, Sock, StmtHandle, Column#column{type=sql_type(Num)}, Rest2);
         isc_info_sql_sub_type ->
-            {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column#column{sub_type=Num}, Rest2);
+            {_Num, Rest2} = parse_select_item_elem_int(Rest),
+            parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
         isc_info_sql_scale ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
             parse_select_column(Mod, Sock, StmtHandle, Column#column{scale=Num}, Rest2);
