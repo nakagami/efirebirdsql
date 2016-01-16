@@ -69,6 +69,13 @@ execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
         _ -> {error, "Execute query failed"}
     end.
 
+columns([], OutColumns) ->
+    lists:reverse(OutColumns);
+columns(InColumns, OutColumns) ->
+    [H | T] = InColumns,
+    columns(T, [{column, H#column.name, H#column.type, H#column.scale,
+                      H#column.length, H#column.null_ind} | OutColumns]).
+
 commit(Mod, Sock, TransHandle) ->
     Mod:send(Sock,
         efirebirdsql_op:op_commit_retaining(TransHandle)),
@@ -163,6 +170,13 @@ handle_call({execute, Params}, _From, State) ->
     ok = execute(State#state.mod, State#state.sock,
         State#state.trans_handle, State#state.stmt_handle, Params),
     {reply, ok, State};
+handle_call(columns, _From, State) ->
+    case State#state.stmt_type of
+        isc_info_sql_stmt_select
+            -> {reply, columns(State#state.columns, []), State};
+        _
+            -> {reply, no_result, State}
+    end;
 handle_call({get_parameter, Name}, _From, State) ->
     Value1 = case lists:keysearch(Name, 1, State#state.parameters) of
         {value, {Name, Value}} -> Value;
