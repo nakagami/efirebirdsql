@@ -36,6 +36,25 @@ skip4(Mod, Sock, Len) ->
         3 -> Mod:recv(Sock, 1)
     end.
 
+%%% big endian number list fill 2 byte alignment
+byte2(N, big) ->
+    LB = binary:encode_unsigned(N, big),
+    LB2 = case size(LB) of
+            1 -> << <<0>>/binary, LB/binary >>;
+            2 -> LB
+        end,
+    binary_to_list(LB2);
+byte2(N, little) ->
+    LB = binary:encode_unsigned(N, little),
+    LB2 = case size(LB) of
+            1 -> << LB/binary, <<0>>/binary >>;
+            2 -> LB
+        end,
+    binary_to_list(LB2).
+
+byte2(N) ->
+    byte2(N, big).
+
 %%% big endian number list fill 4 byte alignment
 byte4(N, big) ->
     LB = binary:encode_unsigned(N, big),
@@ -83,6 +102,33 @@ uid(Host, Username) ->
         length(Host),
         Host]),
     list_to_xdr_bytes(Data).
+
+calc_blr_column(Column) ->
+    case Column#column.type of
+        varying ->
+            [37 | byte2(Column#column.length, little)] ++ [7, 0];
+        text ->
+            [14 | byte2(Column#column.length, little)] ++ [7, 0];
+        long ->
+            [8 | Column#column.scale] ++ [7, 0];
+        short ->
+            [7 | Column#column.scale] ++ [7, 0];
+        int64 ->
+            [16 | Column#column.scale] ++ [7, 0];
+        quad ->
+            [9 | Column#column.scale] ++ [7, 0]
+    end.
+
+calc_blr_columns([], Blr) ->
+    Blr;
+calc_blr_columns(Columns, Blr) ->
+    [H | T] = Columns,
+    calc_blr_columns(T, Blr ++ calc_blr_column(H)).
+
+calc_blr(Columns) ->
+    L = length(Columns) * 2,
+    [5, 2, 4, 0] ++ byte2(L, little) ++ calc_blr_columns(Columns, []) ++ [255, 76].
+
 
 %%% create op_connect binary
 op_connect(Host, Username, _Password, Database) ->
