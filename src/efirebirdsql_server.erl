@@ -175,6 +175,10 @@ handle_call({execute, Params}, _From, State) ->
     ok = execute(State#state.mod, State#state.sock,
         State#state.trans_handle, State#state.stmt_handle, Params),
     {reply, ok, State};
+handle_call(fetchall, _From, State) ->
+    R = fetchall(State#state.mod, State#state.sock,
+        State#state.stmt_handle, State#state.xsqlvars),
+    {reply, R, State};
 handle_call(description, _From, State) ->
     case State#state.stmt_type of
         isc_info_sql_stmt_select

@@ -5,7 +5,6 @@
 
 -export([op_name/1, op_val/1, op_connect/4,
     get_response/2, get_fetch_response/3]).
--compile([export_all]).
 
 -include("efirebirdsql.hrl").
 
@@ -36,24 +35,14 @@ skip4(Mod, Sock, Len) ->
         3 -> Mod:recv(Sock, 1)
     end.
 
-%%% big endian number list fill 2 byte alignment
-byte2(N, big) ->
-    LB = binary:encode_unsigned(N, big),
-    LB2 = case size(LB) of
-            1 -> << <<0>>/binary, LB/binary >>;
-            2 -> LB
-        end,
-    binary_to_list(LB2);
-byte2(N, little) ->
+%%% little endian 2byte
+byte2(N) ->
     LB = binary:encode_unsigned(N, little),
     LB2 = case size(LB) of
             1 -> << LB/binary, <<0>>/binary >>;
             2 -> LB
         end,
     binary_to_list(LB2).
-
-byte2(N) ->
-    byte2(N, big).
 
 %%% big endian number list fill 4 byte alignment
 byte4(N, big) ->
@@ -105,8 +94,8 @@ uid(Host, Username) ->
 
 calc_blr_item(XSqlVar) ->
     case XSqlVar#column.type of
-        varying -> [37 | byte2(XSqlVar#column.length, little)] ++ [7, 0];
-        text -> [14 | byte2(XSqlVar#column.length, little)] ++ [7, 0];
+        varying -> [37 | byte2(XSqlVar#column.length)] ++ [7, 0];
+        text -> [14 | byte2(XSqlVar#column.length)] ++ [7, 0];
         long -> [8 | XSqlVar#column.scale] ++ [7, 0];
         short -> [7 | XSqlVar#column.scale] ++ [7, 0];
         int64 -> [16 | XSqlVar#column.scale] ++ [7, 0];
@@ -130,7 +119,7 @@ calc_blr_items(XSqlVars, Blr) ->
 
 calc_blr(XSqlVars) ->
     L = length(XSqlVars) * 2,
-    [5, 2, 4, 0] ++ byte2(L, little) ++ calc_blr_items(XSqlVars, []) ++ [255, 76].
+    [5, 2, 4, 0] ++ byte2(L) ++ calc_blr_items(XSqlVars, []) ++ [255, 76].
 
 
 %%% create op_connect binary
