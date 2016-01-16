@@ -224,6 +224,26 @@ op_fetch(StmtHandle, XSqlVars) ->
 op_commit_retaining(TransHandle) ->
     list_to_binary([byte4(op_val(op_commit_retaining)), byte4(TransHandle)]).
 
+
+%%% blob
+op_open_blob(BlobId, TransHandle) ->
+    H = list_to_binary([
+        byte4(op_val(op_open_blob)),
+        byte4(TransHandle)]),
+    <<H/binary, BlobId/binary>>.
+
+op_get_segment(BlobHandle) ->
+    list_to_binary([
+        byte4(op_val(op_get_segment)),
+        byte4(BlobHandle),
+        byte4(?BUFSIZE),
+        byte4(0)]).
+
+op_close_blog(BlobHandle) ->
+    list_to_binary([
+        byte4(op_val(op_close_blob)),
+        byte4(BlobHandle)]).
+
 %%% parse status vector
 parse_status_vector_integer(Mod, Sock) ->
     {ok, <<NumArg:32>>} = Mod:recv(Sock, 4),
