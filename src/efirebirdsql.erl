@@ -60,6 +60,9 @@ execute(C, QueryString) ->
 description(C) ->
     gen_server:call(C, description, infinity).
 
+fetchall(C) ->
+    gen_server:call(C, fetchall, infinity).
+
 -spec commit(connection())
     -> ok | {error, _Reason}.
 commit(C) ->

@@ -16,5 +16,6 @@ connect_test() ->
     {ok, C} = efirebirdsql:connect("localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb", [{createdb, true}]),
     ok = efirebirdsql:execute(C, <<"select * from rdb$relations">>),
     ?assertEqual(length(efirebirdsql:description(C)), 17),
+    efirebirdsql:fetchall(C),
     ok = efirebirdsql:commit(C),
     ok = efirebirdsql:close(C).
