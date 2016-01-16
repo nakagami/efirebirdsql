@@ -4,7 +4,7 @@
 -module(efirebirdsql_op).
 
 -export([op_name/1, op_val/1, op_connect/4,
-    get_response/2]).
+    get_response/2, get_fetch_response/3]).
 -compile([export_all]).
 
 -include("efirebirdsql.hrl").
@@ -272,10 +272,10 @@ get_response(Mod, Sock) ->
     {ok, <<OpCode:32>>} = Mod:recv(Sock, 4),
     case op_name(OpCode) of
         op_response ->
-            {ok, <<Handle:32, _ObjectID:64, Len:32>>} = gen_tcp:recv(Sock, 16),
+            {ok, <<Handle:32, _ObjectID:64, Len:32>>} = Mod:recv(Sock, 16),
             Buf = if
                 Len =/= 0 ->
-                    {ok, RecvBuf} = gen_tcp:recv(Sock, Len),
+                    {ok, RecvBuf} = Mod:recv(Sock, Len),
                     skip4(Mod, Sock, Len),
                     RecvBuf;
                 true -> <<>>
@@ -285,9 +285,12 @@ get_response(Mod, Sock) ->
                 [0] -> {op_response, {ok, Handle, Buf}};
                 _ -> {op_response, {error, R}}
             end;
+        op_fetch_response ->
+            {ok, <<Status:32, Count:32>>} = Mod:recv(Sock, 8),
+            {op_fetch_response, {Status, Count}};
         op_accept ->
             {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
-                    _AcceptArchtecture:32, _AcceptType:32>>} = gen_tcp:recv(Sock, 12),
+                    _AcceptArchtecture:32, _AcceptType:32>>} = Mod:recv(Sock, 12),
             {op_accept, AcceptVersion};
         op_reject ->
             op_reject;
@@ -302,7 +305,7 @@ more_select_describe_vars(Mod, Sock, StmtHandle, Start) ->
     %% isc_info_sql_sqlda_start + INFO_SQL_SELECT_DESCRIBE_VARS
     V = lists:flatten(
         [20, 2, Start rem 256, Start div 256, ?INFO_SQL_SELECT_DESCRIBE_VARS]),
-    gen_tcp:send(Sock, op_info_sql(StmtHandle, V)),
+    Mod:send(Sock, op_info_sql(StmtHandle, V)),
     {op_response, {ok, _, Buf}} = get_response(Mod, Sock),
     <<_:8/binary, DescVars/binary>> = Buf,
     DescVars.
@@ -376,6 +379,17 @@ get_prepare_statement_response(Mod, Sock, StmtHandle) ->
             << _Skip:8/binary, DescVars/binary >> = Rest,
             {isc_info_sql_stmt_select, parse_select_columns(Mod, Sock, StmtHandle, [], DescVars)};
         _ -> StmtName
+    end.
+
+get_fetch_response(Mod, Sock, Status, Count, XSqlVars, Result) ->
+    %% TODO:
+    [].
+get_fetch_response(Mod, Sock, XSqlVars) ->
+    case get_response(Mod, Sock) of
+        {op_response, R} ->
+            {op_response, R};
+        {op_fetch_response, {Status, Count}} ->
+            {op_fetch_response, get_fetch_response(Mod, Sock, Status, Count, XSqlVars, [])}
     end.
 
 op_name(1) -> op_connect;

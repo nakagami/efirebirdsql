@@ -69,10 +69,10 @@ execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
         _ -> {error, "Execute query failed"}
     end.
 
-fetch_segment(Mod, Sock, StmtHandle, XSqlVars) ->
+fetchall(Mod, Sock, StmtHandle, XSqlVars) ->
     Mod:send(Sock,
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
-    efirebirdsql_op:get_fetch_response(Mod, Sock, StmtHandle, XSqlVars).
+    efirebirdsql_op:get_fetch_response(Mod, Sock, XSqlVars).
 
 description([], XSqlVar) ->
     lists:reverse(XSqlVar);
