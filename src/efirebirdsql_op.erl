@@ -390,12 +390,39 @@ get_prepare_statement_response(Mod, Sock, StmtHandle) ->
         _ -> StmtName
     end.
 
-get_fetch_response(Mod, Sock, Status, 0, XSqlVars, Results) ->
+get_fetch_response_row_length(Mod, Sock, XSqlVar) ->
+    case XSqlVar#column.type of
+        varying -> {ok, <<Num:32>>} = Mod:recv(Sock, 4), Num;
+        text -> XSqlVar#column.length;
+        long -> 4;
+        short -> 4;
+        int64 -> 8;
+        quad -> 8;
+        double -> 8;
+        float -> 4;
+        date -> 4;
+        time -> 4;
+        timestamp -> 8;
+        blob -> 8;
+        array -> 8;
+        boolean -> 1
+    end.
+
+get_fetch_response_row(Mod, Sock, [], Columns) ->
+    lists:reverse(Columns);
+get_fetch_response_row(Mod, Sock, XSqlVars, Columns) ->
+    [X | Rest] = XSqlVars,
+    L = get_fetch_response_row_length(Mod, Sock, X),
+    {ok, V} = Mod:recv(Sock, L),
+    [V | Columns].
+
+get_fetch_response(_Mod, _Sock, Status, 0, _XSqlVars, Results) ->
     %% {list_of_response, more_data}
-    {Results, if Status =/= 100 -> true; Status =:= 100 -> false end};
-get_fetch_response(Mod, Sock, Status, Count, XSqlVars, Results) ->
-    %% TODO: get_fetch_response_row
-    NewResults = [],
+    {list:reverse(Results),
+        if Status =/= 100 -> true; Status =:= 100 -> false end};
+get_fetch_response(Mod, Sock, _Status, Count, XSqlVars, Results) ->
+    Row = get_fetch_response_row(Mod, Sock, XSqlVars, []),
+    NewResults = [Row | Results],
     {ok, <<_:32, NewStatus:32, NewCount:32>>} = Mod:recv(Sock, 12),
     get_fetch_response(Mod, Sock, NewStatus, NewCount, XSqlVars, NewResults).
 
