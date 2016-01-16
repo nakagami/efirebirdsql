@@ -105,18 +105,21 @@ uid(Host, Username) ->
 
 calc_blr_item(XSqlVar) ->
     case XSqlVar#column.type of
-        varying ->
-            [37 | byte2(XSqlVar#column.length, little)] ++ [7, 0];
-        text ->
-            [14 | byte2(XSqlVar#column.length, little)] ++ [7, 0];
-        long ->
-            [8 | XSqlVar#column.scale] ++ [7, 0];
-        short ->
-            [7 | XSqlVar#column.scale] ++ [7, 0];
-        int64 ->
-            [16 | XSqlVar#column.scale] ++ [7, 0];
-        quad ->
-            [9 | XSqlVar#column.scale] ++ [7, 0]
+        varying -> [37 | byte2(XSqlVar#column.length, little)] ++ [7, 0];
+        text -> [14 | byte2(XSqlVar#column.length, little)] ++ [7, 0];
+        long -> [8 | XSqlVar#column.scale] ++ [7, 0];
+        short -> [7 | XSqlVar#column.scale] ++ [7, 0];
+        int64 -> [16 | XSqlVar#column.scale] ++ [7, 0];
+        quad -> [9 | XSqlVar#column.scale] ++ [7, 0];
+        double -> [27, 7, 0];
+        float -> [10, 7, 0];
+        d_float -> [11, 7, 0];
+        date -> [12, 7, 0];
+        time -> [13, 7, 0];
+        timestamp -> [35, 7, 0];
+        blob -> [9, 0, 7, 0];
+        array -> [9, 0, 7, 0];
+        boolean -> [23, 7, 0]
     end.
 
 calc_blr_items([], Blr) ->
