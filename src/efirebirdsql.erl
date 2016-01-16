@@ -5,7 +5,7 @@
 
 -export([start_link/0]).
 -export([connect/4, connect/5, prepare/2, execute/2,
-         columns/1, commit/1, close/1]).
+         description/1, commit/1, close/1]).
 
 -export_type([connection/0, connect_option/0,
     connect_error/0, query_error/0]).
@@ -57,8 +57,8 @@ execute(C, QueryString) ->
     gen_server:call(C, {prepare, QueryString}, infinity),
     gen_server:call(C, {execute, []}, infinity).
 
-columns(C) ->
-    gen_server:call(C, columns, infinity).
+description(C) ->
+    gen_server:call(C, description, infinity).
 
 -spec commit(connection())
     -> ok | {error, _Reason}.

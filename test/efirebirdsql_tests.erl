@@ -15,6 +15,6 @@ connect_test() ->
     %% crete new database
     {ok, C} = efirebirdsql:connect("localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb", [{createdb, true}]),
     ok = efirebirdsql:execute(C, <<"select * from rdb$relations">>),
-    ?assertEqual(length(efirebirdsql:columns(C)), 17),
+    ?assertEqual(length(efirebirdsql:description(C)), 17),
     ok = efirebirdsql:commit(C),
     ok = efirebirdsql:close(C).

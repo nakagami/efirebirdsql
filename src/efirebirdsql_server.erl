@@ -69,11 +69,11 @@ execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
         _ -> {error, "Execute query failed"}
     end.
 
-columns([], OutColumns) ->
+description([], OutColumns) ->
     lists:reverse(OutColumns);
-columns(InColumns, OutColumns) ->
+description(InColumns, OutColumns) ->
     [H | T] = InColumns,
-    columns(T, [{column, H#column.name, H#column.type, H#column.scale,
+    description(T, [{column, H#column.name, H#column.type, H#column.scale,
                       H#column.length, H#column.null_ind} | OutColumns]).
 
 commit(Mod, Sock, TransHandle) ->
@@ -170,10 +170,10 @@ handle_call({execute, Params}, _From, State) ->
     ok = execute(State#state.mod, State#state.sock,
         State#state.trans_handle, State#state.stmt_handle, Params),
     {reply, ok, State};
-handle_call(columns, _From, State) ->
+handle_call(description, _From, State) ->
     case State#state.stmt_type of
         isc_info_sql_stmt_select
-            -> {reply, columns(State#state.columns, []), State};
+            -> {reply, description(State#state.columns, []), State};
         _
             -> {reply, no_result, State}
     end;
