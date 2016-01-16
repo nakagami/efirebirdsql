@@ -20,7 +20,7 @@
                 parameters = [],
                 types = [],
                 stmt_type,
-                columns = [],
+                xsqlvars = [],
                 rows = [],
                 results = []}).
 
@@ -69,12 +69,12 @@ execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
         _ -> {error, "Execute query failed"}
     end.
 
-description([], OutColumns) ->
-    lists:reverse(OutColumns);
-description(InColumns, OutColumns) ->
-    [H | T] = InColumns,
+description([], XSqlVar) ->
+    lists:reverse(XSqlVar);
+description(InXSqlVars, XSqlVar) ->
+    [H | T] = InXSqlVars,
     description(T, [{column, H#column.name, H#column.type, H#column.scale,
-                      H#column.length, H#column.null_ind} | OutColumns]).
+                      H#column.length, H#column.null_ind} | XSqlVar]).
 
 commit(Mod, Sock, TransHandle) ->
     Mod:send(Sock,
@@ -161,8 +161,8 @@ handle_call(close, _From, State) ->
 handle_call({prepare, Sql}, _From, State) ->
     case R = prepare_statement(State#state.mod, State#state.sock,
                 State#state.trans_handle, State#state.stmt_handle, Sql) of
-        {StmtType, Columns} ->
-            {reply, ok, State#state{stmt_type=StmtType, columns=Columns}};
+        {StmtType, XSqlVars} ->
+            {reply, ok, State#state{stmt_type=StmtType, xsqlvars=XSqlVars}};
         _ ->
             {reply, ok, State#state{stmt_type=R}}
     end;
@@ -173,7 +173,7 @@ handle_call({execute, Params}, _From, State) ->
 handle_call(description, _From, State) ->
     case State#state.stmt_type of
         isc_info_sql_stmt_select
-            -> {reply, description(State#state.columns, []), State};
+            -> {reply, description(State#state.xsqlvars, []), State};
         _
             -> {reply, no_result, State}
     end;
