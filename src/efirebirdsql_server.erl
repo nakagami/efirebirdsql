@@ -69,10 +69,17 @@ execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
         _ -> {error, "Execute query failed"}
     end.
 
-fetchall(Mod, Sock, StmtHandle, XSqlVars) ->
+fetchall(Mod, Sock, StmtHandle, XSqlVars, Results) ->
     Mod:send(Sock,
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
-    efirebirdsql_op:get_fetch_response(Mod, Sock, XSqlVars).
+    {NewResults, MoreData} = efirebirdsql_op:get_fetch_response(Mod, Sock, XSqlVars),
+    %% TODO: fix lists concat
+    case MoreData of
+        true -> fetchall(Mod, Sock, StmtHandle, XSqlVars, Results ++ NewResults);
+        false -> {ok, Results ++ NewResults}
+    end.
+fetchall(Mod, Sock, StmtHandle, XSqlVars) ->
+    fetchall(Mod, Sock, StmtHandle, XSqlVars, []).
 
 description([], XSqlVar) ->
     lists:reverse(XSqlVar);

@@ -390,9 +390,15 @@ get_prepare_statement_response(Mod, Sock, StmtHandle) ->
         _ -> StmtName
     end.
 
-get_fetch_response(Mod, Sock, Status, Count, XSqlVars, Result) ->
-    %% TODO:
-    [].
+get_fetch_response(Mod, Sock, Status, 0, XSqlVars, Results) ->
+    %% {list_of_response, more_data}
+    {Results, if Status =/= 100 -> true; Status =:= 100 -> false end};
+get_fetch_response(Mod, Sock, Status, Count, XSqlVars, Results) ->
+    %% TODO: get_fetch_response_row
+    NewResults = [],
+    {ok, <<_:32, NewStatus:32, NewCount:32>>} = Mod:recv(Sock, 12),
+    get_fetch_response(Mod, Sock, NewStatus, NewCount, XSqlVars, NewResults).
+
 get_fetch_response(Mod, Sock, XSqlVars) ->
     case get_response(Mod, Sock) of
         {op_response, R} ->
