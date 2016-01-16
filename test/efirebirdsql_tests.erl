@@ -11,9 +11,12 @@
 
 connect_test() ->
     %% connect to bad database
-    {error, _} = efirebirdsql:connect("localhost", "sysdba", "masterkey", "something_wrong_database"),
+    {error, _} = efirebirdsql:connect(
+        "localhost", "sysdba", "masterkey", "something_wrong_database"),
     %% crete new database
-    {ok, C} = efirebirdsql:connect("localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb", [{createdb, true}]),
+    {ok, C} = efirebirdsql:connect(
+        "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb",
+        [{createdb, true}]),
     ok = efirebirdsql:execute(C, <<"select * from rdb$relations">>),
     ?assertEqual(length(efirebirdsql:description(C)), 17),
     efirebirdsql:fetchall(C),
