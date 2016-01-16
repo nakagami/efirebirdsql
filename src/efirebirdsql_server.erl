@@ -20,17 +20,25 @@
                 stmt_type,
                 xsqlvars = []}).
 
-get_blob_segment(Mod, Sock, TransHandle, BlobHandle) ->
-    <<>>.
+get_blob_segment(Mod, Sock, BlobHandle, Data) ->
+    Mod:send(Sock,
+        efirebirdsql_op:op_get_segment(BlobHandle)),
+    {op_response,  {ok, F, Buf}} = efirebirdsql_op:get_response(Mod, Sock),
+    NewData = << Buf/binary, Data/binary >>,
+    case F of
+        2 -> NewData;
+        _ -> get_blob_segment(Mod, Sock, BlobHandle, NewData)
+    end.
 
 get_blob_data(Mod, Sock, TransHandle, BlobId) ->
     Mod:send(Sock,
         efirebirdsql_op:op_open_blob(BlobId, TransHandle)),
     {op_response,  {ok, BlobHandle, _}} = efirebirdsql_op:get_response(Mod, Sock),
-    %% TODO: get_blob_segments()
+    Data = get_blob_segment(Mod, Sock, BlobHandle, <<>>),
     Mod:send(Sock,
         efirebirdql_op:op_close_blob(BlobHandle)),
-    {op_response,  {ok, BlobHandle, _}} = efirebirdsql_op:get_response(Mod, Sock).
+    {op_response,  {ok, BlobHandle, _}} = efirebirdsql_op:get_response(Mod, Sock),
+    {ok, Data}.
 
 attach_database(Mod, Sock, User, Password, Database) ->
     Mod:send(Sock,
