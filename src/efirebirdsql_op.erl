@@ -97,10 +97,10 @@ calc_blr_item(XSqlVar) ->
     case XSqlVar#column.type of
         varying -> [37 | byte2(XSqlVar#column.length)] ++ [7, 0];
         text -> [14 | byte2(XSqlVar#column.length)] ++ [7, 0];
-        long -> [8 | XSqlVar#column.scale] ++ [7, 0];
-        short -> [7 | XSqlVar#column.scale] ++ [7, 0];
-        int64 -> [16 | XSqlVar#column.scale] ++ [7, 0];
-        quad -> [9 | XSqlVar#column.scale] ++ [7, 0];
+        long -> [8, XSqlVar#column.scale, 7, 0];
+        short -> [7, XSqlVar#column.scale, 7, 0];
+        int64 -> [16, XSqlVar#column.scale, 7, 0];
+        quad -> [9, XSqlVar#column.scale, 7, 0];
         double -> [27, 7, 0];
         float -> [10, 7, 0];
         d_float -> [11, 7, 0];
