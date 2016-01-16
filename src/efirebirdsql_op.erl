@@ -103,31 +103,31 @@ uid(Host, Username) ->
         Host]),
     list_to_xdr_bytes(Data).
 
-calc_blr_column(Column) ->
-    case Column#column.type of
+calc_blr_item(XSqlVar) ->
+    case XSqlVar#column.type of
         varying ->
-            [37 | byte2(Column#column.length, little)] ++ [7, 0];
+            [37 | byte2(XSqlVar#column.length, little)] ++ [7, 0];
         text ->
-            [14 | byte2(Column#column.length, little)] ++ [7, 0];
+            [14 | byte2(XSqlVar#column.length, little)] ++ [7, 0];
         long ->
-            [8 | Column#column.scale] ++ [7, 0];
+            [8 | XSqlVar#column.scale] ++ [7, 0];
         short ->
-            [7 | Column#column.scale] ++ [7, 0];
+            [7 | XSqlVar#column.scale] ++ [7, 0];
         int64 ->
-            [16 | Column#column.scale] ++ [7, 0];
+            [16 | XSqlVar#column.scale] ++ [7, 0];
         quad ->
-            [9 | Column#column.scale] ++ [7, 0]
+            [9 | XSqlVar#column.scale] ++ [7, 0]
     end.
 
-calc_blr_columns([], Blr) ->
+calc_blr_items([], Blr) ->
     Blr;
-calc_blr_columns(Columns, Blr) ->
-    [H | T] = Columns,
-    calc_blr_columns(T, Blr ++ calc_blr_column(H)).
+calc_blr_items(XSqlVars, Blr) ->
+    [H | T] = XSqlVars,
+    calc_blr_items(T, Blr ++ calc_blr_item(H)).
 
-calc_blr(Columns) ->
-    L = length(Columns) * 2,
-    [5, 2, 4, 0] ++ byte2(L, little) ++ calc_blr_columns(Columns, []) ++ [255, 76].
+calc_blr(XSqlVars) ->
+    L = length(XSqlVars) * 2,
+    [5, 2, 4, 0] ++ byte2(L, little) ++ calc_blr_items(XSqlVars, []) ++ [255, 76].
 
 
 %%% create op_connect binary
@@ -220,11 +220,11 @@ op_info_sql(StmtHandle, V) ->
         list_to_xdr_bytes(V),
         byte4(?BUFSIZE)]).
 
-op_fetch(StmtHandle, Columns) ->
+op_fetch(StmtHandle, XSqlVars) ->
     list_to_binary([
         byte4(op_val(op_fetch)),
         byte4(StmtHandle),
-        list_to_xdr_bytes(calc_blr(Columns)),
+        list_to_xdr_bytes(calc_blr(XSqlVars)),
         byte4(0),
         byte4(400)]).
 
@@ -358,11 +358,11 @@ parse_select_column(Mod, Sock, StmtHandle, Column, DescVars) ->
             no_more_column
     end.
 
-parse_select_columns(Mod, Sock, StmtHandle, Columns, DescVars) ->
+parse_select_columns(Mod, Sock, StmtHandle, XSqlVars, DescVars) ->
     case parse_select_column(Mod, Sock, StmtHandle, #column{}, DescVars) of
-        {Column, Rest} -> parse_select_columns(
-            Mod, Sock, StmtHandle, [Column | Columns], Rest);
-        no_more_column -> lists:reverse(Columns)
+        {XSqlVar, Rest} -> parse_select_columns(
+            Mod, Sock, StmtHandle, [XSqlVar | XSqlVars], Rest);
+        no_more_column -> lists:reverse(XSqlVars)
     end.
 
 get_prepare_statement_response(Mod, Sock, StmtHandle) ->
