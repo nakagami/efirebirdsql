@@ -415,7 +415,11 @@ get_fetch_response_row_value(Mod, Sock, XSqlVar) ->
         end,
     {ok, V} = Mod:recv(Sock, L),
     skip4(Mod, Sock, L),
-    V.
+    {ok, NullFlag} = Mod:recv(Sock, 4),
+    case NullFlag of
+        <<0,0,0,0>> -> V;
+        _ -> null
+    end.
 
 get_fetch_response_row(Mod, Sock, [], Columns) ->
     lists:reverse(Columns);
