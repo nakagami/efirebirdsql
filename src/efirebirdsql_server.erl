@@ -88,7 +88,7 @@ execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
 fetchall(Mod, Sock, StmtHandle, XSqlVars, Results) ->
     Mod:send(Sock,
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
-    {NewResults, MoreData} = efirebirdsql_op:get_fetch_response(Mod, Sock, XSqlVars),
+    {op_fetch_response, {NewResults, MoreData}} = efirebirdsql_op:get_fetch_response(Mod, Sock, XSqlVars),
     %% TODO: fix lists concat
     case MoreData of
         true -> fetchall(Mod, Sock, StmtHandle, XSqlVars, Results ++ NewResults);
