@@ -93,14 +93,19 @@ uid(Host, Username) ->
         Host]),
     list_to_xdr_bytes(Data).
 
+convert_scale(Scale) ->
+    if Scale < 0 -> 256 + Scale;
+        Scale >= 0 -> Scale
+    end.
+
 calc_blr_item(XSqlVar) ->
     case XSqlVar#column.type of
         varying -> [37 | byte2(XSqlVar#column.length)] ++ [7, 0];
         text -> [14 | byte2(XSqlVar#column.length)] ++ [7, 0];
-        long -> [8, XSqlVar#column.scale, 7, 0];
-        short -> [7, XSqlVar#column.scale, 7, 0];
-        int64 -> [16, XSqlVar#column.scale, 7, 0];
-        quad -> [9, XSqlVar#column.scale, 7, 0];
+        long -> [8, convert_scale(XSqlVar#column.scale), 7, 0];
+        short -> [7, convert_scale(XSqlVar#column.scale), 7, 0];
+        int64 -> [16,  convert_scale(XSqlVar#column.scale), 7, 0];
+        quad -> [9, convert_scale(XSqlVar#column.scale), 7, 0];
         double -> [27, 7, 0];
         float -> [10, 7, 0];
         d_float -> [11, 7, 0];
