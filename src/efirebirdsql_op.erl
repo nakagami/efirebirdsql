@@ -430,7 +430,7 @@ get_fetch_response_row(Mod, Sock, XSqlVars, Columns) ->
 
 get_fetch_response(_Mod, _Sock, Status, 0, _XSqlVars, Results) ->
     %% {list_of_response, more_data}
-    {list:reverse(Results),
+    {lists:reverse(Results),
         if Status =/= 100 -> true; Status =:= 100 -> false end};
 get_fetch_response(Mod, Sock, _Status, Count, XSqlVars, Results) ->
     Row = get_fetch_response_row(Mod, Sock, XSqlVars, []),
