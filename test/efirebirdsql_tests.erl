@@ -33,11 +33,11 @@ connect_test() ->
             CONSTRAINT CHECK_A CHECK (a <> 0)
         )
     ">>),
-    ok = efirebirdsql:execute(C, <<"
-        insert into foo(a, b, c, h) values (1, 'a', 'b','This is a memo')
-    ">>),
+    ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (1, 'b', 'c','blob')">>),
+    ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (2, 'B', 'C','BLOB')">>),
     ok = efirebirdsql:execute(C, <<"select * from foo">>),
     ?assertEqual(length(efirebirdsql:description(C)), 10),
-    efirebirdsql:fetchall(C),
+    {ok, R} = efirebirdsql:fetchall(C),
+    ?assertEqual(length(R), 2),
     ok = efirebirdsql:commit(C),
     ok = efirebirdsql:close(C).
