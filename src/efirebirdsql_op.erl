@@ -399,6 +399,9 @@ get_prepare_statement_response(Mod, Sock, StmtHandle) ->
 convert_raw_value(Mod, Sock, XSqlVar, {Name, RawValue}) ->
     {Name, RawValue}.
 
+convert_row(Mod, Sock, XSqlVar, Row) ->
+    Row.
+
 get_fetch_response_raw_value(Mod, Sock, XSqlVar) ->
     L = case XSqlVar#column.type of
             varying -> {ok, <<Num:32>>} = Mod:recv(Sock, 4), Num;
