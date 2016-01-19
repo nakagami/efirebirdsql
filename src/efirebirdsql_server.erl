@@ -18,7 +18,8 @@
                 stmt_handle,
                 parameters = [],
                 stmt_type,
-                xsqlvars = []}).
+                xsqlvars = [],
+                rows = []}).
 
 get_blob_segment(Mod, Sock, BlobHandle, Data) ->
     Mod:send(Sock,
@@ -85,17 +86,17 @@ execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
         _ -> {error, "Execute query failed"}
     end.
 
-fetchall(Mod, Sock, StmtHandle, XSqlVars, Results) ->
+fetchrows(Mod, Sock, StmtHandle, XSqlVars, Results) ->
     Mod:send(Sock,
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
     {op_fetch_response, {NewResults, MoreData}} = efirebirdsql_op:get_fetch_response(Mod, Sock, XSqlVars),
     %% TODO: fix lists concat
     case MoreData of
-        true -> fetchall(Mod, Sock, StmtHandle, XSqlVars, Results ++ NewResults);
+        true -> fetchrows(Mod, Sock, StmtHandle, XSqlVars, Results ++ NewResults);
         false -> {ok, Results ++ NewResults}
     end.
-fetchall(Mod, Sock, StmtHandle, XSqlVars) ->
-    fetchall(Mod, Sock, StmtHandle, XSqlVars, []).
+fetchrows(Mod, Sock, StmtHandle, XSqlVars) ->
+    fetchrows(Mod, Sock, StmtHandle, XSqlVars, []).
 
 description([], XSqlVar) ->
     lists:reverse(XSqlVar);
@@ -197,11 +198,17 @@ handle_call({prepare, Sql}, _From, State) ->
 handle_call({execute, Params}, _From, State) ->
     ok = execute(State#state.mod, State#state.sock,
         State#state.trans_handle, State#state.stmt_handle, Params),
-    {reply, ok, State};
+    {reply, ok, State},
+    case State#state.stmt_type of
+        isc_info_sql_stmt_select ->
+            R = fetchrows(State#state.mod, State#state.sock,
+                State#state.stmt_handle, State#state.xsqlvars),
+            {reply, ok, State#state{rows=R}};
+        _ ->
+            {reply, ok, State}
+    end;
 handle_call(fetchall, _From, State) ->
-    R = fetchall(State#state.mod, State#state.sock,
-        State#state.stmt_handle, State#state.xsqlvars),
-    {reply, R, State};
+    {reply, State#state.rows, State};
 handle_call(description, _From, State) ->
     case State#state.stmt_type of
         isc_info_sql_stmt_select
