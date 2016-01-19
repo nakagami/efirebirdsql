@@ -21,26 +21,6 @@
                 xsqlvars = [],
                 rows = []}).
 
-get_blob_segment(Mod, Sock, BlobHandle, Data) ->
-    Mod:send(Sock,
-        efirebirdsql_op:op_get_segment(BlobHandle)),
-    {op_response,  {ok, F, Buf}} = efirebirdsql_op:get_response(Mod, Sock),
-    NewData = << Buf/binary, Data/binary >>,
-    case F of
-        2 -> NewData;
-        _ -> get_blob_segment(Mod, Sock, BlobHandle, NewData)
-    end.
-
-get_blob_data(Mod, Sock, TransHandle, BlobId) ->
-    Mod:send(Sock,
-        efirebirdsql_op:op_open_blob(BlobId, TransHandle)),
-    {op_response,  {ok, BlobHandle, _}} = efirebirdsql_op:get_response(Mod, Sock),
-    Data = get_blob_segment(Mod, Sock, BlobHandle, <<>>),
-    Mod:send(Sock,
-        efirebirdql_op:op_close_blob(BlobHandle)),
-    {op_response,  {ok, BlobHandle, _}} = efirebirdsql_op:get_response(Mod, Sock),
-    {ok, Data}.
-
 attach_database(Mod, Sock, User, Password, Database) ->
     Mod:send(Sock,
         efirebirdsql_op:op_attach(User, Password, Database)),
@@ -208,7 +188,10 @@ handle_call({execute, Params}, _From, State) ->
             {reply, ok, State}
     end;
 handle_call(fetchall, _From, State) ->
-    Rows = [efirebirdsql_op:convert_row(State#state.mod, State#state.sock, State#state.xsqlvars, R) || R <- State#state.rows],
+    Rows = [efirebirdsql_op:convert_row(
+                    State#state.mod, State#state.sock, 
+                    State#state.trans_handle, State#state.xsqlvars, R
+                    ) || R <- State#state.rows],
     {reply, {ok, Rows}, State};
 handle_call(description, _From, State) ->
     case State#state.stmt_type of

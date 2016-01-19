@@ -396,10 +396,27 @@ get_prepare_statement_response(Mod, Sock, StmtHandle) ->
         _ -> StmtName
     end.
 
+get_blob_segment(Mod, Sock, BlobHandle, Data) ->
+    Mod:send(Sock, op_get_segment(BlobHandle)),
+    {op_response,  {ok, F, Buf}} = get_response(Mod, Sock),
+    NewData = << Buf/binary, Data/binary >>,
+    case F of
+        2 -> NewData;
+        _ -> get_blob_segment(Mod, Sock, BlobHandle, NewData)
+    end.
+
+get_blob_data(Mod, Sock, TransHandle, BlobId) ->
+    Mod:send(Sock, op_open_blob(BlobId, TransHandle)),
+    {op_response,  {ok, BlobHandle, _}} = get_response(Mod, Sock),
+    Data = get_blob_segment(Mod, Sock, BlobHandle, <<>>),
+    Mod:send(Sock, op_close_blob(BlobHandle)),
+    {op_response,  {ok, BlobHandle, _}} = get_response(Mod, Sock),
+    {ok, Data}.
+
 convert_raw_value(Mod, Sock, XSqlVar, {Name, RawValue}) ->
     {Name, RawValue}.
 
-convert_row(Mod, Sock, XSqlVar, Row) ->
+convert_row(Mod, Sock, TransHandle, XSqlVar, Row) ->
     Row.
 
 get_fetch_response_raw_value(Mod, Sock, XSqlVar) ->
