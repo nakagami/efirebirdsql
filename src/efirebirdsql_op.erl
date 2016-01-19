@@ -396,7 +396,10 @@ get_prepare_statement_response(Mod, Sock, StmtHandle) ->
         _ -> StmtName
     end.
 
-get_fetch_response_row_value(Mod, Sock, XSqlVar) ->
+convert_raw_value(Mod, Sock, XSqlVar, {Name, RawValue}) ->
+    {Name, RawValue}.
+
+get_fetch_response_raw_value(Mod, Sock, XSqlVar) ->
     L = case XSqlVar#column.type of
             varying -> {ok, <<Num:32>>} = Mod:recv(Sock, 4), Num;
             text -> XSqlVar#column.length;
@@ -425,7 +428,7 @@ get_fetch_response_row(Mod, Sock, [], Columns) ->
     lists:reverse(Columns);
 get_fetch_response_row(Mod, Sock, XSqlVars, Columns) ->
     [X | RestVars] = XSqlVars,
-    V = get_fetch_response_row_value(Mod, Sock, X),
+    V = get_fetch_response_raw_value(Mod, Sock, X),
     get_fetch_response_row(Mod, Sock, RestVars, [{X#column.name, V} | Columns]).
 
 get_fetch_response(_Mod, _Sock, Status, 0, _XSqlVars, Results) ->
