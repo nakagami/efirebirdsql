@@ -413,11 +413,19 @@ get_blob_data(Mod, Sock, TransHandle, BlobId) ->
     {op_response,  {ok, BlobHandle, _}} = get_response(Mod, Sock),
     {ok, Data}.
 
-convert_raw_value(Mod, Sock, XSqlVar, {Name, RawValue}) ->
+convert_raw_value(Mod, Sock, TransHandle, XSqlVar, {Name, RawValue}) ->
     {Name, RawValue}.
 
-convert_row(Mod, Sock, TransHandle, XSqlVar, Row) ->
-    Row.
+convert_row(Mod, Sock, TransHandle, [], [], Converted) ->
+    lists:reverse(Converted);
+convert_row(Mod, Sock, TransHandle, XSqlVars, Row, Converted) ->
+    [X | XRest] = XSqlVars,
+    [R | RRest] = Row,
+    convert_row(Mod, Sock, TransHandle, XRest, RRest,
+        [convert_raw_value(Mod, Sock, TransHandle, X, R) | Converted]).
+
+convert_row(Mod, Sock, TransHandle, XSqlVars, Row) ->
+    convert_row(Mod, Sock, TransHandle, XSqlVars, Row, []).
 
 get_fetch_response_raw_value(Mod, Sock, XSqlVar) ->
     L = case XSqlVar#column.type of
