@@ -178,7 +178,6 @@ handle_call({prepare, Sql}, _From, State) ->
 handle_call({execute, Params}, _From, State) ->
     ok = execute(State#state.mod, State#state.sock,
         State#state.trans_handle, State#state.stmt_handle, Params),
-    {reply, ok, State},
     case State#state.stmt_type of
         isc_info_sql_stmt_select ->
             {ok, Rows} = fetchrows(State#state.mod, State#state.sock,

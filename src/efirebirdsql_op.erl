@@ -414,9 +414,13 @@ get_blob_data(Mod, Sock, TransHandle, BlobId) ->
     {ok, Data}.
 
 convert_raw_value(Mod, Sock, TransHandle, XSqlVar, {Name, RawValue}) ->
-    {Name, RawValue}.
+    CookedValue = case XSqlVar#column.type of
+            blob -> get_blob_data(Mod, Sock, TransHandle, RawValue);
+            _ -> RawValue
+        end,
+    {Name, CookedValue}.
 
-convert_row(Mod, Sock, TransHandle, [], [], Converted) ->
+convert_row(_Mod, _Sock, _TransHandle, [], [], Converted) ->
     lists:reverse(Converted);
 convert_row(Mod, Sock, TransHandle, XSqlVars, Row, Converted) ->
     [X | XRest] = XSqlVars,
@@ -452,7 +456,7 @@ get_fetch_response_raw_value(Mod, Sock, XSqlVar) ->
         _ -> null
     end.
 
-get_fetch_response_row(Mod, Sock, [], Columns) ->
+get_fetch_response_row(_Mod, _Sock, [], Columns) ->
     lists:reverse(Columns);
 get_fetch_response_row(Mod, Sock, XSqlVars, Columns) ->
     [X | RestVars] = XSqlVars,
@@ -463,7 +467,7 @@ get_fetch_response(_Mod, _Sock, Status, 0, _XSqlVars, Results) ->
     %% {list_of_response, more_data}
     {lists:reverse(Results),
         if Status =/= 100 -> true; Status =:= 100 -> false end};
-get_fetch_response(Mod, Sock, _Status, Count, XSqlVars, Results) ->
+get_fetch_response(Mod, Sock, _Status, _Count, XSqlVars, Results) ->
     Row = get_fetch_response_row(Mod, Sock, XSqlVars, []),
     NewResults = [Row | Results],
     {ok, <<_:32, NewStatus:32, NewCount:32>>} = Mod:recv(Sock, 12),
