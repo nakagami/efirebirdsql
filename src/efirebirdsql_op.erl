@@ -410,7 +410,7 @@ get_blob_data(Mod, Sock, TransHandle, BlobId) ->
     {op_response,  {ok, BlobHandle, _}} = get_response(Mod, Sock),
     Data = get_blob_segment(Mod, Sock, BlobHandle, <<>>),
     Mod:send(Sock, op_close_blob(BlobHandle)),
-    {op_response,  {ok, BlobHandle, _}} = get_response(Mod, Sock),
+    {op_response,  {ok, 0, _}} = get_response(Mod, Sock),
     {ok, Data}.
 
 convert_raw_value(Mod, Sock, TransHandle, XSqlVar, {Name, RawValue}) ->
