@@ -396,22 +396,28 @@ get_prepare_statement_response(Mod, Sock, StmtHandle) ->
         _ -> StmtName
     end.
 
-get_blob_segment(Mod, Sock, BlobHandle, Data) ->
+get_blob_segment_list(<<>>, SegmentList) ->
+    lists:reverse(SegmentList);
+get_blob_segment_list(Buf, SegmentList) ->
+    <<L:16/little, V:L/binary, Rest/binary>> = Buf,
+    get_blob_segment_list(Rest, [V| SegmentList]).
+
+get_blob_segment(Mod, Sock, BlobHandle, SegmentList) ->
     Mod:send(Sock, op_get_segment(BlobHandle)),
     {op_response,  {ok, F, Buf}} = get_response(Mod, Sock),
-    NewData = << Buf/binary, Data/binary >>,
+    NewList = lists:flatten([SegmentList, get_blob_segment_list(Buf, [])]),
     case F of
-        2 -> NewData;
-        _ -> get_blob_segment(Mod, Sock, BlobHandle, NewData)
+        2 -> NewList;
+        _ -> get_blob_segment(Mod, Sock, BlobHandle, NewList)
     end.
 
 get_blob_data(Mod, Sock, TransHandle, BlobId) ->
     Mod:send(Sock, op_open_blob(BlobId, TransHandle)),
     {op_response,  {ok, BlobHandle, _}} = get_response(Mod, Sock),
-    Data = get_blob_segment(Mod, Sock, BlobHandle, <<>>),
+    SegmentList = get_blob_segment(Mod, Sock, BlobHandle, []),
     Mod:send(Sock, op_close_blob(BlobHandle)),
     {op_response,  {ok, 0, _}} = get_response(Mod, Sock),
-    {ok, Data}.
+    {ok, lists:flatten(SegmentList)}.
 
 convert_raw_value(Mod, Sock, TransHandle, XSqlVar, {Name, RawValue}) ->
     CookedValue = case XSqlVar#column.type of
