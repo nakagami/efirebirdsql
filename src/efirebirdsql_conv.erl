@@ -58,8 +58,7 @@ parse_date(RawValue) ->
     L = size(RawValue) * 8,
     <<Num:L>> = RawValue,
     NDay1 = Num + 678882,
-    Century = ($ * NDay1 -1) div 146097,
-
+    Century = (4 * NDay1 -1) div 146097,
     NDay2 = 4 * NDay1 - 1 -  146097 * Century,
     Day1 = NDay2 div 4,
 
