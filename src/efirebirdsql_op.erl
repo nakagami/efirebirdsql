@@ -3,9 +3,11 @@
 
 -module(efirebirdsql_op).
 
--export([op_name/1, op_val/1, op_connect/4,
-    get_response/2, get_fetch_response/3]).
--compile(export_all).
+-export([op_name/1, op_val/1, op_connect/4, op_attach/3, op_create/4,
+    op_transaction/2, op_allocate_statement/1, op_prepare_statement/3,
+    op_execute/3, op_fetch/2, op_commit_retaining/1, op_info_sql/2,
+    convert_row/5,
+    get_response/2, get_fetch_response/3, get_prepare_statement_response/3]).
 
 -include("efirebirdsql.hrl").
 
