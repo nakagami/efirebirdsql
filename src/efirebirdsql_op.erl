@@ -425,6 +425,8 @@ get_blob_data(Mod, Sock, TransHandle, BlobId) ->
 convert_raw_value(Mod, Sock, TransHandle, XSqlVar, {Name, RawValue}) ->
     CookedValue = case XSqlVar#column.type of
             blob -> get_blob_data(Mod, Sock, TransHandle, RawValue);
+            double -> L = size(RawValue) * 8, <<V:L/float>> = RawValue, V;
+            float -> L = size(RawValue) * 8, <<V:L/float>> = RawValue, V;
             _ -> RawValue
         end,
     {Name, CookedValue}.

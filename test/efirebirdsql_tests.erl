@@ -27,8 +27,8 @@ connect_test() ->
             f TIMESTAMP DEFAULT '1967-08-11 23:45:01',
             g TIME DEFAULT '23:45:01',
             h BLOB SUB_TYPE 1,
-            i DOUBLE PRECISION DEFAULT 0.0,
-            j FLOAT DEFAULT 0.0,
+            i DOUBLE PRECISION DEFAULT 1.0,
+            j FLOAT DEFAULT 2.0,
             PRIMARY KEY (a),
             CONSTRAINT CHECK_A CHECK (a <> 0)
         )
