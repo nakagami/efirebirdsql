@@ -38,53 +38,6 @@ skip4(Mod, Sock, Len) ->
         3 -> Mod:recv(Sock, 1)
     end.
 
-%%% little endian 2byte
-byte2(N) ->
-    LB = binary:encode_unsigned(N, little),
-    LB2 = case size(LB) of
-            1 -> << LB/binary, <<0>>/binary >>;
-            2 -> LB
-        end,
-    binary_to_list(LB2).
-
-%%% big endian number list fill 4 byte alignment
-byte4(N, big) ->
-    LB = binary:encode_unsigned(N, big),
-    LB4 = case size(LB) of
-            1 -> << <<0,0,0>>/binary, LB/binary >>;
-            2 -> << <<0,0>>/binary, LB/binary >>;
-            3 -> << <<0>>/binary, LB/binary >>;
-            4 -> LB
-        end,
-    binary_to_list(LB4);
-byte4(N, little) ->
-    LB = binary:encode_unsigned(N, little),
-    LB4 = case size(LB) of
-            1 -> << LB/binary, <<0,0,0>>/binary >>;
-            2 -> << LB/binary, <<0,0>>/binary >>;
-            3 -> << LB/binary, <<0>>/binary >>;
-            4 -> LB
-        end,
-    binary_to_list(LB4).
-
-byte4(N) ->
-    byte4(N, big).
-
-%%% 4 byte padding
-pad4(L) ->
-    case length(lists:flatten(L)) rem 4 of
-        0 -> [];
-        1 -> [0, 0, 0];
-        2 -> [0, 0];
-        3 -> [0]
-    end.
-
-list_to_xdr_string(L) ->
-    lists:flatten([byte4(length(L)), L, pad4(L)]).
-
-list_to_xdr_bytes(L) ->
-    list_to_xdr_string(L).
-
 uid(Host, Username) ->
     Data = lists:flatten([
         1,  %% CNCT_user
@@ -93,7 +46,7 @@ uid(Host, Username) ->
         4,  %% CNCT_host
         length(Host),
         Host]),
-    list_to_xdr_bytes(Data).
+    efirebirdsql_conv:list_to_xdr_bytes(Data).
 
 convert_scale(Scale) ->
     if Scale < 0 -> 256 + Scale;
@@ -102,8 +55,8 @@ convert_scale(Scale) ->
 
 calc_blr_item(XSqlVar) ->
     case XSqlVar#column.type of
-        varying -> [37 | byte2(XSqlVar#column.length)] ++ [7, 0];
-        text -> [14 | byte2(XSqlVar#column.length)] ++ [7, 0];
+        varying -> [37 | efirebirdsql_conv:byte2(XSqlVar#column.length)] ++ [7, 0];
+        text -> [14 | efirebirdsql_conv:byte2(XSqlVar#column.length)] ++ [7, 0];
         long -> [8, convert_scale(XSqlVar#column.scale), 7, 0];
         short -> [7, convert_scale(XSqlVar#column.scale), 7, 0];
         int64 -> [16,  convert_scale(XSqlVar#column.scale), 7, 0];
@@ -127,21 +80,25 @@ calc_blr_items(XSqlVars, Blr) ->
 
 calc_blr(XSqlVars) ->
     L = length(XSqlVars) * 2,
-    [5, 2, 4, 0] ++ byte2(L) ++ calc_blr_items(XSqlVars, []) ++ [255, 76].
+    [5, 2, 4, 0] ++ efirebirdsql_conv:byte2(L) ++ calc_blr_items(XSqlVars, []) ++ [255, 76].
 
 
 %%% create op_connect binary
 op_connect(Host, Username, _Password, Database) ->
     %% PROTOCOL_VERSION,ArchType(Generic),MinAcceptType,MaxAcceptType,Weight
     Protocols = lists:flatten(
-        [byte4(10), byte4(1), byte4(0), byte4(3), byte4(2)]),
+        [efirebirdsql_conv:byte4(10),
+            efirebirdsql_conv:byte4(1),
+            efirebirdsql_conv:byte4(0),
+            efirebirdsql_conv:byte4(3),
+            efirebirdsql_conv:byte4(2)]),
     Buf = [
-        byte4(op_val(op_connect)),
-        byte4(op_val(op_attach)),
-        byte4(3),  %% CONNECT_VERSION
-        byte4(1),  %% arch_generic,
-        list_to_xdr_string(Database),
-        byte4(1),  %% Count of acceptable protocols (VERSION 10 only)
+        efirebirdsql_conv:byte4(op_val(op_connect)),
+        efirebirdsql_conv:byte4(op_val(op_attach)),
+        efirebirdsql_conv:byte4(3),  %% CONNECT_VERSION
+        efirebirdsql_conv:byte4(1),  %% arch_generic,
+        efirebirdsql_conv:list_to_xdr_string(Database),
+        efirebirdsql_conv:byte4(1),  %% Count of acceptable protocols (VERSION 10 only)
         uid(Host, Username)],
     list_to_binary([Buf, Protocols]).
 
@@ -154,10 +111,10 @@ op_attach(Username, Password, Database) ->
         29, length(Password), Password   %% isc_dpb_password = 29
     ]),
     list_to_binary(lists:flatten([
-        byte4(op_val(op_attach)),
-        byte4(0),
-        list_to_xdr_string(Database),
-        list_to_xdr_bytes(Dpb)])).
+        efirebirdsql_conv:byte4(op_val(op_attach)),
+        efirebirdsql_conv:byte4(0),
+        efirebirdsql_conv:list_to_xdr_string(Database),
+        efirebirdsql_conv:list_to_xdr_bytes(Dpb)])).
 
 
 %%% create op_connect binary
@@ -168,89 +125,93 @@ op_create(Username, Password, Database, PageSize) ->
         48, length(?CHARSET), ?CHARSET,   %% isc_dpb_lc_ctype = 48
         28, length(Username), Username, %% isc_dpb_user_name 28
         29, length(Password), Password, %% isc_dpb_password = 29
-        63, 4, byte4(3, little),        %% isc_dpb_sql_dialect = 63
-        24, 4, byte4(1, little),        %% isc_dpb_force_write = 24
-        54, 4, byte4(1, little),        %% isc_dpb_overwrite = 54
-        4, 4, byte4(PageSize, little)   %% isc_dpb_page_size = 4
+        63, 4, efirebirdsql_conv:byte4(3, little),        %% isc_dpb_sql_dialect = 63
+        24, 4, efirebirdsql_conv:byte4(1, little),        %% isc_dpb_force_write = 24
+        54, 4, efirebirdsql_conv:byte4(1, little),        %% isc_dpb_overwrite = 54
+        4, 4, efirebirdsql_conv:byte4(PageSize, little)   %% isc_dpb_page_size = 4
     ]),
     list_to_binary(lists:flatten([
-        byte4(op_val(op_create)),
-        byte4(0),
-        list_to_xdr_string(Database),
-        list_to_xdr_bytes(Dpb)])).
+        efirebirdsql_conv:byte4(op_val(op_create)),
+        efirebirdsql_conv:byte4(0),
+        efirebirdsql_conv:list_to_xdr_string(Database),
+        efirebirdsql_conv:list_to_xdr_bytes(Dpb)])).
 
 
 %%% begin transaction
 op_transaction(DbHandle, Tpb) ->
     list_to_binary([
-        byte4(op_val(op_transaction)),
-        byte4(DbHandle),
-        list_to_xdr_bytes(Tpb)]).
+        efirebirdsql_conv:byte4(op_val(op_transaction)),
+        efirebirdsql_conv:byte4(DbHandle),
+        efirebirdsql_conv:list_to_xdr_bytes(Tpb)]).
 
 %%% allocate statement
 op_allocate_statement(DbHandle) ->
-    list_to_binary([byte4(op_val(op_allocate_statement)), byte4(DbHandle)]).
+    list_to_binary([
+        efirebirdsql_conv:byte4(op_val(op_allocate_statement)),
+        efirebirdsql_conv:byte4(DbHandle)]).
 
 %%% prepare statement
 op_prepare_statement(TransHandle, StmtHandle, Sql) ->
     DescItems = [21 | ?INFO_SQL_SELECT_DESCRIBE_VARS], %% isc_info_sql_stmt_type
     list_to_binary([
-        byte4(op_val(op_prepare_statement)),
-        byte4(TransHandle),
-        byte4(StmtHandle),
-        byte4(3),
-        list_to_xdr_string(binary_to_list(Sql)),
-        list_to_xdr_bytes(DescItems),
-        byte4(?BUFSIZE)]).
+        efirebirdsql_conv:byte4(op_val(op_prepare_statement)),
+        efirebirdsql_conv:byte4(TransHandle),
+        efirebirdsql_conv:byte4(StmtHandle),
+        efirebirdsql_conv:byte4(3),
+        efirebirdsql_conv:list_to_xdr_string(binary_to_list(Sql)),
+        efirebirdsql_conv:list_to_xdr_bytes(DescItems),
+        efirebirdsql_conv:byte4(?BUFSIZE)]).
 
 op_execute(TransHandle, StmtHandle, _Params) ->
     list_to_binary([
-        byte4(op_val(op_execute)),
-        byte4(StmtHandle),
-        byte4(TransHandle),
-        list_to_xdr_bytes([]),
-        byte4(0),
-        byte4(0)]).
+        efirebirdsql_conv:byte4(op_val(op_execute)),
+        efirebirdsql_conv:byte4(StmtHandle),
+        efirebirdsql_conv:byte4(TransHandle),
+        efirebirdsql_conv:list_to_xdr_bytes([]),
+        efirebirdsql_conv:byte4(0),
+        efirebirdsql_conv:byte4(0)]).
 
 op_info_sql(StmtHandle, V) ->
     list_to_binary([
-        byte4(op_val(op_info_sql)),
-        byte4(StmtHandle),
-        byte4(0),
-        list_to_xdr_bytes(V),
-        byte4(?BUFSIZE)]).
+        efirebirdsql_conv:byte4(op_val(op_info_sql)),
+        efirebirdsql_conv:byte4(StmtHandle),
+        efirebirdsql_conv:byte4(0),
+        efirebirdsql_conv:list_to_xdr_bytes(V),
+        efirebirdsql_conv:byte4(?BUFSIZE)]).
 
 op_fetch(StmtHandle, XSqlVars) ->
     list_to_binary([
-        byte4(op_val(op_fetch)),
-        byte4(StmtHandle),
-        list_to_xdr_bytes(calc_blr(XSqlVars)),
-        byte4(0),
-        byte4(400)]).
+        efirebirdsql_conv:byte4(op_val(op_fetch)),
+        efirebirdsql_conv:byte4(StmtHandle),
+        efirebirdsql_conv:list_to_xdr_bytes(calc_blr(XSqlVars)),
+        efirebirdsql_conv:byte4(0),
+        efirebirdsql_conv:byte4(400)]).
 
 %%% commit
 op_commit_retaining(TransHandle) ->
-    list_to_binary([byte4(op_val(op_commit_retaining)), byte4(TransHandle)]).
+    list_to_binary([
+        efirebirdsql_conv:byte4(op_val(op_commit_retaining)),
+        efirebirdsql_conv:byte4(TransHandle)]).
 
 
 %%% blob
 op_open_blob(BlobId, TransHandle) ->
     H = list_to_binary([
-        byte4(op_val(op_open_blob)),
-        byte4(TransHandle)]),
+        efirebirdsql_conv:byte4(op_val(op_open_blob)),
+        efirebirdsql_conv:byte4(TransHandle)]),
     <<H/binary, BlobId/binary>>.
 
 op_get_segment(BlobHandle) ->
     list_to_binary([
-        byte4(op_val(op_get_segment)),
-        byte4(BlobHandle),
-        byte4(?BUFSIZE),
-        byte4(0)]).
+        efirebirdsql_conv:byte4(op_val(op_get_segment)),
+        efirebirdsql_conv:byte4(BlobHandle),
+        efirebirdsql_conv:byte4(?BUFSIZE),
+        efirebirdsql_conv:byte4(0)]).
 
 op_close_blob(BlobHandle) ->
     list_to_binary([
-        byte4(op_val(op_close_blob)),
-        byte4(BlobHandle)]).
+        efirebirdsql_conv:byte4(op_val(op_close_blob)),
+        efirebirdsql_conv:byte4(BlobHandle)]).
 
 %%% parse status vector
 parse_status_vector_integer(Mod, Sock) ->
