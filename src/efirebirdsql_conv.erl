@@ -88,10 +88,10 @@ parse_timestamp(RawValue) ->
 
 parse_number(RawValue, Scale) when Scale =:= 0  ->
     L = size(RawValue) * 8,
-    <<V:L/integer>> = RawValue,
+    <<V:L/signed-integer>> = RawValue,
     V;
 parse_number(RawValue, Scale) ->
     L = size(RawValue) * 8,
-    <<V:L/integer>> = RawValue,
+    <<V:L/signed-integer>> = RawValue,
     V * math:pow(10, Scale).
 
