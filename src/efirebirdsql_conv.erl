@@ -86,8 +86,12 @@ parse_timestamp(RawValue) ->
     <<YMD:4/binary, HMS:4/binary>> = RawValue,
     {parse_date(YMD), parse_time(HMS)}.
 
+parse_number(RawValue, Scale) when Scale =:= 0  ->
+    L = size(RawValue) * 8,
+    <<V:L/integer>> = RawValue,
+    V;
 parse_number(RawValue, Scale) ->
     L = size(RawValue) * 8,
     <<V:L/integer>> = RawValue,
-    V.
+    V * math:pow(10, Scale).
 
