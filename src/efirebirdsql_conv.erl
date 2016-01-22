@@ -86,9 +86,12 @@ parse_timestamp(RawValue) ->
     <<YMD:4/binary, HMS:4/binary>> = RawValue,
     {parse_date(YMD), parse_time(HMS)}.
 
+fill0(S, 0) -> S;
+fill0(S, N) -> fill0([48 | S], N-1).
 pow10(N) -> pow10(10, N).
 pow10(V, 0) -> V;
 pow10(V, N) -> pow10(V * 10, N-1).
+
 parse_number(RawValue, Scale) when Scale =:= 0  ->
     L = size(RawValue) * 8,
     <<V:L/signed-integer>> = RawValue,
@@ -96,9 +99,15 @@ parse_number(RawValue, Scale) when Scale =:= 0  ->
 parse_number(RawValue, Scale) when Scale > 0 ->
     L = size(RawValue) * 8,
     <<V:L/signed-integer>> = RawValue,
-    V * pow10(Scale);
+    integer_to_list(V * pow10(Scale));
 parse_number(RawValue, Scale) when Scale < 0 ->
     L = size(RawValue) * 8,
     <<V:L/signed-integer>> = RawValue,
-    V * math:pow(10, Scale).
+    S = integer_to_list(V),
+    Shift = -Scale,
+    S2 = if length(S) =< Shift -> fill0(S, Shift - length(S) + 1);
+            length(S) > Shift -> S
+        end,
+    {I, F} = lists:split(Shift, S2),
+    lists:flatten([I, ".", F]).
 
