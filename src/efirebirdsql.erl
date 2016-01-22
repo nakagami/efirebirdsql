@@ -4,7 +4,8 @@
 -module(efirebirdsql).
 
 -export([start_link/0]).
--export([connect/4, connect/5, prepare/2, execute/2,
+-export([connect/4, connect/5, prepare/2, execute_prepared/2,
+         execute/2, execute/3,
          description/1, fetchall/1,
          commit/1, close/1]).
 
@@ -49,14 +50,24 @@ connect(Host, Username, Password, Database, Ops) ->
 connect(Host, Username, Password, Database) ->
     connect(Host, Username, Password, Database, []).
 
+-spec prepare(connection(), binary())
+    -> ok.
 prepare(C, QueryString) ->
     gen_server:call(C, {prepare, QueryString}, infinity).
+
+-spec execute_prepared(connection(), list())
+    -> ok.
+execute_prepared(C, Params) ->
+    gen_server:call(C, {execute, Params}, infinity).
+
+execute(C, QueryString, Params) ->
+    prepare(C, QueryString),
+    execute_prepared(C, Params).
 
 -spec execute(connection(), binary())
     -> ok.
 execute(C, QueryString) ->
-    gen_server:call(C, {prepare, QueryString}, infinity),
-    gen_server:call(C, {execute, []}, infinity).
+    execute(C, QueryString, []).
 
 description(C) ->
     gen_server:call(C, description, infinity).
