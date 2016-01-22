@@ -8,11 +8,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("efirebirdsql.hrl").
 
-
-connect_test() ->
-    %% connect to bad database
-    {error, _} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", "something_wrong_database"),
+create_testdb() ->
     %% crete new database
     {ok, C} = efirebirdsql:connect(
         "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb",
@@ -35,6 +31,14 @@ connect_test() ->
     ">>),
     ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (1, 'b', 'c','blob')">>),
     ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (2, 'B', 'C','BLOB')">>),
+    C.
+
+basic_test() ->
+    %% connect to bad database
+    {error, _} = efirebirdsql:connect(
+        "localhost", "sysdba", "masterkey", "something_wrong_database"),
+
+    C = create_testdb(),
     ok = efirebirdsql:execute(C, <<"select * from foo">>),
     ?assertEqual(length(efirebirdsql:description(C)), 10),
     {ok, R} = efirebirdsql:fetchall(C),
