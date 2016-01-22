@@ -94,7 +94,7 @@ positive_integer_to_decimal(N, Scale) when N > 0, Scale < 0 ->
     S2 = if length(S) =< Shift -> fill0(S, Shift - length(S) + 1);
             length(S) > Shift -> S
         end,
-    {I, F} = lists:split(Shift, S2),
+    {I, F} = lists:split(length(S2) - Shift, S2),
     lists:flatten([I, ".", F]).
 
 pow10(N) -> pow10(10, N).
