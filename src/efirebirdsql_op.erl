@@ -385,10 +385,14 @@ get_blob_data(Mod, Sock, TransHandle, BlobId) ->
 
 convert_raw_value(Mod, Sock, TransHandle, XSqlVar, {Name, RawValue}) ->
     CookedValue = case XSqlVar#column.type of
-            long -> L = size(RawValue) * 8, <<V:L/integer>> = RawValue, V;
-            short -> L = size(RawValue) * 8, <<V:L/integer>> = RawValue, V;
-            int64 -> L = size(RawValue) * 8, <<V:L/integer>> = RawValue, V;
-            quad -> L = size(RawValue) * 8, <<V:L/integer>> = RawValue, V;
+            long -> efirebirdsql_conv:parse_number(
+                RawValue, XSqlVar#column.scale);
+            short -> efirebirdsql_conv:parse_number(
+                RawValue, XSqlVar#column.scale);
+            int64 -> efirebirdsql_conv:parse_number(
+                RawValue, XSqlVar#column.scale);
+            quad -> efirebirdsql_conv:parse_number(
+                RawValue, XSqlVar#column.scale);
             double -> L = size(RawValue) * 8, <<V:L/float>> = RawValue, V;
             float -> L = size(RawValue) * 8, <<V:L/float>> = RawValue, V;
             date -> efirebirdsql_conv:parse_date(RawValue);

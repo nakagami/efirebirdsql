@@ -5,7 +5,7 @@
 
 -export([byte2/1, byte4/2, byte4/1,
     list_to_xdr_string/1, list_to_xdr_bytes/1,
-    parse_date/1, parse_time/1, parse_timestamp/1]).
+    parse_date/1, parse_time/1, parse_timestamp/1, parse_number/2]).
 
 %%% little endian 2byte
 byte2(N) ->
@@ -85,3 +85,9 @@ parse_time(RawValue) ->
 parse_timestamp(RawValue) ->
     <<YMD:4/binary, HMS:4/binary>> = RawValue,
     {parse_date(YMD), parse_time(HMS)}.
+
+parse_number(RawValue, Scale) ->
+    L = size(RawValue) * 8,
+    <<V:L/integer>> = RawValue,
+    V.
+
