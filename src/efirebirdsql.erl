@@ -4,10 +4,8 @@
 -module(efirebirdsql).
 
 -export([start_link/0]).
--export([connect/4, connect/5, prepare/2, execute_prepared/2,
-         execute/2, execute/3,
-         description/1, fetchall/1,
-         commit/1, close/1]).
+-export([connect/4, connect/5, prepare/2, execute/2, execute/3, description/1,
+        fetchone/1, fetchall/1, commit/1, close/1]).
 
 -export_type([connection/0, connect_option/0,
     connect_error/0, query_error/0]).
@@ -55,22 +53,20 @@ connect(Host, Username, Password, Database) ->
 prepare(C, QueryString) ->
     gen_server:call(C, {prepare, QueryString}, infinity).
 
--spec execute_prepared(connection(), list())
-    -> ok.
-execute_prepared(C, Params) ->
-    gen_server:call(C, {execute, Params}, infinity).
-
 execute(C, QueryString, Params) ->
     prepare(C, QueryString),
-    execute_prepared(C, Params).
+    execute(C, Params).
 
--spec execute(connection(), binary())
-    -> ok.
-execute(C, QueryString) ->
-    execute(C, QueryString, []).
+execute(C, QueryString) when is_binary(QueryString) ->
+    execute(C, QueryString, []);
+execute(C, Params) when is_list(Params) ->
+    gen_server:call(C, {execute, Params}, infinity).
 
 description(C) ->
     gen_server:call(C, description, infinity).
+
+fetchone(C) ->
+    gen_server:call(C, fetchone, infinity).
 
 fetchall(C) ->
     gen_server:call(C, fetchall, infinity).

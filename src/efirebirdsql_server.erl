@@ -186,6 +186,12 @@ handle_call({execute, Params}, _From, State) ->
         _ ->
             {reply, ok, State}
     end;
+handle_call(fetchone, _From, State) ->
+    [R | Rest] = State#state.rows,
+    Row = efirebirdsql_op:convert_row(
+                State#state.mod, State#state.sock,
+                State#state.trans_handle, State#state.xsqlvars, R),
+    {reply, {ok, Row}, State#state{rows=Rest}};
 handle_call(fetchall, _From, State) ->
     Rows = [efirebirdsql_op:convert_row(
                     State#state.mod, State#state.sock, 
