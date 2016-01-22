@@ -88,10 +88,18 @@ parse_timestamp(RawValue) ->
 
 fill0(S, 0) -> S;
 fill0(S, N) -> fill0([48 | S], N-1).
+positive_integer_to_decimal(N, Scale) when N > 0, Scale < 0 ->
+    Shift = -Scale,
+    S = integer_to_list(N),
+    S2 = if length(S) =< Shift -> fill0(S, Shift - length(S) + 1);
+            length(S) > Shift -> S
+        end,
+    {I, F} = lists:split(Shift, S2),
+    lists:flatten([I, ".", F]).
+
 pow10(N) -> pow10(10, N).
 pow10(V, 0) -> V;
 pow10(V, N) -> pow10(V * 10, N-1).
-
 parse_number(RawValue, Scale) when Scale =:= 0  ->
     L = size(RawValue) * 8,
     <<V:L/signed-integer>> = RawValue,
@@ -103,11 +111,7 @@ parse_number(RawValue, Scale) when Scale > 0 ->
 parse_number(RawValue, Scale) when Scale < 0 ->
     L = size(RawValue) * 8,
     <<V:L/signed-integer>> = RawValue,
-    S = integer_to_list(V),
-    Shift = -Scale,
-    S2 = if length(S) =< Shift -> fill0(S, Shift - length(S) + 1);
-            length(S) > Shift -> S
-        end,
-    {I, F} = lists:split(Shift, S2),
-    lists:flatten([I, ".", F]).
+    if V < 0 -> lists:flatten(["-", positive_integer_to_decimal(-V, Scale)]);
+       true -> positive_integer_to_decimal(V, Scale)
+    end.
 
