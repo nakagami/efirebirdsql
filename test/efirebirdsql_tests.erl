@@ -33,6 +33,30 @@ create_testdb() ->
     ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (2, 'B', 'C','BLOB')">>),
     C.
 
+record1() ->
+    [{<<"A">>,1},
+     {<<"B">>,<<"b">>},
+     {<<"C">>,<<"c">>},
+     {<<"D">>,"-0.123"},
+     {<<"E">>,{1967,8,11}},
+     {<<"F">>,{{1967,8,11},{23,45,1,0}}},
+     {<<"G">>,{23,45,1,0}},
+     {<<"H">>,{ok,<<"blob">>}},
+     {<<"I">>,1.0},
+     {<<"J">>,2.0}].
+
+record2() ->
+    [{<<"A">>,2},
+     {<<"B">>,<<"B">>},
+     {<<"C">>,<<"C">>},
+     {<<"D">>,"-0.123"},
+     {<<"E">>,{1967,8,11}},
+     {<<"F">>,{{1967,8,11},{23,45,1,0}}},
+     {<<"G">>,{23,45,1,0}},
+     {<<"H">>,{ok,<<"BLOB">>}},
+     {<<"I">>,1.0},
+     {<<"J">>,2.0}].
+
 basic_test() ->
     %% connect to bad database
     {error, _} = efirebirdsql:connect(
@@ -42,7 +66,7 @@ basic_test() ->
     ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
     ?assertEqual(length(efirebirdsql:description(C)), 10),
     {ok, ResultAll} = efirebirdsql:fetchall(C),
-    ?assertEqual(length(ResultAll), 2),
+    ResultAll = [record1(), record2()],
 %    ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
 %    {ok, ResultOne} = efirebirdsql:fetchone(C),
 %    ?assertEqual(ResultOne, lists:head(ResultAll)),
