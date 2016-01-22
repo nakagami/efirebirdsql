@@ -39,9 +39,12 @@ basic_test() ->
         "localhost", "sysdba", "masterkey", "something_wrong_database"),
 
     C = create_testdb(),
-    ok = efirebirdsql:execute(C, <<"select * from foo">>),
+    ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
     ?assertEqual(length(efirebirdsql:description(C)), 10),
-    {ok, R} = efirebirdsql:fetchall(C),
-    ?assertEqual(length(R), 2),
+    {ok, ResultAll} = efirebirdsql:fetchall(C),
+    ?assertEqual(length(ResultAll), 2),
+%    ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
+%    {ok, ResultOne} = efirebirdsql:fetchone(C),
+%    ?assertEqual(ResultOne, lists:head(ResultAll)),
     ok = efirebirdsql:commit(C),
     ok = efirebirdsql:close(C).
