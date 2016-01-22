@@ -383,7 +383,7 @@ get_blob_data(Mod, Sock, TransHandle, BlobId) ->
     [R] = lists:flatten(SegmentList),
     {ok, R}.
 
-convert_raw_value(Mod, Sock, TransHandle, XSqlVar, {Name, RawValue}) ->
+convert_raw_value(Mod, Sock, TransHandle, XSqlVar, RawValue) ->
     CookedValue = case XSqlVar#column.type of
             long -> efirebirdsql_conv:parse_number(
                 RawValue, XSqlVar#column.scale);
@@ -402,7 +402,7 @@ convert_raw_value(Mod, Sock, TransHandle, XSqlVar, {Name, RawValue}) ->
             boolean -> if RawValue =/= <<0,0,0,0>> -> true; true -> false end;
             _ -> RawValue
         end,
-    {Name, CookedValue}.
+    CookedValue.
 
 convert_row(_Mod, _Sock, _TransHandle, [], [], Converted) ->
     lists:reverse(Converted);
@@ -410,7 +410,7 @@ convert_row(Mod, Sock, TransHandle, XSqlVars, Row, Converted) ->
     [X | XRest] = XSqlVars,
     [R | RRest] = Row,
     convert_row(Mod, Sock, TransHandle, XRest, RRest,
-        [convert_raw_value(Mod, Sock, TransHandle, X, R) | Converted]).
+        [{X#column.name, convert_raw_value(Mod, Sock, TransHandle, X, R)} | Converted]).
 
 convert_row(Mod, Sock, TransHandle, XSqlVars, Row) ->
     convert_row(Mod, Sock, TransHandle, XSqlVars, Row, []).
@@ -445,7 +445,7 @@ get_fetch_response_row(_Mod, _Sock, [], Columns) ->
 get_fetch_response_row(Mod, Sock, XSqlVars, Columns) ->
     [X | RestVars] = XSqlVars,
     V = get_fetch_response_raw_value(Mod, Sock, X),
-    get_fetch_response_row(Mod, Sock, RestVars, [{X#column.name, V} | Columns]).
+    get_fetch_response_row(Mod, Sock, RestVars, [V | Columns]).
 
 get_fetch_response(_Mod, _Sock, Status, 0, _XSqlVars, Results) ->
     %% {list_of_response, more_data}
