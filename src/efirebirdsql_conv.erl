@@ -86,11 +86,18 @@ parse_timestamp(RawValue) ->
     <<YMD:4/binary, HMS:4/binary>> = RawValue,
     {parse_date(YMD), parse_time(HMS)}.
 
+pow10(N) -> pow10(10, N).
+pow10(V, 0) -> V;
+pow10(V, N) -> pow10(V * 10, N-1).
 parse_number(RawValue, Scale) when Scale =:= 0  ->
     L = size(RawValue) * 8,
     <<V:L/signed-integer>> = RawValue,
     V;
-parse_number(RawValue, Scale) ->
+parse_number(RawValue, Scale) when Scale > 0 ->
+    L = size(RawValue) * 8,
+    <<V:L/signed-integer>> = RawValue,
+    V * pow10(Scale);
+parse_number(RawValue, Scale) when Scale < 0 ->
     L = size(RawValue) * 8,
     <<V:L/signed-integer>> = RawValue,
     V * math:pow(10, Scale).
