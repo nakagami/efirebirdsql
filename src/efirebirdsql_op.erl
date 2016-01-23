@@ -88,13 +88,13 @@ calc_blr(XSqlVars) ->
 
 %% Convert parameters to BLR and values.
 param_to_blr(V) when is_integer(V) ->
-    {[8, 0], efirebirdsql_conv:byte4(V)};
+    {[8, 0, 7, 0], efirebirdsql_conv:byte4(V)};
 param_to_blr(true) ->
-    {[23], [1, 0, 0, 0]};
+    {[23, 7, 0], [1, 0, 0, 0]};
 param_to_blr(false) ->
-    {[23], [0, 0, 0, 0]};
+    {[23, 7, 0], [0, 0, 0, 0]};
 param_to_blr(null) ->
-    {[14, 0, 0], []}.
+    {[14, 0, 0, 7, 0], []}.
 
 params_to_blr([], Blr, Value) ->
     {Blr, Value};
