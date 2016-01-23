@@ -31,7 +31,7 @@ create_testdb() ->
     ">>),
     ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (1, 'b', 'c','blob')">>),
     ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (2, 'B', 'C','BLOB')">>),
-    C.
+    efirebirdsql:close(C).
 
 description() ->
     [{column,<<"A">>,long,0,4,false},
