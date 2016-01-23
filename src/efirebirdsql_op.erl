@@ -602,7 +602,7 @@ op_val(op_crypt) -> 96;
 op_val(op_crypt_key_callback) -> 97;
 op_val(op_cond_accept) -> 98.
 
-sql_type(X) when X rem 2 == 1 -> sql_type(X div 2 * 2);
+sql_type(X) when X rem 2 == 1 -> sql_type(X band 16#FFFE);
 sql_type(452) -> text;
 sql_type(448) -> varying;
 sql_type(500) -> short;
