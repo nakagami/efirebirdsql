@@ -419,7 +419,9 @@ convert_raw_value(Mod, Sock, TransHandle, XSqlVar, RawValue) ->
             date -> efirebirdsql_conv:parse_date(RawValue);
             time -> efirebirdsql_conv:parse_time(RawValue);
             timestamp -> efirebirdsql_conv:parse_timestamp(RawValue);
-            blob -> get_blob_data(Mod, Sock, TransHandle, RawValue);
+            blob ->
+                {ok, B} = get_blob_data(Mod, Sock, TransHandle, RawValue),
+                B;
             boolean -> if RawValue =/= <<0,0,0,0>> -> true; true -> false end;
             _ -> RawValue
         end,
