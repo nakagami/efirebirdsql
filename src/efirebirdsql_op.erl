@@ -88,13 +88,13 @@ calc_blr(XSqlVars) ->
 
 %% Convert parameters to BLR and values.
 param_to_blr(V) when is_integer(V) ->
-    {[8, 0, 7, 0], efirebirdsql_conv:byte4(V)};
+    {[8, 0, 7, 0], lists:flatten([efirebirdsql_conv:byte4(V), [0, 0, 0, 0]])};
 param_to_blr(true) ->
-    {[23, 7, 0], [1, 0, 0, 0]};
+    {[23, 7, 0], [1, 0, 0, 0, 0, 0, 0, 0]};
 param_to_blr(false) ->
-    {[23, 7, 0], [0, 0, 0, 0]};
+    {[23, 7, 0], [0, 0, 0, 0, 0, 0, 0, 0]};
 param_to_blr(null) ->
-    {[14, 0, 0, 7, 0], []}.
+    {[14, 0, 0, 7, 0], [0, 0, 0, 0, 255, 255, 255, 255]}.
 
 params_to_blr([], Blr, Value) ->
     {Blr, Value};
@@ -219,7 +219,7 @@ op_execute(TransHandle, StmtHandle, Params) ->
                 efirebirdsql_conv:list_to_xdr_bytes(Blr),
                 efirebirdsql_conv:byte4(0),
                 efirebirdsql_conv:byte4(1),
-                efirebirdsql_conv:list_to_xdr_bytes(Value)])
+                Value])
     end.
 
 op_info_sql(StmtHandle, V) ->
