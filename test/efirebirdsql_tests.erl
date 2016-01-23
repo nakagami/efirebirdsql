@@ -33,7 +33,19 @@ create_testdb() ->
     ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (2, 'B', 'C','BLOB')">>),
     C.
 
-record1() ->
+description() ->
+    [{column,<<"A">>,long,0,4,false},
+     {column,<<"B">>,varying,0,120,false},
+     {column,<<"C">>,varying,0,4096,true},
+     {column,<<"D">>,int64,-3,8,true},
+     {column,<<"E">>,date,0,4,true},
+     {column,<<"F">>,timestamp,0,8,true},
+     {column,<<"G">>,time,0,4,true},
+     {column,<<"H">>,blob,4,8,true},
+     {column,<<"I">>,double,0,8,true},
+     {column,<<"J">>,float,0,4,true}].
+
+result1() ->
     [{<<"A">>,1},
      {<<"B">>,<<"b">>},
      {<<"C">>,<<"c">>},
@@ -45,7 +57,7 @@ record1() ->
      {<<"I">>,1.0},
      {<<"J">>,2.0}].
 
-record2() ->
+result2() ->
     [{<<"A">>,2},
      {<<"B">>,<<"B">>},
      {<<"C">>,<<"C">>},
@@ -68,15 +80,15 @@ basic_test() ->
         "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb"),
 
     ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
-    ?assertEqual(length(efirebirdsql:description(C)), 10),
+    ?assertEqual(efirebirdsql:description(C), description()),
     {ok, ResultAll} = efirebirdsql:fetchall(C),
-    ResultAll = [record1(), record2()],
+    ?assertEqual(ResultAll,  [result1(), result2()]),
 
     ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
     {ok, ResultOne} = efirebirdsql:fetchone(C),
-    ?assertEqual(ResultOne, record1()),
+    ?assertEqual(ResultOne, result1()),
     {ok, ResultTwo} = efirebirdsql:fetchone(C),
-    ?assertEqual(ResultTwo, record2()),
+    ?assertEqual(ResultTwo, result2()),
 
     ok = efirebirdsql:commit(C),
     ok = efirebirdsql:close(C).
