@@ -90,11 +90,17 @@ description(InXSqlVars, XSqlVar) ->
                       H#column.length, H#column.null_ind} | XSqlVar]).
 
 commit(Mod, Sock, TransHandle) ->
-    Mod:send(Sock,
-        efirebirdsql_op:op_commit_retaining(TransHandle)),
+    Mod:send(Sock, efirebirdsql_op:op_commit_retaining(TransHandle)),
     case efirebirdsql_op:get_response(Mod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
         _ -> {error, "Commit failed"}
+    end.
+
+detach(Mod, Sock, DbHandle) ->
+    Mod:send(Sock, efirebirdsql_op:op_detach(DbHandle)),
+    case efirebirdsql_op:get_response(Mod, Sock) of
+        {op_response,  {ok, _, _}} -> ok;
+        _ -> {error, "Detach failed"}
     end.
 
 %% -- client interface --
@@ -168,9 +174,9 @@ handle_call({transaction, Options}, _From, State) ->
 handle_call(commit, _From, State) ->
     {reply, commit(State#state.mod,
         State#state.sock, State#state.trans_handle), State};
-handle_call(close, _From, State) ->
-    %%% TODO: Do something
-    {reply, ok, State};
+handle_call(detach, _From, State) ->
+    {reply, detach(State#state.mod,
+        State#state.sock, State#state.db_handle), State};
 handle_call({prepare, Sql}, _From, State) ->
     case State#state.stmt_type of
         isc_info_sql_stmt_select -> free_statement(

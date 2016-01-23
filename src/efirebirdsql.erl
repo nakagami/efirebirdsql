@@ -5,7 +5,7 @@
 
 -export([start_link/0]).
 -export([connect/4, connect/5, prepare/2, execute/2, execute/3, description/1,
-        fetchone/1, fetchall/1, commit/1, close/1]).
+        fetchone/1, fetchall/1, commit/1, close/1, cancel/1, sync/1]).
 
 -export_type([connection/0, connect_option/0,
     connect_error/0, query_error/0]).
@@ -79,4 +79,13 @@ commit(C) ->
 -spec close(efirebirdsql:connection())
     -> ok | {error, Reason :: connect_error()}.
 close(C) ->
-    gen_server:call(C, close, infinity).
+    gen_server:call(C, detach, infinity),
+    catch gen_server:cast(C, stop),
+    ok.
+
+cancel(C) ->
+    gen_server:cast(C, cancel).
+
+sync(C) ->
+    gen_server:call(C, sync).
+
