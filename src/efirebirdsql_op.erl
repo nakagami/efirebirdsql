@@ -6,8 +6,8 @@
 -export([op_name/1, op_val/1, op_connect/4, op_attach/3, op_detach/1,
     op_create/4, op_transaction/2,
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/1,
-    op_execute/3, op_fetch/2, op_commit_retaining/1, op_info_sql/2,
-    convert_row/5,
+    op_execute/3, op_fetch/2, op_commit_retaining/1, op_rollback_retaining/1, 
+    op_info_sql/2, convert_row/5,
     get_response/2, get_fetch_response/3, get_prepare_statement_response/3]).
 
 -include("efirebirdsql.hrl").
@@ -246,6 +246,12 @@ op_fetch(StmtHandle, XSqlVars) ->
 op_commit_retaining(TransHandle) ->
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_commit_retaining)),
+        efirebirdsql_conv:byte4(TransHandle)]).
+
+%%% rollback
+op_rollback_retaining(TransHandle) ->
+    list_to_binary([
+        efirebirdsql_conv:byte4(op_val(op_rollback_retaining)),
         efirebirdsql_conv:byte4(TransHandle)]).
 
 

@@ -96,6 +96,13 @@ commit(Mod, Sock, TransHandle) ->
         _ -> {error, "Commit failed"}
     end.
 
+rollback(Mod, Sock, TransHandle) ->
+    Mod:send(Sock, efirebirdsql_op:op_rollback_retaining(TransHandle)),
+    case efirebirdsql_op:get_response(Mod, Sock) of
+        {op_response,  {ok, _, _}} -> ok;
+        _ -> {error, "Rollback failed"}
+    end.
+
 detach(Mod, Sock, DbHandle) ->
     Mod:send(Sock, efirebirdsql_op:op_detach(DbHandle)),
     case efirebirdsql_op:get_response(Mod, Sock) of
@@ -173,6 +180,9 @@ handle_call({transaction, Options}, _From, State) ->
     end;
 handle_call(commit, _From, State) ->
     {reply, commit(State#state.mod,
+        State#state.sock, State#state.trans_handle), State};
+handle_call(rollback, _From, State) ->
+    {reply, rollback(State#state.mod,
         State#state.sock, State#state.trans_handle), State};
 handle_call(detach, _From, State) ->
     {reply, detach(State#state.mod,
