@@ -92,7 +92,7 @@ param_to_blr(V) when is_integer(V) ->
 param_to_blr(V) when is_binary(V) ->
     B = binary_to_list(V),
     {lists:flatten([14, efirebirdsql_conv:byte2(length(B)), 7, 0]),
-        B ++ efirebirdsql_conv:pad4(B)};
+        lists:flatten([B, efirebirdsql_conv:pad4(B), [0, 0, 0, 0]])};
 param_to_blr(true) ->
     {[23, 7, 0], [1, 0, 0, 0, 0, 0, 0, 0]};
 param_to_blr(false) ->
