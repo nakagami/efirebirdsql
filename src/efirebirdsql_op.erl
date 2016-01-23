@@ -201,14 +201,26 @@ op_free_statement(StmtHandle) ->
         efirebirdsql_conv:byte4(StmtHandle),
         efirebirdsql_conv:byte4(1)]).
 
-op_execute(TransHandle, StmtHandle, _Params) ->
-    list_to_binary([
-        efirebirdsql_conv:byte4(op_val(op_execute)),
-        efirebirdsql_conv:byte4(StmtHandle),
-        efirebirdsql_conv:byte4(TransHandle),
-        efirebirdsql_conv:list_to_xdr_bytes([]),
-        efirebirdsql_conv:byte4(0),
-        efirebirdsql_conv:byte4(0)]).
+op_execute(TransHandle, StmtHandle, Params) ->
+    if length(Params) == 0 ->
+            list_to_binary([
+                efirebirdsql_conv:byte4(op_val(op_execute)),
+                efirebirdsql_conv:byte4(StmtHandle),
+                efirebirdsql_conv:byte4(TransHandle),
+                efirebirdsql_conv:list_to_xdr_bytes([]),
+                efirebirdsql_conv:byte4(0),
+                efirebirdsql_conv:byte4(0)]);
+        length(Params) > 0 ->
+            {Blr, Value} = params_to_blr(Params),
+            list_to_binary([
+                efirebirdsql_conv:byte4(op_val(op_execute)),
+                efirebirdsql_conv:byte4(StmtHandle),
+                efirebirdsql_conv:byte4(TransHandle),
+                efirebirdsql_conv:list_to_xdr_bytes(Blr),
+                efirebirdsql_conv:byte4(0),
+                efirebirdsql_conv:byte4(1),
+                efirebirdsql_conv:list_to_xdr_bytes(Value)])
+    end.
 
 op_info_sql(StmtHandle, V) ->
     list_to_binary([
