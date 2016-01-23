@@ -80,7 +80,7 @@ commit(C) ->
 -spec rollback(connection())
     -> ok | {error, _Reason}.
 rollback(C) ->
-    gen_server:call(C, {rollback, []}, infinity).
+    gen_server:call(C, rollback, infinity).
 
 -spec close(efirebirdsql:connection())
     -> ok | {error, Reason :: connect_error()}.
