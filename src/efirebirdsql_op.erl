@@ -86,6 +86,29 @@ calc_blr(XSqlVars) ->
         calc_blr_items(XSqlVars, []),
         [255, 76]]).
 
+%% Convert parameters to BLR and values.
+param_to_blr(V) when is_integer(V) ->
+    {[8, 0], efirebirdsql_conv:byte4(V)};
+param_to_blr(true) ->
+    {[23], [1, 0, 0, 0]};
+param_to_blr(false) ->
+    {[23], [0, 0, 0, 0]};
+param_to_blr(null) ->
+    {[14, 0, 0], []}.
+
+params_to_blr([], Blr, Value) ->
+    {Blr, Value};
+params_to_blr(Params, Blr, Value) ->
+    [V | RestParams] = Params,
+    {NewBlr, NewValue} = param_to_blr(V),
+    params_to_blr(RestParams, [NewBlr | Blr], [NewValue | Value]).
+
+params_to_blr(Params) ->
+    {BlrBody, Value} = params_to_blr(Params, [], []),
+    L = length(Params) * 2,
+    Blr = lists:flatten([[5, 2, 4, 0], efirebirdsql_conv:byte2(L), BlrBody, [255, 76]]),
+    {Blr, Value}.
+
 %%% create op_connect binary
 op_connect(Host, Username, _Password, Database) ->
     %% PROTOCOL_VERSION,ArchType(Generic),MinAcceptType,MaxAcceptType,Weight
