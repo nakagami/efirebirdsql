@@ -4,7 +4,8 @@
 -module(efirebirdsql_op).
 
 -export([op_name/1, op_val/1, op_connect/4, op_attach/3, op_create/4,
-    op_transaction/2, op_allocate_statement/1, op_prepare_statement/3,
+    op_transaction/2,
+    op_allocate_statement/1, op_prepare_statement/3, op_free_statement/1,
     op_execute/3, op_fetch/2, op_commit_retaining/1, op_info_sql/2,
     convert_row/5,
     get_response/2, get_fetch_response/3, get_prepare_statement_response/3]).
@@ -161,6 +162,15 @@ op_prepare_statement(TransHandle, StmtHandle, Sql) ->
         efirebirdsql_conv:list_to_xdr_string(binary_to_list(Sql)),
         efirebirdsql_conv:list_to_xdr_bytes(DescItems),
         efirebirdsql_conv:byte4(?BUFSIZE)]).
+
+%%% free statement
+op_free_statement(StmtHandle) ->
+    %% DSQL_close = 1
+    %% DSQL_drop = 2
+    list_to_binary([
+        efirebirdsql_conv:byte4(op_val(op_free_statement)),
+        efirebirdsql_conv:byte4(StmtHandle),
+        efirebirdsql_conv:byte4(1)]).
 
 op_execute(TransHandle, StmtHandle, _Params) ->
     list_to_binary([

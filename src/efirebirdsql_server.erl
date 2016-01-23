@@ -58,6 +58,10 @@ prepare_statement(Mod, Sock, TransHandle, StmtHandle, Sql) ->
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
     efirebirdsql_op:get_prepare_statement_response(Mod, Sock, StmtHandle).
 
+free_statement(Mod, Sock, StmtHandle) ->
+    Mod:send(Sock, efirebirdsql_op:op_free_statement(StmtHandle)),
+    {op_response, {ok, _, _}} = efirebirdsql_op:get_response(Mod, Sock).
+
 execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
     Mod:send(Sock,
         efirebirdsql_op:op_execute(TransHandle, StmtHandle, Params)),
@@ -168,6 +172,11 @@ handle_call(close, _From, State) ->
     %%% TODO: Do something
     {reply, ok, State};
 handle_call({prepare, Sql}, _From, State) ->
+    case State#state.stmt_type of
+        isc_info_sql_stmt_select -> free_statement(
+            State#state.mod, State#state.sock, State#state.stmt_handle);
+        _ -> ok
+    end,
     case R = prepare_statement(State#state.mod, State#state.sock,
                 State#state.trans_handle, State#state.stmt_handle, Sql) of
         {StmtType, XSqlVars} ->

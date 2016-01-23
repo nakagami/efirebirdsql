@@ -58,17 +58,25 @@ record2() ->
      {<<"J">>,2.0}].
 
 basic_test() ->
+    create_testdb(),
+
     %% connect to bad database
     {error, _} = efirebirdsql:connect(
         "localhost", "sysdba", "masterkey", "something_wrong_database"),
 
-    C = create_testdb(),
+    {ok, C} = efirebirdsql:connect(
+        "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb"),
+
     ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
     ?assertEqual(length(efirebirdsql:description(C)), 10),
     {ok, ResultAll} = efirebirdsql:fetchall(C),
     ResultAll = [record1(), record2()],
-%    ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
-%    {ok, ResultOne} = efirebirdsql:fetchone(C),
-%    ?assertEqual(ResultOne, lists:head(ResultAll)),
+
+    ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
+    {ok, ResultOne} = efirebirdsql:fetchone(C),
+    ?assertEqual(ResultOne, record1()),
+    {ok, ResultTwo} = efirebirdsql:fetchone(C),
+    ?assertEqual(ResultTwo, record2()),
+
     ok = efirebirdsql:commit(C),
     ok = efirebirdsql:close(C).
