@@ -81,8 +81,10 @@ calc_blr_items(XSqlVars, Blr) ->
 
 calc_blr(XSqlVars) ->
     L = length(XSqlVars) * 2,
-    [5, 2, 4, 0] ++ efirebirdsql_conv:byte2(L) ++ calc_blr_items(XSqlVars, []) ++ [255, 76].
-
+    lists:flatten([[5, 2, 4, 0],
+        efirebirdsql_conv:byte2(L),
+        calc_blr_items(XSqlVars, []),
+        [255, 76]]).
 
 %%% create op_connect binary
 op_connect(Host, Username, _Password, Database) ->
