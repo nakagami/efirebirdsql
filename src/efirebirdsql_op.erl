@@ -247,15 +247,20 @@ parse_status_vector_args(Mod, Sock, Args) ->
     0 ->    %% isc_arg_end
         Args;
     1 ->    %% isc_arg_gds
-        parse_status_vector_args(Mod, Sock, [parse_status_vector_integer(Mod, Sock) | Args]);
+        parse_status_vector_args(
+            Mod, Sock, [parse_status_vector_integer(Mod, Sock) | Args]);
     2 ->    %% isc_arg_string
-        parse_status_vector_args(Mod, Sock, [parse_status_vector_string(Mod, Sock) | Args]);
+        parse_status_vector_args(
+            Mod, Sock, [parse_status_vector_string(Mod, Sock) | Args]);
     4 ->    %% isc_arg_number
-        parse_status_vector_args(Mod, Sock, [parse_status_vector_integer(Mod, Sock) | Args]);
+        parse_status_vector_args(
+            Mod, Sock, [parse_status_vector_integer(Mod, Sock) | Args]);
     5 ->    %% isc_arg_interpreted
-        parse_status_vector_args(Mod, Sock, [parse_status_vector_string(Mod, Sock) | Args]);
+        parse_status_vector_args(
+            Mod, Sock, [parse_status_vector_string(Mod, Sock) | Args]);
     19 ->   %% isc_arg_sql_state
-        parse_status_vector_args(Mod, Sock, [parse_status_vector_string(Mod, Sock) | Args])
+        parse_status_vector_args(
+            Mod, Sock, [parse_status_vector_string(Mod, Sock) | Args])
     end.
 
 parse_status_vector(Mod, Sock) ->
