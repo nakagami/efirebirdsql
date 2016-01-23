@@ -74,9 +74,9 @@ fetchrows(Mod, Sock, StmtHandle, XSqlVars, Results) ->
     Mod:send(Sock,
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
     {op_fetch_response, {NewResults, MoreData}} = efirebirdsql_op:get_fetch_response(Mod, Sock, XSqlVars),
-    %% TODO: fix lists concat
     case MoreData of
-        true -> fetchrows(Mod, Sock, StmtHandle, XSqlVars, Results ++ NewResults);
+        true -> fetchrows(Mod, Sock,
+            StmtHandle, XSqlVars,lists:flatten([Results, NewResults]));
         false -> {ok, Results ++ NewResults}
     end.
 fetchrows(Mod, Sock, StmtHandle, XSqlVars) ->
