@@ -94,5 +94,9 @@ basic_test() ->
     {ok, ResultA1} = efirebirdsql:fetchall(C),
     ?assertEqual(ResultA1, [result1()]),
 
+    ok = efirebirdsql:execute(C, <<"select * from foo where b=?">>, [<<"B">>]),
+    {ok, ResultB2} = efirebirdsql:fetchall(C),
+    ?assertEqual(ResultB2, [result2()]),
+
     ok = efirebirdsql:commit(C),
     ok = efirebirdsql:close(C).

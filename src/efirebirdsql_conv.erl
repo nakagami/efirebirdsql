@@ -3,7 +3,7 @@
 
 -module(efirebirdsql_conv).
 
--export([byte2/1, byte4/2, byte4/1,
+-export([byte2/1, byte4/2, byte4/1, pad4/1,
     list_to_xdr_string/1, list_to_xdr_bytes/1,
     parse_date/1, parse_time/1, parse_timestamp/1, parse_number/2]).
 
