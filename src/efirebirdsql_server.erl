@@ -21,6 +21,33 @@
                 xsqlvars = [],
                 rows = []}).
 
+connect(Mod, Sock, Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
+    Mod:send(Sock,
+        efirebirdsql_op:op_connect(Host, Username, Password, Database)),
+    case efirebirdsql_op:get_response(Mod, Sock) of
+        {op_accept, _} ->
+            case IsCreateDB of
+                true ->
+                    R = create_database(Mod, Sock, Username, Password, Database, PageSize);
+                false ->
+                    R = attach_database(Mod, Sock, Username, Password, Database)
+            end,
+            case R of
+                {ok, DbHandle} ->
+                    case allocate_statement(Mod, Sock, DbHandle) of
+                        {ok, StmtHandle} ->
+                            {ok, State#state{sock = Sock, db_handle = DbHandle,
+                                stmt_handle = StmtHandle}};
+                        {error, _Reason} ->
+                            {{error, "Can't allocate statement"},
+                                State#state{sock = Sock, db_handle = DbHandle}}
+                    end;
+                {error, _Reason} ->
+                    {R, State#state{sock = Sock}}
+            end;
+        op_reject -> {{error, "Connection Rejected"}, State#state{sock = Sock}}
+    end.
+
 attach_database(Mod, Sock, User, Password, Database) ->
     Mod:send(Sock,
         efirebirdsql_op:op_attach(User, Password, Database)),
@@ -132,38 +159,10 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
     PageSize = proplists:get_value(pagesize, Options, 4096),
     case gen_tcp:connect(Host, Port, SockOptions) of
         {ok, Sock} ->
-            gen_tcp:send(Sock,
-                efirebirdsql_op:op_connect(Host, Username, Password, Database)),
-            case efirebirdsql_op:get_response(gen_tcp, Sock) of
-                {op_accept, _} ->
-                    case IsCreateDB of
-                        true ->
-                            R = create_database(gen_tcp,
-                                Sock, Username, Password, Database, PageSize);
-                        false ->
-                            R = attach_database(gen_tcp,
-                                Sock, Username, Password, Database)
-                    end,
-                    case R of
-                        {ok, DbHandle} ->
-                            case allocate_statement(gen_tcp, Sock, DbHandle) of
-                                {ok, StmtHandle} ->
-                                    {reply, ok,
-                                        State#state{sock = Sock,
-                                        db_handle = DbHandle,
-                                        stmt_handle = StmtHandle}};
-                                {error, _Reason} ->
-                                    {reply, {error, "Can't allocate statement"},
-                                        State#state{sock = Sock,
-                                            db_handle = DbHandle}}
-                            end;
-                        {error, _Reason} ->
-                            {reply, R, State#state{sock = Sock}}
-                    end;
-                op_reject -> {reply, {error, "Connection Rejected"},
-                                                State#state{sock = Sock}}
-            end;
-        Error = {error, _} -> {reply, Error, State}
+            {R, NewState} = connect(gen_tcp, Sock, Host, Username, Password, Database, IsCreateDB, PageSize, State),
+            {reply, R, NewState};
+        Error = {error, _} ->
+            {reply, Error, State}
     end;
 handle_call({transaction, Options}, _From, State) ->
     AutoCommit = proplists:get_value(auto_commit, Options, true),
