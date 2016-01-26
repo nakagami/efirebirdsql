@@ -188,11 +188,6 @@ handle_call(detach, _From, State) ->
     {reply, detach(State#state.mod,
         State#state.sock, State#state.db_handle), State};
 handle_call({prepare, Sql}, _From, State) ->
-    case State#state.stmt_type of
-        isc_info_sql_stmt_select -> free_statement(
-            State#state.mod, State#state.sock, State#state.stmt_handle);
-        _ -> ok
-    end,
     case R = prepare_statement(State#state.mod, State#state.sock,
                 State#state.trans_handle, State#state.stmt_handle, Sql) of
         {StmtType, XSqlVars} ->
@@ -207,22 +202,21 @@ handle_call({execute, Params}, _From, State) ->
         isc_info_sql_stmt_select ->
             {ok, Rows} = fetchrows(State#state.mod, State#state.sock,
                 State#state.stmt_handle, State#state.xsqlvars),
-            {reply, ok, State#state{rows=Rows}};
+            ConvertedRows = [efirebirdsql_op:convert_row(
+                    State#state.mod, State#state.sock, 
+                    State#state.trans_handle, State#state.xsqlvars, R
+                    ) || R <- Rows],
+            free_statement(
+                State#state.mod, State#state.sock, State#state.stmt_handle),
+            {reply, ok, State#state{rows=ConvertedRows}};
         _ ->
             {reply, ok, State}
     end;
 handle_call(fetchone, _From, State) ->
     [R | Rest] = State#state.rows,
-    Row = efirebirdsql_op:convert_row(
-                State#state.mod, State#state.sock,
-                State#state.trans_handle, State#state.xsqlvars, R),
-    {reply, {ok, Row}, State#state{rows=Rest}};
+    {reply, {ok, R}, State#state{rows=Rest}};
 handle_call(fetchall, _From, State) ->
-    Rows = [efirebirdsql_op:convert_row(
-                    State#state.mod, State#state.sock, 
-                    State#state.trans_handle, State#state.xsqlvars, R
-                    ) || R <- State#state.rows],
-    {reply, {ok, Rows}, State};
+    {reply, {ok, State#state.rows}, State};
 handle_call(description, _From, State) ->
     case State#state.stmt_type of
         isc_info_sql_stmt_select
