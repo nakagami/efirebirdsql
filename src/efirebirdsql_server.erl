@@ -202,21 +202,25 @@ handle_call({execute, Params}, _From, State) ->
         isc_info_sql_stmt_select ->
             {ok, Rows} = fetchrows(State#state.mod, State#state.sock,
                 State#state.stmt_handle, State#state.xsqlvars),
-            ConvertedRows = [efirebirdsql_op:convert_row(
-                    State#state.mod, State#state.sock, 
-                    State#state.trans_handle, State#state.xsqlvars, R
-                    ) || R <- Rows],
             free_statement(
                 State#state.mod, State#state.sock, State#state.stmt_handle),
-            {reply, ok, State#state{rows=ConvertedRows}};
+            {reply, ok, State#state{rows=Rows}};
         _ ->
             {reply, ok, State}
     end;
 handle_call(fetchone, _From, State) ->
     [R | Rest] = State#state.rows,
-    {reply, {ok, R}, State#state{rows=Rest}};
+    ConvertedRow = efirebirdsql_op:convert_row(
+        State#state.mod, State#state.sock,
+        State#state.trans_handle, State#state.xsqlvars, R
+    ),
+    {reply, {ok, ConvertedRow}, State#state{rows=Rest}};
 handle_call(fetchall, _From, State) ->
-    {reply, {ok, State#state.rows}, State};
+    ConvertedRows = [efirebirdsql_op:convert_row(
+        State#state.mod, State#state.sock,
+        State#state.trans_handle, State#state.xsqlvars, R
+    ) || R <- State#state.rows],
+    {reply, {ok, ConvertedRows}, State};
 handle_call(description, _From, State) ->
     case State#state.stmt_type of
         isc_info_sql_stmt_select
