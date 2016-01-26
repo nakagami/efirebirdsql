@@ -3,8 +3,7 @@
 
 -module(efirebirdsql_op).
 
--export([op_name/1, op_val/1, op_connect/4, op_attach/3, op_detach/1,
-    op_create/4, op_transaction/2,
+-export([op_connect/4, op_attach/3, op_detach/1, op_create/4, op_transaction/2,
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/1,
     op_execute/3, op_fetch/2, op_commit_retaining/1, op_rollback_retaining/1, 
     op_info_sql/2, convert_row/5,
