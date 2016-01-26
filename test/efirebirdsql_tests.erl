@@ -102,12 +102,12 @@ basic_test() ->
     {ok, C2} = efirebirdsql:connect(
         "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb",
         [{auto_commit, false}]),
-    ok = efirebirdsql:execute(C2, <<"update foo set a=1">>),
-    ok = efirebirdsql:execute(C2, <<"select * from foo where a=1">>),
+    ok = efirebirdsql:execute(C2, <<"update foo set c='C'">>),
+    ok = efirebirdsql:execute(C2, <<"select * from foo where c='C'">>),
     {ok, ResultAll2} = efirebirdsql:fetchall(C2),
     ?assertEqual(length(ResultAll2),  2),
     ok = efirebirdsql:rollback(C2),
-    ok = efirebirdsql:execute(C2, <<"select * from foo where a=1">>),
+    ok = efirebirdsql:execute(C2, <<"select * from foo where c='C'">>),
     {ok, ResultAll3} = efirebirdsql:fetchall(C2),
     ?assertEqual(length(ResultAll3),  1),
 
