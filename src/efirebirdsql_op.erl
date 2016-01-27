@@ -417,12 +417,13 @@ parse_select_columns(Mod, Sock, StmtHandle, XSqlVars, DescVars) ->
 get_prepare_statement_response(Mod, Sock, StmtHandle) ->
     {op_response, {ok, _, Buf}} = get_response(Mod, Sock),
     << _21:8, _Len:16, StmtType:32/little, Rest/binary>> = Buf,
-    case StmtName = isc_info_sql_stmt_name(StmtType) of
+    XSqlVars = case StmtName = isc_info_sql_stmt_name(StmtType) of
         isc_info_sql_stmt_select ->
             << _Skip:8/binary, DescVars/binary >> = Rest,
-            {isc_info_sql_stmt_select, parse_select_columns(Mod, Sock, StmtHandle, [], DescVars)};
-        _ -> StmtName
-    end.
+            parse_select_columns(Mod, Sock, StmtHandle, [], DescVars);
+        _ -> []
+    end,
+    {StmtName, XSqlVars}.
 
 get_blob_segment_list(<<>>, SegmentList) ->
     lists:reverse(SegmentList);
