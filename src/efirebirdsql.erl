@@ -4,8 +4,8 @@
 -module(efirebirdsql).
 
 -export([start_link/0]).
--export([connect/4, connect/5, prepare/2, execute/2, execute/3, description/1,
-        fetchone/1, fetchall/1, commit/1, rollback/1,
+-export([connect/4, connect/5, prepare/2, execute/1, execute/2, execute/3,
+        description/1, fetchone/1, fetchall/1, commit/1, rollback/1,
         close/1, cancel/1, sync/1]).
 
 -export_type([connection/0, connect_option/0,
@@ -62,6 +62,9 @@ execute(C, QueryString) when is_binary(QueryString) ->
     execute(C, QueryString, []);
 execute(C, Params) when is_list(Params) ->
     gen_server:call(C, {execute, Params}, infinity).
+
+execute(C) ->
+    execute(C, []).
 
 description(C) ->
     gen_server:call(C, description, infinity).

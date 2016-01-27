@@ -111,5 +111,18 @@ basic_test() ->
     {ok, ResultAll3} = efirebirdsql:fetchall(C2),
     ?assertEqual(length(ResultAll3),  1),
 
+    ok = efirebirdsql:prepare(C2, <<"select * from foo where c=?">>),
+    ok = efirebirdsql:execute(C2, [<<"C">>]),
+    {ok, ResultAll4} = efirebirdsql:fetchall(C2),
+    ?assertEqual(length(ResultAll4),  1),
+    ok = efirebirdsql:execute(C2, [<<"c">>]),
+    {ok, ResultAll5} = efirebirdsql:fetchall(C2),
+    ?assertEqual(length(ResultAll5),  1),
+
+    ok = efirebirdsql:prepare(C2, <<"select * from foo">>),
+    ok = efirebirdsql:execute(C2),
+    {ok, ResultAll6} = efirebirdsql:fetchall(C2),
+    ?assertEqual(length(ResultAll6),  2),
+
     ok = efirebirdsql:commit(C2),
     ok = efirebirdsql:close(C2).
