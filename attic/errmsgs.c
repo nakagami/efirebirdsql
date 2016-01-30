@@ -25,7 +25,9 @@
 #define SCHAR char
 
 // wget https://raw.githubusercontent.com/FirebirdSQL/core/master/src/include/gen/msgs.h
-// perl -pi -e 's/\\\"//g' msgs.h
+// perl -pi -e 's/\@\d+/~p/g' msgs.h
+// perl -pi -e 's/\\\"/@/g' msgs.h
+// perl -pi -e "s/@/'/g" msgs.h
 // cc errmsgs.c
 // ./a.out
 
@@ -49,7 +51,7 @@ int main(int argc, char *argv[])
 \%% rights and limitations under the License.\n\n");
     fprintf(fp, "-module(efirebirdsql_errmsgs).\n\n-export([get_error_msg/1]).\n\n");
     for (i = 0; messages[i].code_text; i++) {
-        fprintf(fp, "get_error_msg(%ld) -> <<\"%s\\n\">>;\n", messages[i].code_number, messages[i].code_text);
+        fprintf(fp, "get_error_msg(%ld) -> <<\"%s~n\">>;\n", messages[i].code_number, messages[i].code_text);
     }
     fprintf(fp, "get_error_msg(_) -> <<>>.\n");
 
