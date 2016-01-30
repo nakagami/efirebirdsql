@@ -85,59 +85,6 @@ calc_blr(XSqlVars) ->
         calc_blr_items(XSqlVars, []),
         [255, 76]]).
 
-%% Convert parameters to BLR and values.
-param_to_date(Year, Month, Day) ->
-    I = Month + 9,
-    JY = Year + I div 12 - 1,
-    JM = I rem 12,
-    C = JY div 100,
-    JY2 = JY - 100 * C,
-    J = (146097 * C) div 4 + (1461 * JY2) div 4 + (153 * JM + 2) div 5 + Day - 678882,
-    efirebirdsql_conv:byte4(J).
-param_to_time(Hour, Minute, Second, Microsecond) ->
-    efirebirdsql_conv:byte4((Hour*3600 + Minute*60 + Second) * 10000 + Microsecond div 100).
-param_to_blr(V) when is_integer(V) ->
-    {[8, 0, 7, 0], lists:flatten([efirebirdsql_conv:byte4(V), [0, 0, 0, 0]])};
-param_to_blr(V) when is_binary(V) ->
-    B = binary_to_list(V),
-    {lists:flatten([14, efirebirdsql_conv:byte2(length(B)), 7, 0]),
-        lists:flatten([B, efirebirdsql_conv:pad4(B), [0, 0, 0, 0]])};
-param_to_blr(V) when is_list(V) ->
-    %% TODO: decimal
-    {[], []};
-param_to_blr(V) when is_float(V) ->
-    %% TODO: float
-    {[], []};
-param_to_blr({Year, Month, Day}) ->
-    %% date
-    {[12, 7, 0], lists:flatten([param_to_date(Year, Month, Day), [0, 0, 0, 0]])};
-param_to_blr({Hour, Minute, Second, Microsecond}) ->
-    %% time
-    {[13, 7, 0], lists:flatten([param_to_time(Hour, Minute, Second, Microsecond), [0, 0, 0, 0]])};
-param_to_blr({{Year, Month, Day}, {Hour, Minute, Second, Microsecond}}) ->
-    %% timestamp
-    {[35, 7, 0], lists:flatten([param_to_date(Year, Month, Day),
-        param_to_time(Hour, Minute, Second, Microsecond), [0, 0, 0, 0]])};
-param_to_blr(true) ->
-    {[23, 7, 0], [1, 0, 0, 0, 0, 0, 0, 0]};
-param_to_blr(false) ->
-    {[23, 7, 0], [0, 0, 0, 0, 0, 0, 0, 0]};
-param_to_blr(null) ->
-    {[14, 0, 0, 7, 0], [0, 0, 0, 0, 255, 255, 255, 255]}.
-
-params_to_blr([], Blr, Value) ->
-    {Blr, Value};
-params_to_blr(Params, Blr, Value) ->
-    [V | RestParams] = Params,
-    {NewBlr, NewValue} = param_to_blr(V),
-    params_to_blr(RestParams, [NewBlr | Blr], [NewValue | Value]).
-
-params_to_blr(Params) ->
-    {BlrBody, Value} = params_to_blr(Params, [], []),
-    L = length(Params) * 2,
-    Blr = lists:flatten([[5, 2, 4, 0], efirebirdsql_conv:byte2(L), BlrBody, [255, 76]]),
-    {Blr, Value}.
-
 %%% create op_connect binary
 op_connect(Host, Username, _Password, Database) ->
     %% PROTOCOL_VERSION,ArchType(Generic),MinAcceptType,MaxAcceptType,Weight
@@ -240,7 +187,7 @@ op_execute(TransHandle, StmtHandle, Params) ->
                 efirebirdsql_conv:byte4(0),
                 efirebirdsql_conv:byte4(0)]);
         length(Params) > 0 ->
-            {Blr, Value} = params_to_blr(Params),
+            {Blr, Value} = efirebirdsql_conv:params_to_blr(Params),
             list_to_binary([
                 efirebirdsql_conv:byte4(op_val(op_execute)),
                 efirebirdsql_conv:byte4(StmtHandle),
