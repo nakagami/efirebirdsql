@@ -86,6 +86,16 @@ calc_blr(XSqlVars) ->
         [255, 76]]).
 
 %% Convert parameters to BLR and values.
+param_to_date(Year, Month, Day) ->
+    I = Month + 9,
+    JY = Year + I div 12 - 1,
+    JM = I rem 12,
+    C = JY div 100,
+    JY2 = JY - 100 * C,
+    J = (146097 * C) div 4 + (1461 * JY2) div 4 + (153 * JM + 2) div 5 + Day - 678882,
+    efirebirdsql_conv:byte4(J).
+param_to_time(Hour, Minute, Second, Microsecond) ->
+    efirebirdsql_conv:byte4((Hour*3600 + Minute*60 + Second) * 10000 + Microsecond div 100).
 param_to_blr(V) when is_integer(V) ->
     {[8, 0, 7, 0], lists:flatten([efirebirdsql_conv:byte4(V), [0, 0, 0, 0]])};
 param_to_blr(V) when is_binary(V) ->
@@ -99,14 +109,15 @@ param_to_blr(V) when is_float(V) ->
     %% TODO: float
     {[], []};
 param_to_blr({Year, Month, Day}) ->
-    %% TODO: date
-    {[], []};
-param_to_blr({Hour, Minute, Second, MicroSecond}) ->
-    %% TODO: time
-    {[], []};
-param_to_blr({{Year, Month, Day}, {Hour, Minute, Second, MicroSecond}}) ->
-    %% TODO: timestamp
-    {[], []};
+    %% date
+    {[12, 7, 0], lists:flatten([param_to_date(Year, Month, Day), [0, 0, 0, 0]])};
+param_to_blr({Hour, Minute, Second, Microsecond}) ->
+    %% time
+    {[13, 7, 0], lists:flatten([param_to_time(Hour, Minute, Second, Microsecond), [0, 0, 0, 0]])};
+param_to_blr({{Year, Month, Day}, {Hour, Minute, Second, Microsecond}}) ->
+    %% timestamp
+    {[35, 7, 0], lists:flatten([param_to_date(Year, Month, Day),
+        param_to_time(Hour, Minute, Second, Microsecond), [0, 0, 0, 0]])};
 param_to_blr(true) ->
     {[23, 7, 0], [1, 0, 0, 0, 0, 0, 0, 0]};
 param_to_blr(false) ->
