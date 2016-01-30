@@ -26,24 +26,24 @@ attach_database(Mod, Sock, User, Password, Database) ->
     Mod:send(Sock,
         efirebirdsql_op:op_attach(User, Password, Database)),
     case efirebirdsql_op:get_response(Mod, Sock) of
-        {op_response,  {ok, Handle, _}} -> {ok, Handle};
-        _ -> {error, "Can't attach Database"}
+        {op_response, {ok, Handle, _}} -> {ok, Handle};
+        {op_response, {error, Msg}} ->{error, Msg}
     end.
 
 create_database(Mod, Sock, User, Password, Database, PageSize) ->
     Mod:send(Sock,
         efirebirdsql_op:op_create(User, Password, Database, PageSize)),
     case efirebirdsql_op:get_response(Mod, Sock) of
-        {op_response,  {ok, Handle, _}} -> {ok, Handle};
-        _ -> {error, "Can't create database"}
+        {op_response, {ok, Handle, _}} -> {ok, Handle};
+        {op_response, {error, Msg}} ->{error, Msg}
     end.
 
 allocate_statement(Mod, Sock, DbHandle) ->
     Mod:send(Sock,
         efirebirdsql_op:op_allocate_statement(DbHandle)),
     case efirebirdsql_op:get_response(Mod, Sock) of
-        {op_response,  {ok, Handle, _}} -> {ok, Handle};
-        _ -> {error, "Allocate statement failed"}
+        {op_response, {ok, Handle, _}} -> {ok, Handle};
+        {op_response, {error, Msg}} ->{error, Msg}
     end.
 
 connect(Mod, Sock, Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
@@ -62,11 +62,11 @@ connect(Mod, Sock, Host, Username, Password, Database, IsCreateDB, PageSize, Sta
                     case allocate_statement(Mod, Sock, DbHandle) of
                         {ok, StmtHandle} ->
                             {ok, State#state{db_handle = DbHandle, stmt_handle = StmtHandle}};
-                        {error, _Reason} ->
-                            {{error, "Can't allocate statement"}, State#state{db_handle = DbHandle}}
+                        {error, Msg} ->
+                            {{error, Msg}, State#state{db_handle = DbHandle}}
                     end;
-                {error, _Reason} ->
-                    {R, State}
+                {error, Msg} ->
+                    {{error, Msg}, State}
             end;
         op_reject -> {{error, "Connection Rejected"}, State}
     end.
@@ -75,9 +75,8 @@ detach(Mod, Sock, DbHandle) ->
     Mod:send(Sock, efirebirdsql_op:op_detach(DbHandle)),
     case efirebirdsql_op:get_response(Mod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
-        _ -> {error, "Detach failed"}
+        {op_response, {error, Msg}} -> {error, Msg}
     end.
-
 
 %% Transaction
 begin_transaction(Mod, Sock, DbHandle, Tpb) ->
@@ -85,7 +84,7 @@ begin_transaction(Mod, Sock, DbHandle, Tpb) ->
         efirebirdsql_op:op_transaction(DbHandle, Tpb)),
     case efirebirdsql_op:get_response(Mod, Sock) of
         {op_response,  {ok, Handle, _}} -> {ok, Handle};
-        _ -> {error, "Can't begin transaction"}
+        {op_response, {error, Msg}} -> {error, Msg}
     end.
 
 %% prepare and free statement
@@ -96,7 +95,10 @@ prepare_statement(Mod, Sock, TransHandle, StmtHandle, Sql) ->
 
 free_statement(Mod, Sock, StmtHandle) ->
     Mod:send(Sock, efirebirdsql_op:op_free_statement(StmtHandle)),
-    {op_response, {ok, _, _}} = efirebirdsql_op:get_response(Mod, Sock).
+    case efirebirdsql_op:get_response(Mod, Sock) of
+        {op_response,  {ok, _, _}} -> ok;
+        {op_response, {error, Msg}} -> {error, Msg}
+    end.
 
 %% Execute, Fetch and Description
 execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
@@ -104,7 +106,7 @@ execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
         efirebirdsql_op:op_execute(TransHandle, StmtHandle, Params)),
     case efirebirdsql_op:get_response(Mod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
-        _ -> {error, "Execute query failed"}
+        {op_response, {error, Msg}} -> {error, Msg}
     end.
 
 fetchrows(Mod, Sock, StmtHandle, XSqlVars, Results) ->
@@ -131,14 +133,14 @@ commit(Mod, Sock, TransHandle) ->
     Mod:send(Sock, efirebirdsql_op:op_commit_retaining(TransHandle)),
     case efirebirdsql_op:get_response(Mod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
-        _ -> {error, "Commit failed"}
+        {op_response, {error, Msg}} -> {error, Msg}
     end.
 
 rollback(Mod, Sock, TransHandle) ->
     Mod:send(Sock, efirebirdsql_op:op_rollback_retaining(TransHandle)),
     case efirebirdsql_op:get_response(Mod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
-        _ -> {error, "Rollback failed"}
+        {op_response, {error, Msg}} -> {error, Msg}
     end.
 
 %% -- client interface --
