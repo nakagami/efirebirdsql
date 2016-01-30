@@ -92,6 +92,21 @@ param_to_blr(V) when is_binary(V) ->
     B = binary_to_list(V),
     {lists:flatten([14, efirebirdsql_conv:byte2(length(B)), 7, 0]),
         lists:flatten([B, efirebirdsql_conv:pad4(B), [0, 0, 0, 0]])};
+param_to_blr(V) when is_list(V) ->
+    %% TODO: decimal
+    {[], []};
+param_to_blr(V) when is_float(V) ->
+    %% TODO: float
+    {[], []};
+param_to_blr({Year, Month, Day}) ->
+    %% TODO: date
+    {[], []};
+param_to_blr({Hour, Minute, Second, MicroSecond}) ->
+    %% TODO: time
+    {[], []};
+param_to_blr({{Year, Month, Day}, {Hour, Minute, Second, MicroSecond}}) ->
+    %% TODO: timestamp
+    {[], []};
 param_to_blr(true) ->
     {[23, 7, 0], [1, 0, 0, 0, 0, 0, 0, 0]};
 param_to_blr(false) ->
