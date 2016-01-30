@@ -51,9 +51,9 @@ int main(int argc, char *argv[])
 \%% rights and limitations under the License.\n\n");
     fprintf(fp, "-module(efirebirdsql_errmsgs).\n\n-export([get_error_msg/1]).\n\n");
     for (i = 0; messages[i].code_text; i++) {
-        fprintf(fp, "get_error_msg(%ld) -> <<\"%s~n\">>;\n", messages[i].code_number, messages[i].code_text);
+        fprintf(fp, "get_error_msg(%ld) -> \"%s~n\";\n", messages[i].code_number, messages[i].code_text);
     }
-    fprintf(fp, "get_error_msg(_) -> <<>>.\n");
+    fprintf(fp, "get_error_msg(_) -> \"\".\n");
 
     fclose(fp);
     return 0;
