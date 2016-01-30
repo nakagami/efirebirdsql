@@ -45,6 +45,9 @@ description() ->
      {column,<<"I">>,double,0,8,true},
      {column,<<"J">>,float,0,4,true}].
 
+alias_description() ->
+    [{column,<<"ALIAS_NAME">>,long,0,4,false}].
+
 result1() ->
     [{<<"A">>,1},
      {<<"B">>,<<"b">>},
@@ -78,6 +81,9 @@ basic_test() ->
 
     {ok, C} = efirebirdsql:connect(
         "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb"),
+
+    ok = efirebirdsql:execute(C, <<"select a alias_name from foo">>),
+    ?assertEqual(efirebirdsql:description(C), alias_description()),
 
     ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
     ?assertEqual(efirebirdsql:description(C), description()),

@@ -360,8 +360,8 @@ parse_select_column(Mod, Sock, StmtHandle, Column, DescVars) ->
             NullInd = if Num =/= 0 -> true; Num =:= 0 -> false end,
             parse_select_column(Mod, Sock, StmtHandle, Column#column{null_ind=NullInd}, Rest2);
         isc_info_sql_field ->
-            {S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column#column{name=S}, Rest2);
+            {_S, Rest2} = parse_select_item_elem_binary(Rest),
+            parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
         isc_info_sql_relation ->
             {_S, Rest2} = parse_select_item_elem_binary(Rest),
             parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
@@ -369,8 +369,8 @@ parse_select_column(Mod, Sock, StmtHandle, Column, DescVars) ->
             {_S, Rest2} = parse_select_item_elem_binary(Rest),
             parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
         isc_info_sql_alias ->
-            {_S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
+            {S, Rest2} = parse_select_item_elem_binary(Rest),
+            parse_select_column(Mod, Sock, StmtHandle, Column#column{name=S}, Rest2);
         isc_info_truncated ->
             Rest2 = more_select_describe_vars(Mod, Sock, StmtHandle, Column#column.seq),
             parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
