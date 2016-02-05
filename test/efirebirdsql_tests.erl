@@ -77,10 +77,10 @@ basic_test() ->
 
     %% connect to bad database
     {error, _} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", "something_wrong_database"),
+        "localhost", "sysdba", "masterkey", "something_wrong_database", []),
 
     {ok, C} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb"),
+        "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb", []),
 
     ok = efirebirdsql:execute(C, <<"select a alias_name from foo">>),
     ?assertEqual(efirebirdsql:description(C), alias_description()),
@@ -103,6 +103,13 @@ basic_test() ->
     ok = efirebirdsql:execute(C, <<"select * from foo where b=?">>, [<<"B">>]),
     {ok, ResultB2} = efirebirdsql:fetchall(C),
     ?assertEqual(ResultB2, [result2()]),
+
+    ok = efirebirdsql:connect(C,
+        "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb", []),
+    ok = efirebirdsql:execute(C, <<"select * from foo">>),
+    {ok, ResultAll} = efirebirdsql:fetchall(C),
+    ?assertEqual(length(ResultAll),  2),
+
     ok = efirebirdsql:close(C),
 
     {ok, C2} = efirebirdsql:connect(

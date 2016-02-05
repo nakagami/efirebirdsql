@@ -4,7 +4,7 @@
 -module(efirebirdsql).
 
 -export([start_link/0]).
--export([connect/4, connect/5, prepare/2, execute/1, execute/2, execute/3,
+-export([connect/5, connect/6, prepare/2, execute/1, execute/2, execute/3,
         description/1, fetchone/1, fetchall/1, commit/1, rollback/1,
         close/1, cancel/1, sync/1]).
 
@@ -27,27 +27,23 @@
 start_link() ->
     efirebirdsql_server:start_link().
 
+-spec connect(connection(), string(), string(), string(), string(), [connect_option()])
+        -> ok | {error, Reason :: connect_error()}.
+connect(C, Host, Username, Password, Database, Ops) ->
+    case gen_server:call(
+        C, {connect, Host, Username, Password, Database, Ops}, infinity) of
+        ok -> gen_server:call(C, {transaction, Ops}, infinity);
+        Error = {error, _} -> Error
+    end.
+
 -spec connect(string(), string(), string(), string(), [connect_option()])
         -> {ok, Connection :: connection()} | {error, Reason :: connect_error()}.
 connect(Host, Username, Password, Database, Ops) ->
     {ok, C} = start_link(),
-    case gen_server:call(C,
-                         {connect, Host, Username, Password, Database, Ops},
-                         infinity) of
-        ok ->
-            case gen_server:call(C, {transaction, Ops}, infinity) of
-                ok -> {ok, C};
-                Error = {error, _}
-                    -> Error
-            end;
-        Error = {error, _}
-            -> Error
+    case connect(C, Host, Username, Password, Database, Ops) of
+        ok -> {ok, C};
+        Error = {error, _} -> Error
     end.
-
--spec connect(string(), string(), string(), string())
-    -> {ok, Connection :: connection()} | {error, Reason :: connect_error()}.
-connect(Host, Username, Password, Database) ->
-    connect(Host, Username, Password, Database, []).
 
 -spec prepare(connection(), binary())
     -> ok.
