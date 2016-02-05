@@ -34,19 +34,19 @@ create_testdb() ->
     efirebirdsql:close(C).
 
 description() ->
-    [{column,<<"A">>,long,0,4,false},
-     {column,<<"B">>,varying,0,120,false},
-     {column,<<"C">>,varying,0,4096,true},
-     {column,<<"D">>,int64,-3,8,true},
-     {column,<<"E">>,date,0,4,true},
-     {column,<<"F">>,timestamp,0,8,true},
-     {column,<<"G">>,time,0,4,true},
-     {column,<<"H">>,blob,4,8,true},
-     {column,<<"I">>,double,0,8,true},
-     {column,<<"J">>,float,0,4,true}].
+    [{<<"A">>,long,0,4,false},
+     {<<"B">>,varying,0,120,false},
+     {<<"C">>,varying,0,4096,true},
+     {<<"D">>,int64,-3,8,true},
+     {<<"E">>,date,0,4,true},
+     {<<"F">>,timestamp,0,8,true},
+     {<<"G">>,time,0,4,true},
+     {<<"H">>,blob,4,8,true},
+     {<<"I">>,double,0,8,true},
+     {<<"J">>,float,0,4,true}].
 
 alias_description() ->
-    [{column,<<"ALIAS_NAME">>,long,0,4,false}].
+    [{<<"ALIAS_NAME">>,long,0,4,false}].
 
 result1() ->
     [{<<"A">>,1},

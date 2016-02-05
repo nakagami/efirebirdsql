@@ -125,7 +125,7 @@ description([], XSqlVar) ->
     lists:reverse(XSqlVar);
 description(InXSqlVars, XSqlVar) ->
     [H | T] = InXSqlVars,
-    description(T, [{column, H#column.name, H#column.type, H#column.scale,
+    description(T, [{H#column.name, H#column.type, H#column.scale,
                       H#column.length, H#column.null_ind} | XSqlVar]).
 
 %% Commit and rollback
