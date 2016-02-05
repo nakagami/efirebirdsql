@@ -33,7 +33,7 @@ Server Configuretion with Firebird 3
 --------------------------------------
 
 This driver connect with wire protocol version 10 (Interbase 6),
-So if you use with Firebird 3.x server, you need to modify firebird.conf like bellow.
+So if you use with Firebird 3.x server, you need to modify firebird.conf like below.
 
 ::
 
