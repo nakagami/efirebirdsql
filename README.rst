@@ -28,6 +28,7 @@ Separate start_link() and connect()::
         "server", "username", "password", "/path/to/database", []),
 
 Commit and rollback transaction::
+
     {ok, C} = efirebirdsql:connect(
         "server", "username", "password", "/path/to/database", [{auto_commit, false}]),
     ok = efirebirdsql:execute(C, <<"update foo set column='A'">>),
