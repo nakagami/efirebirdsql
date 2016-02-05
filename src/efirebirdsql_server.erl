@@ -195,10 +195,10 @@ handle_call(detach, _From, State) ->
 handle_call({prepare, Sql}, _From, State) ->
     case R = prepare_statement(State#state.mod, State#state.sock,
                 State#state.trans_handle, State#state.stmt_handle, Sql) of
-        {StmtType, XSqlVars} ->
+        {ok, StmtType, XSqlVars} ->
             {reply, ok, State#state{stmt_type=StmtType, xsqlvars=XSqlVars}};
-        _ ->
-            {reply, ok, State#state{stmt_type=R}}
+        {error, _Reason} ->
+            {reply, R, State}
     end;
 handle_call({execute, Params}, _From, State) ->
     ok = execute(State#state.mod, State#state.sock,
