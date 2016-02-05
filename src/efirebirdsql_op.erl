@@ -270,7 +270,7 @@ parse_status_vector_args(Mod, Sock, Template, Args) ->
         parse_status_vector_args(Mod, Sock, Template, [V | Args]);
     4 ->    %% isc_arg_number
         V = parse_status_vector_integer(Mod, Sock),
-        parse_status_vector_args(Mod, Sock, Template, [V | Args]);
+        parse_status_vector_args(Mod, Sock, Template, [integer_to_list(V) | Args]);
     5 ->    %% isc_arg_interpreted
         V = parse_status_vector_string(Mod, Sock),
         parse_status_vector_args(Mod, Sock, [V | Template], Args);
@@ -281,7 +281,6 @@ parse_status_vector_args(Mod, Sock, Template, Args) ->
 
 get_error_message(Mod, Sock) ->
     {S, A} = parse_status_vector_args(Mod, Sock, [], []),
-    %% TODO: fix formated string
     iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(S)), lists:reverse(A))).
 
 %% recieve and parse response

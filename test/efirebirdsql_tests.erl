@@ -76,8 +76,9 @@ basic_test() ->
     create_testdb(),
 
     %% connect to bad database
-    {error, _} = efirebirdsql:connect(
+    {error, ErrMsg} = efirebirdsql:connect(
         "localhost", "sysdba", "masterkey", "something_wrong_database", []),
+    ?assertEqual(ErrMsg, <<"I/O error during 'open' operation for file 'something_wrong_database'\nError while trying to open file\nNo such file or directory">>),
 
     {ok, C} = efirebirdsql:connect(
         "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb", []),
