@@ -7,7 +7,7 @@ Erlang Firebird client library.
 Example
 -----------
 
-Simple::
+Simple query and fetch results::
 
     {ok, C} = efirebirdsql:connect(
         "server", "username", "password", "/path/to/database", []),
@@ -21,7 +21,7 @@ Fetch one by one::
     {ok, R2} = efirebirdsql:fetchone(C),
     {ok, R3} = efirebirdsql:fetchone(C).
 
-start_link and connect::
+Separate start_link() and connect()::
 
     C = start_link(),
     ok = efirebirdsql:connect(C,
