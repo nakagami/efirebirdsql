@@ -8,27 +8,24 @@
         description/1, fetchone/1, fetchall/1, commit/1, rollback/1,
         close/1, cancel/1, sync/1]).
 
--export_type([connection/0, connect_option/0,
-    connect_error/0, query_error/0]).
+-export_type([connection/0, connect_option/0]).
 
 -include("efirebirdsql.hrl").
 
 -type connection() :: pid().
 -type connect_option() ::
-    {port, PortNum :: inet:port_number()} |
+    {port, PortNumber :: inet:port_number()} |
     {timeout, Timeout :: integer()} |
     {createdb, IsCreateDB :: boolean()} |
     {auto_commit, AutoCommit :: boolean()} |
     {pagesize, PageSize :: integer()}.
--type connect_error() :: #error{}.
--type query_error() :: #error{}.
 
 -spec start_link() -> {ok, pid()}.
 start_link() ->
     efirebirdsql_server:start_link().
 
 -spec connect(connection(), string(), string(), string(), string(), [connect_option()])
-        -> ok | {error, Reason :: connect_error()}.
+        -> ok | {error, Reason :: binary}.
 connect(C, Host, Username, Password, Database, Ops) ->
     case gen_server:call(
         C, {connect, Host, Username, Password, Database, Ops}, infinity) of
@@ -37,7 +34,7 @@ connect(C, Host, Username, Password, Database, Ops) ->
     end.
 
 -spec connect(string(), string(), string(), string(), [connect_option()])
-        -> {ok, Connection :: connection()} | {error, Reason :: connect_error()}.
+        -> {ok, Connection :: connection()} | {error, Reason :: binary()}.
 connect(Host, Username, Password, Database, Ops) ->
     {ok, C} = start_link(),
     case connect(C, Host, Username, Password, Database, Ops) of
@@ -72,17 +69,17 @@ fetchall(C) ->
     gen_server:call(C, fetchall, infinity).
 
 -spec commit(connection())
-    -> ok | {error, _Reason}.
+    -> ok | {error, Reason :: binary()}.
 commit(C) ->
     gen_server:call(C, commit, infinity).
 
 -spec rollback(connection())
-    -> ok | {error, _Reason}.
+    -> ok | {error, Reason :: binary()}.
 rollback(C) ->
     gen_server:call(C, rollback, infinity).
 
 -spec close(efirebirdsql:connection())
-    -> ok | {error, Reason :: connect_error()}.
+    -> ok | {error, Reason :: binary()}.
 close(C) ->
     gen_server:call(C, detach, infinity),
     catch gen_server:cast(C, stop),

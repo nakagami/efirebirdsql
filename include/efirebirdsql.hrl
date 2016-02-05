@@ -9,7 +9,3 @@
     length :: -1 | pos_integer(),
     null_ind :: true | false
 }).
-
--record(error, {
-    code :: binary()
-}).
