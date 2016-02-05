@@ -7,7 +7,7 @@ Erlang Firebird client library.
 Examples
 -----------
 
-Simple query and fetch results::
+Simple query and fetch all results::
 
     {ok, C} = efirebirdsql:connect(
         "server", "username", "password", "/path/to/database", []),
@@ -26,6 +26,15 @@ Separate start_link() and connect()::
     C = start_link(),
     ok = efirebirdsql:connect(C,
         "server", "username", "password", "/path/to/database", []),
+
+Commit and rollback transaction::
+    {ok, C} = efirebirdsql:connect(
+        "server", "username", "password", "/path/to/database", [{auto_commit, false}]),
+    ok = efirebirdsql:execute(C, <<"update foo set column='A'">>),
+    ok = efirebirdsql:commit(),
+    ok = efirebirdsql:execute(C, <<"update foo set column='B'">>),
+    ok = efirebirdsql:rollback().
+
 
 See also test/efirebirdsql_tests.erl
 
