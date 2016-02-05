@@ -4,7 +4,7 @@ efirebirdsql
 
 Erlang Firebird client library.
 
-Example
+Examples
 -----------
 
 Simple query and fetch results::
@@ -28,3 +28,15 @@ Separate start_link() and connect()::
         "server", "username", "password", "/path/to/database", []),
 
 See also test/efirebirdsql_tests.erl
+
+Server Configuretion with Firebird 3
+--------------------------------------
+
+This driver connect with wire protocol version 10 (Interbase 6),
+So if you use with Firebird 3.x server, you need modify firebird.conf like bellow.
+
+::
+
+   AuthServer = Srp, Legacy_Auth
+   WireCrypt = Enabled
+
