@@ -4,7 +4,7 @@ efirebirdsql
 
 Erlang Firebird client library.
 
-Excample
+Example
 -----------
 
 ::
