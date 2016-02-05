@@ -25,7 +25,7 @@
 #define SCHAR char
 
 // wget https://raw.githubusercontent.com/FirebirdSQL/core/master/src/include/gen/msgs.h
-// perl -pi -e 's/\@\d+/~p/g' msgs.h
+// perl -pi -e 's/\@\d+/~s/g' msgs.h
 // perl -pi -e 's/\\\"/@/g' msgs.h
 // perl -pi -e "s/@/'/g" msgs.h
 // cc errmsgs.c
