@@ -47,15 +47,21 @@ connect(Host, Username, Password, Database, Ops) ->
 prepare(C, QueryString) ->
     gen_server:call(C, {prepare, QueryString}, infinity).
 
+-spec execute(connection(), binary(), list())
+        -> ok | {error, Reason :: binary()}.
 execute(C, QueryString, Params) ->
     prepare(C, QueryString),
     execute(C, Params).
 
+-spec execute(connection(), binary() | list())
+        -> ok | {error, Reason :: binary()}.
 execute(C, QueryString) when is_binary(QueryString) ->
     execute(C, QueryString, []);
 execute(C, Params) when is_list(Params) ->
     gen_server:call(C, {execute, Params}, infinity).
 
+-spec execute(connection())
+        -> ok | {error, Reason :: binary()}.
 execute(C) ->
     execute(C, []).
 
