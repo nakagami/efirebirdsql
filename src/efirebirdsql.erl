@@ -65,12 +65,18 @@ execute(C, Params) when is_list(Params) ->
 execute(C) ->
     execute(C, []).
 
+-spec description(connection())
+        -> list().
 description(C) ->
     gen_server:call(C, description, infinity).
 
+-spec fetchone(connection())
+        -> {ok, list()} | {error, Reason :: binary()}.
 fetchone(C) ->
     gen_server:call(C, fetchone, infinity).
 
+-spec fetchall(connection())
+        -> {ok, list()} | {error, Reason :: binary()}.
 fetchall(C) ->
     gen_server:call(C, fetchall, infinity).
 
