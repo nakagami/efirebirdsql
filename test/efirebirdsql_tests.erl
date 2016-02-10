@@ -87,36 +87,34 @@ basic_test() ->
     {error, ErrMsg2} = efirebirdsql:prepare(C, <<"bad query statement">>),
     {error, ErrMsg2} = efirebirdsql:execute(C, <<"bad query statement">>),
 
+    %% field name
     ok = efirebirdsql:execute(C, <<"select a alias_name from foo">>),
     ?assertEqual(efirebirdsql:description(C), alias_description()),
 
+    %% fetchall
     ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
     ?assertEqual(efirebirdsql:description(C), description()),
     {ok, ResultAll} = efirebirdsql:fetchall(C),
     ?assertEqual(ResultAll,  [result1(), result2()]),
 
+    %% fetch one by one
     ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
     {ok, ResultOne} = efirebirdsql:fetchone(C),
     ?assertEqual(ResultOne, result1()),
     {ok, ResultTwo} = efirebirdsql:fetchone(C),
     ?assertEqual(ResultTwo, result2()),
 
+    %% query with parameter
     ok = efirebirdsql:execute(C, <<"select * from foo where a=?">>, [1]),
     {ok, ResultA1} = efirebirdsql:fetchall(C),
     ?assertEqual(ResultA1, [result1()]),
-
     ok = efirebirdsql:execute(C, <<"select * from foo where b=?">>, [<<"B">>]),
     {ok, ResultB2} = efirebirdsql:fetchall(C),
     ?assertEqual(ResultB2, [result2()]),
 
-    ok = efirebirdsql:connect(C,
-        "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb", []),
-    ok = efirebirdsql:execute(C, <<"select * from foo">>),
-    {ok, ResultAll} = efirebirdsql:fetchall(C),
-    ?assertEqual(length(ResultAll),  2),
-
     ok = efirebirdsql:close(C),
 
+    %% commit and rollback
     {ok, C2} = efirebirdsql:connect(
         "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb",
         [{auto_commit, false}]),
@@ -129,6 +127,7 @@ basic_test() ->
     {ok, ResultAll3} = efirebirdsql:fetchall(C2),
     ?assertEqual(length(ResultAll3),  1),
 
+    %% prepare and execute parameterized query
     ok = efirebirdsql:prepare(C2, <<"select * from foo where c=?">>),
     ok = efirebirdsql:execute(C2, [<<"C">>]),
     {ok, ResultAll4} = efirebirdsql:fetchall(C2),
@@ -136,12 +135,12 @@ basic_test() ->
     ok = efirebirdsql:execute(C2, [<<"c">>]),
     {ok, ResultAll5} = efirebirdsql:fetchall(C2),
     ?assertEqual(length(ResultAll5),  1),
-
     ok = efirebirdsql:prepare(C2, <<"select * from foo">>),
     ok = efirebirdsql:execute(C2),
     {ok, ResultAll6} = efirebirdsql:fetchall(C2),
     ?assertEqual(length(ResultAll6),  2),
 
+    %% insert .. returning
     ok = efirebirdsql:execute(C2, <<"insert into foo(a, b) values (3, 'c') returning a, b">>),
     {ok, ResultReturning} = efirebirdsql:fetchone(C2),
     ?assertEqual(ResultReturning,  [{<<"A">>,3}, {<<"B">>,<<"c">>}]),
