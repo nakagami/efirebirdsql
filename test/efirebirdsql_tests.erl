@@ -138,5 +138,9 @@ basic_test() ->
     {ok, ResultAll6} = efirebirdsql:fetchall(C2),
     ?assertEqual(length(ResultAll6),  2),
 
+    ok = efirebirdsql:execute(C2, <<"insert into foo(a, b) values (3, 'c') returning (a, b)">>),
+    {ok, ResultReturning} = efirebirdsql:fetchone(C2),
+    ?assertEqual(ResultReturning,  [{<<"A">>,3}, {<<"B">>,<<"c">>}]),
+
     ok = efirebirdsql:commit(C2),
     ok = efirebirdsql:close(C2).
