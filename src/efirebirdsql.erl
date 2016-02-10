@@ -50,8 +50,10 @@ prepare(C, QueryString) ->
 -spec execute(connection(), binary(), list())
         -> ok | {error, Reason :: binary()}.
 execute(C, QueryString, Params) ->
-    prepare(C, QueryString),
-    execute(C, Params).
+    case R = prepare(C, QueryString) of
+        ok -> execute(C, Params);
+        {error, _} -> R
+    end.
 
 -spec execute(connection(), binary() | list())
         -> ok | {error, Reason :: binary()}.

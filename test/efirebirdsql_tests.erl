@@ -83,6 +83,10 @@ basic_test() ->
     {ok, C} = efirebirdsql:connect(
         "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb", []),
 
+    %% execute bad query
+    {error, ErrMsg2} = efirebirdsql:prepare(C, <<"bad query statement">>),
+    {error, ErrMsg2} = efirebirdsql:execute(C, <<"bad query statement">>),
+
     ok = efirebirdsql:execute(C, <<"select a alias_name from foo">>),
     ?assertEqual(efirebirdsql:description(C), alias_description()),
 
