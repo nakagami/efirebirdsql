@@ -106,15 +106,16 @@ execute(Mod, Sock, TransHandle, StmtHandle, Params, XSqlVars) ->
         isc_info_sql_stmt_exec_procedure ->
             Mod:send(Sock,
                 efirebirdsql_op:op_execute2(TransHandle, StmtHandle, Params, XSqlVars)),
+            Row = efirebirdsql_op:get_sql_response(Mod, Sock, XSqlVars),
             case efirebirdsql_op:get_response(Mod, Sock) of
-                {op_response,  {ok, _, _}} -> ok;
+                {op_response,  {ok, _, _}} -> {ok, Row};
                 {op_response, {error, Msg}} -> {error, Msg}
             end;
         _ ->
             Mod:send(Sock,
                 efirebirdsql_op:op_execute(TransHandle, StmtHandle, Params)),
             case efirebirdsql_op:get_response(Mod, Sock) of
-                {op_response,  {ok, _, _}} -> ok;
+                {op_response,  {ok, _, _}} -> {ok, []};
                 {op_response, {error, Msg}} -> {error, Msg}
             end
     end.
@@ -211,7 +212,7 @@ handle_call({prepare, Sql}, _From, State) ->
             {reply, R, State}
     end;
 handle_call({execute, Params}, _From, State) ->
-    ok = execute(State#state.mod, State#state.sock,
+    {ok, Row} = execute(State#state.mod, State#state.sock,
         State#state.trans_handle, State#state.stmt_handle, Params,
         State#state.xsqlvars),
     case State#state.stmt_type of
@@ -221,6 +222,8 @@ handle_call({execute, Params}, _From, State) ->
             free_statement(
                 State#state.mod, State#state.sock, State#state.stmt_handle),
             {reply, ok, State#state{rows=Rows}};
+        isc_info_sql_stmt_exec_procedure ->
+            {reply, ok, State#state{rows=[Row]}};
         _ ->
             {reply, ok, State}
     end;

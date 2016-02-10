@@ -4,10 +4,10 @@
 -module(efirebirdsql_op).
 
 -export([op_connect/4, op_attach/3, op_detach/1, op_create/4, op_transaction/2,
-    op_allocate_statement/1, op_prepare_statement/3, op_free_statement/1,
-    op_execute/3, op_fetch/2, op_commit_retaining/1, op_rollback_retaining/1, 
-    op_info_sql/2, convert_row/5,
-    get_response/2, get_fetch_response/3, get_prepare_statement_response/3]).
+    op_allocate_statement/1, op_prepare_statement/3, op_free_statement/1, op_execute/3,
+    op_execute2/4, op_fetch/2, op_info_sql/2, op_commit_retaining/1, op_rollback_retaining/1,
+    convert_row/5, get_response/2, get_fetch_response/3, get_sql_response/3,
+    get_prepare_statement_response/3]).
 
 -include("efirebirdsql.hrl").
 
@@ -327,6 +327,9 @@ get_response(Mod, Sock) ->
         op_fetch_response ->
             {ok, <<Status:32, Count:32>>} = Mod:recv(Sock, 8),
             {op_fetch_response, {Status, Count}};
+        op_sql_response ->
+            {ok, <<Count:32>>} = Mod:recv(Sock, 4),
+            {op_sql_response, Count};
         op_accept ->
             {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
                     _AcceptArchtecture:32, _AcceptType:32>>} = Mod:recv(Sock, 12),
@@ -535,6 +538,10 @@ get_fetch_response(Mod, Sock, XSqlVars) ->
         {op_fetch_response, {Status, Count}} ->
             {op_fetch_response, get_fetch_response(Mod, Sock, Status, Count, XSqlVars, [])}
     end.
+
+get_sql_response(Mod, Sock, XSqlVars) ->
+    {op_sql_response, _Count} = get_response(Mod, Sock),
+    get_row(Mod, Sock, XSqlVars, []).
 
 op_name(1) -> op_connect;
 op_name(2) -> op_exit;
