@@ -198,6 +198,30 @@ op_execute(TransHandle, StmtHandle, Params) ->
                 Value])
     end.
 
+op_execute2(TransHandle, StmtHandle, Params, XSqlVars) ->
+    OutputBlr = efirebirdsql_conv:list_to_xdr_bytes(calc_blr(XSqlVars)),
+    if length(Params) == 0 ->
+            list_to_binary([
+                efirebirdsql_conv:byte4(op_val(op_execute2)),
+                efirebirdsql_conv:byte4(StmtHandle),
+                efirebirdsql_conv:byte4(TransHandle),
+                efirebirdsql_conv:list_to_xdr_bytes([]),
+                efirebirdsql_conv:byte4(0),
+                efirebirdsql_conv:byte4(0),
+                efirebirdsql_conv:list_to_xdr_bytes(OutputBlr)]);
+        length(Params) > 0 ->
+            {Blr, Value} = efirebirdsql_conv:params_to_blr(Params),
+            list_to_binary([
+                efirebirdsql_conv:byte4(op_val(op_execute2)),
+                efirebirdsql_conv:byte4(StmtHandle),
+                efirebirdsql_conv:byte4(TransHandle),
+                efirebirdsql_conv:list_to_xdr_bytes(Blr),
+                efirebirdsql_conv:byte4(0),
+                efirebirdsql_conv:byte4(1),
+                Value,
+                efirebirdsql_conv:list_to_xdr_bytes(OutputBlr)])
+    end.
+
 op_info_sql(StmtHandle, V) ->
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_info_sql)),
@@ -395,6 +419,9 @@ get_prepare_statement_response(Mod, Sock, StmtHandle) ->
                 isc_info_sql_stmt_select ->
                     << _Skip:8/binary, DescVars/binary >> = Rest,
                     parse_select_columns(Mod, Sock, StmtHandle, [], DescVars);
+                isc_info_sql_stmt_exec_procedure ->
+                    << _Skip:8/binary, DescVars/binary >> = Rest,
+                    parse_select_columns(Mod, Sock, StmtHandle, [], DescVars);
                 _ -> []
             end,
             {ok, StmtName, XSqlVars};
@@ -459,7 +486,7 @@ convert_row(Mod, Sock, TransHandle, XSqlVars, Row, Converted) ->
 convert_row(Mod, Sock, TransHandle, XSqlVars, Row) ->
     convert_row(Mod, Sock, TransHandle, XSqlVars, Row, []).
 
-get_fetch_response_raw_value(Mod, Sock, XSqlVar) ->
+get_raw_value(Mod, Sock, XSqlVar) ->
     L = case XSqlVar#column.type of
             varying -> {ok, <<Num:32>>} = Mod:recv(Sock, 4), Num;
             text -> XSqlVar#column.length;
@@ -484,19 +511,19 @@ get_fetch_response_raw_value(Mod, Sock, XSqlVar) ->
         _ -> null
     end.
 
-get_fetch_response_row(_Mod, _Sock, [], Columns) ->
+get_row(_Mod, _Sock, [], Columns) ->
     lists:reverse(Columns);
-get_fetch_response_row(Mod, Sock, XSqlVars, Columns) ->
+get_row(Mod, Sock, XSqlVars, Columns) ->
     [X | RestVars] = XSqlVars,
-    V = get_fetch_response_raw_value(Mod, Sock, X),
-    get_fetch_response_row(Mod, Sock, RestVars, [V | Columns]).
+    V = get_raw_value(Mod, Sock, X),
+    get_row(Mod, Sock, RestVars, [V | Columns]).
 
 get_fetch_response(_Mod, _Sock, Status, 0, _XSqlVars, Results) ->
     %% {list_of_response, more_data}
     {lists:reverse(Results),
         if Status =/= 100 -> true; Status =:= 100 -> false end};
 get_fetch_response(Mod, Sock, _Status, _Count, XSqlVars, Results) ->
-    Row = get_fetch_response_row(Mod, Sock, XSqlVars, []),
+    Row = get_row(Mod, Sock, XSqlVars, []),
     NewResults = [Row | Results],
     {ok, <<_:32, NewStatus:32, NewCount:32>>} = Mod:recv(Sock, 12),
     get_fetch_response(Mod, Sock, NewStatus, NewCount, XSqlVars, NewResults).

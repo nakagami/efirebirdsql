@@ -101,12 +101,22 @@ free_statement(Mod, Sock, StmtHandle) ->
     end.
 
 %% Execute, Fetch and Description
-execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
-    Mod:send(Sock,
-        efirebirdsql_op:op_execute(TransHandle, StmtHandle, Params)),
-    case efirebirdsql_op:get_response(Mod, Sock) of
-        {op_response,  {ok, _, _}} -> ok;
-        {op_response, {error, Msg}} -> {error, Msg}
+execute(Mod, Sock, TransHandle, StmtHandle, Params, XSqlVars) ->
+    case StmtHandle of
+        isc_info_sql_stmt_exec_procedure ->
+            Mod:send(Sock,
+                efirebirdsql_op:op_execute2(TransHandle, StmtHandle, Params, XSqlVars)),
+            case efirebirdsql_op:get_response(Mod, Sock) of
+                {op_response,  {ok, _, _}} -> ok;
+                {op_response, {error, Msg}} -> {error, Msg}
+            end;
+        _ ->
+            Mod:send(Sock,
+                efirebirdsql_op:op_execute(TransHandle, StmtHandle, Params)),
+            case efirebirdsql_op:get_response(Mod, Sock) of
+                {op_response,  {ok, _, _}} -> ok;
+                {op_response, {error, Msg}} -> {error, Msg}
+            end
     end.
 
 fetchrows(Mod, Sock, StmtHandle, XSqlVars, Results) ->
@@ -202,7 +212,8 @@ handle_call({prepare, Sql}, _From, State) ->
     end;
 handle_call({execute, Params}, _From, State) ->
     ok = execute(State#state.mod, State#state.sock,
-        State#state.trans_handle, State#state.stmt_handle, Params),
+        State#state.trans_handle, State#state.stmt_handle, Params,
+        State#state.xsqlvars),
     case State#state.stmt_type of
         isc_info_sql_stmt_select ->
             {ok, Rows} = fetchrows(State#state.mod, State#state.sock,
