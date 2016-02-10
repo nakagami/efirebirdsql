@@ -31,6 +31,16 @@ create_testdb() ->
     ">>),
     ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (1, 'b', 'c','blob')">>),
     ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (2, 'B', 'C','BLOB')">>),
+
+    ok = efirebirdsql:execute(C, <<"
+            CREATE PROCEDURE bar_proc (param_a INTEGER, param_b VARCHAR(30))
+              RETURNS (out1 INTEGER, out2 VARCHAR(30))
+              AS
+              BEGIN
+                out1 = param_a;
+                out2 = param_b;
+              END
+    ">>),
     efirebirdsql:close(C).
 
 description() ->
@@ -144,6 +154,10 @@ basic_test() ->
     ok = efirebirdsql:execute(C2, <<"insert into foo(a, b) values (3, 'c') returning a, b">>),
     {ok, ResultReturning} = efirebirdsql:fetchone(C2),
     ?assertEqual(ResultReturning,  [{<<"A">>,3}, {<<"B">>,<<"c">>}]),
+
+    ok = efirebirdsql:execute(C2, <<"EXECUTE PROCEDURE bar_proc(4, 'd')">>),
+    {ok, ResultProcedure} = efirebirdsql:fetchone(C2),
+    ?assertEqual(ResultProcedure,  [{<<"OUT1">>,4}, {<<"OUT2">>,<<"d">>}]),
 
     ok = efirebirdsql:commit(C2),
     ok = efirebirdsql:close(C2).
