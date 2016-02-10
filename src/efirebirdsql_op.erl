@@ -208,7 +208,7 @@ op_execute2(TransHandle, StmtHandle, Params, XSqlVars) ->
                 efirebirdsql_conv:list_to_xdr_bytes([]),
                 efirebirdsql_conv:byte4(0),
                 efirebirdsql_conv:byte4(0),
-                efirebirdsql_conv:list_to_xdr_bytes(OutputBlr),
+                OutputBlr,
                 efirebirdsql_conv:byte4(0)]);
         length(Params) > 0 ->
             {Blr, Value} = efirebirdsql_conv:params_to_blr(Params),
@@ -220,7 +220,7 @@ op_execute2(TransHandle, StmtHandle, Params, XSqlVars) ->
                 efirebirdsql_conv:byte4(0),
                 efirebirdsql_conv:byte4(1),
                 Value,
-                efirebirdsql_conv:list_to_xdr_bytes(OutputBlr),
+                OutputBlr,
                 efirebirdsql_conv:byte4(0)])
     end.
 
