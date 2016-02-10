@@ -33,7 +33,7 @@ create_testdb() ->
     ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (2, 'B', 'C','BLOB')">>),
 
     ok = efirebirdsql:execute(C, <<"
-            CREATE PROCEDURE foo_proc ()
+            CREATE PROCEDURE foo_proc
               AS
               BEGIN
               END
