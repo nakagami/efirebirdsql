@@ -43,7 +43,7 @@ connect(Host, Username, Password, Database, Ops) ->
     end.
 
 -spec prepare(connection(), binary())
-    -> ok.
+    -> ok | {error, Reason :: binary()}.
 prepare(C, QueryString) ->
     gen_server:call(C, {prepare, QueryString}, infinity).
 
