@@ -3,7 +3,7 @@
 
 -module(efirebirdsql_srp).
 
--compile([export_all]).
+-export([get_client_session_key/3, get_server_session_key/3, get_salt/0]).
 
 -spec get_random_list(non_neg_integer()) -> list().
 get_random_list(Length) ->
@@ -25,9 +25,6 @@ get_generator() -> <<2>>.
 
 %% srp version 6
 get_version() -> '6'.
-
-%%  k = Multiplier parameter (k = H(N, g) in SRP-6a)
-get_k() -> 1277432915985975349439481660349303019122249719989.
 
 %% x = H(salt, H(username, :, password))
 get_user_hash(Username, Password, Salt) ->
