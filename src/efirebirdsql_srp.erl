@@ -99,6 +99,13 @@ client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate
     K = client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate),
     N1 = bin_to_int(crypto:hash(sha, int_to_bin(get_prime()))),
     N2 = bin_to_int(crypto:hash(sha, int_to_bin(get_generator()))),
-    M = crypto:hash(sha, [crypto:mod_pow(N1, N2, get_prime()), crypto:hash(sha, User), Salt, ClientPublic, ServerPublic, K]),
+    M = crypto:hash(sha, [
+        crypto:mod_pow(N1, N2, get_prime()),
+        crypto:hash(sha, User),
+        Salt,
+        int_to_bin(ClientPublic),
+        int_to_bin(ServerPublic),
+        K
+    ]),
     {M, K}.
 
