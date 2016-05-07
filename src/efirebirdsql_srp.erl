@@ -5,12 +5,14 @@
 
 -export([client_proof/6, client_session/6, server_session/6, get_salt/0, client_seed/0, server_seed/1]).
 
+-spec int_to_bin(integer()) -> binary().
 int_to_bin(Int) ->
     Len0 = length(erlang:integer_to_list(Int, 16)),
     Len1 = Len0 + (Len0 rem 2),
     Bits = Len1 * 4,
     <<Int:Bits>>.
 
+-spec bin_to_int(binary()) -> integer().
 bin_to_int(Bin) ->
     Bits = byte_size(Bin) * 8,
     <<Val:Bits>> = Bin,
@@ -59,7 +61,7 @@ client_seed() ->
 server_seed(V) ->
     PrivateKey = random:uniform(1 bsl get_key_size()) -1,
     GB = bin_to_int(crypto:mod_pow(get_generator(), PrivateKey, get_prime())),
-    KV = (get_k() * V) rem get_prime(),
+    KV = (get_k() * bin_to_int(V)) rem get_prime(),
     PublicKey = (KV + GB) rem get_prime(),
     {PublicKey, PrivateKey}.
 
@@ -68,35 +70,35 @@ server_seed(V) ->
 client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate) ->
     User = list_to_binary(Username),
     Pass = list_to_binary(Password),
-    U = bin_to_int(crypto:hash(sha1, [ClientPublic, ServerPublic])),
+    U = bin_to_int(crypto:hash(sha, [ClientPublic, ServerPublic])),
     X = get_user_hash(User, Pass, Salt),
     GX = bin_to_int(crypto:mod_pow(get_generator(), X, get_prime())),
     KGX = (get_k() * GX) rem get_prime(),
     Diff = (ServerPublic - KGX) rem get_prime(),
-    UX = (U * X) rem get_prime(),
+    UX = (U * bin_to_int(X)) rem get_prime(),
     AUX = (ClientPrivate * UX) rem get_prime(),
     SessionSecret = crypto:mod_pow(Diff, AUX, get_prime()),
-    crypto:hash(sha1, SessionSecret).
+    crypto:hash(sha, SessionSecret).
 
 %% server session key
 -spec server_session(list(), list(), binary(), integer(), integer(), integer()) -> binary().
 server_session(Username, Password, Salt, ClientPublic, ServerPublic, ServerPrivate) ->
     User = list_to_binary(Username),
     Pass = list_to_binary(Password),
-    U = bin_to_int(crypto:hash(sha1, [ClientPublic, ServerPublic])),
+    U = bin_to_int(crypto:hash(sha, [ClientPublic, ServerPublic])),
     V = get_verifier(User, Pass, Salt),
     VU = bin_to_int(crypto:mod_pow(V, U, get_prime())),
     AVU = (ClientPublic * VU) rem get_prime(),
     SessionSecret = crypto:mod_pow(AVU, ServerPrivate, get_prime()),
-    crypto:hash(sha1, SessionSecret).
+    crypto:hash(sha, SessionSecret).
 
 -spec client_proof(list(), list(), binary(), integer(), integer(), integer()) -> {binary(), binary()}.
 client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate)
 ->
     User = list_to_binary(Username),
     K = client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate),
-    N1 = bin_to_int(crypto:hash(sha1, int_to_bin(get_prime()))),
-    N2 = bin_to_int(crypto:hash(sha1, int_to_bin(get_generator()))),
-    M = crypto:hash(sha1, [crypto:mod_pow(N1, N2, get_prime()), crypto:hash(sha1, User), Salt, ClientPublic, ServerPublic, K]),
+    N1 = bin_to_int(crypto:hash(sha, int_to_bin(get_prime()))),
+    N2 = bin_to_int(crypto:hash(sha, int_to_bin(get_generator()))),
+    M = crypto:hash(sha, [crypto:mod_pow(N1, N2, get_prime()), crypto:hash(sha, User), Salt, ClientPublic, ServerPublic, K]),
     {M, K}.
 
