@@ -3,7 +3,7 @@
 
 -module(efirebirdsql_srp).
 
--export([client_proof/6, client_session/6, server_session/6, get_salt/0, client_seed/0, server_seed/1]).
+-export([get_verifier/3, client_proof/6, client_session/6, server_session/6, get_salt/0, client_seed/0, server_seed/1]).
 
 -spec int_to_bin(integer()) -> binary().
 int_to_bin(Int) ->
@@ -40,8 +40,10 @@ get_user_hash(User, Pass, Salt) ->
     crypto:hash(sha, [Salt, crypto:hash(sha, [User, <<$:>>, Pass])]).
 
 %% v = g^x
--spec get_verifier(binary(), binary(), binary()) -> binary().
-get_verifier(User, Pass, Salt) ->
+-spec get_verifier(list(), list(), binary()) -> binary().
+get_verifier(Username, Password, Salt) ->
+    User = list_to_binary(Username),
+    Pass = list_to_binary(Password),
     DerivedKey = get_user_hash(User, Pass, Salt),
     crypto:mod_pow(get_generator(), DerivedKey, get_prime()).
 
@@ -70,7 +72,7 @@ server_seed(V) ->
 client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate) ->
     User = list_to_binary(Username),
     Pass = list_to_binary(Password),
-    U = bin_to_int(crypto:hash(sha, [ClientPublic, ServerPublic])),
+    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic), int_to_bin(ServerPublic)])),
     X = get_user_hash(User, Pass, Salt),
     GX = bin_to_int(crypto:mod_pow(get_generator(), X, get_prime())),
     KGX = (get_k() * GX) rem get_prime(),
@@ -83,10 +85,8 @@ client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPriva
 %% server session key
 -spec server_session(list(), list(), binary(), integer(), integer(), integer()) -> binary().
 server_session(Username, Password, Salt, ClientPublic, ServerPublic, ServerPrivate) ->
-    User = list_to_binary(Username),
-    Pass = list_to_binary(Password),
-    U = bin_to_int(crypto:hash(sha, [ClientPublic, ServerPublic])),
-    V = get_verifier(User, Pass, Salt),
+    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic), int_to_bin(ServerPublic)])),
+    V = get_verifier(Username, Password, Salt),
     VU = bin_to_int(crypto:mod_pow(V, U, get_prime())),
     AVU = (ClientPublic * VU) rem get_prime(),
     SessionSecret = crypto:mod_pow(AVU, ServerPrivate, get_prime()),

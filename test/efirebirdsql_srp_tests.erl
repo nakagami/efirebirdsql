@@ -8,7 +8,14 @@
 -include_lib("eunit/include/eunit.hrl").
 
 random_test() ->
+    Username = "SYSDBA",
+    Password = "masterkey",
     Salt = efirebirdsql_srp:get_salt(),
-    ?assertEqual(
-        efirebirdsql_srp:get_client_session_key("sysdba", "masterkey", Salt),
-        efirebirdsql_srp:get_server_session_key("sysdba", "masterkey", Salt)).
+    {ClientPublic, ClientPrivate} = efirebirdsql_srp:client_seed(),
+    V = efirebirdsql_srp:get_verifier(Username, Password, Salt),
+    {ServerPublic, ServerPrivate} = efirebirdsql_srp:server_seed(V),
+    ServerSession = efirebirdsql_srp:server_session(
+        Username, Password, Salt, ClientPublic, ServerPublic, ServerPrivate),
+    {M, ClientSession} = efirebirdsql_srp:client_proof(
+        Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate),
+    ?assertEqual(ServerSession, ClientSession).
