@@ -531,7 +531,7 @@ get_raw_value(Mod, Sock, XSqlVar) ->
             array -> 8;
             boolean -> 1
         end,
-    {ok, V} = Mod:recv(Sock, L),
+    if L =:= 0 -> V = ""; L > 0 -> {ok, V} = Mod:recv(Sock, L) end,
     ?debugFmt("get_raw_value() V=~p~n", [V]),
     skip4(Mod, Sock, L),
     {ok, NullFlag} = Mod:recv(Sock, 4),
