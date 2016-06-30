@@ -161,6 +161,12 @@ basic_test() ->
     {ok, ResultReturning} = efirebirdsql:fetchone(C2),
     ?assertEqual(ResultReturning,  [{<<"A">>,3}, {<<"B">>,<<"c">>}]),
 
+    %% fetch null value
+    ok = efirebirdsql:execute(C2, <<"select a,c from foo where A=3">>),
+    {ok, ResultNull} = efirebird:fetchone(C2),
+    ?assertEqual(ResultNull,  [{<<"A">>,3}, {<<"C">>,null}]),
+
+    %% procedure call
     ok = efirebirdsql:execute(C2, <<"EXECUTE PROCEDURE foo_proc">>),
     ok = efirebirdsql:execute(C2, <<"EXECUTE PROCEDURE bar_proc(4, 'd')">>),
     {ok, ResultProcedure} = efirebirdsql:fetchone(C2),
