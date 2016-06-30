@@ -163,7 +163,7 @@ basic_test() ->
 
     %% fetch null value
     ok = efirebirdsql:execute(C2, <<"select a,c from foo where A=3">>),
-    {ok, ResultNull} = efirebird:fetchone(C2),
+    {ok, ResultNull} = efirebirdsql:fetchone(C2),
     ?assertEqual(ResultNull,  [{<<"A">>,3}, {<<"C">>,null}]),
 
     %% procedure call
