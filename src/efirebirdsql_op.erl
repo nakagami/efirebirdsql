@@ -473,7 +473,7 @@ get_blob_data(Mod, Sock, TransHandle, BlobId) ->
     SegmentList = get_blob_segment(Mod, Sock, BlobHandle, []),
     Mod:send(Sock, op_close_blob(BlobHandle)),
     {op_response,  {ok, 0, _}} = get_response(Mod, Sock),
-    [R] = lists:flatten(SegmentList),
+    R = list_to_binary(SegmentList),
     {ok, R}.
 
 convert_raw_value(Mod, Sock, TransHandle, XSqlVar, RawValue) ->
