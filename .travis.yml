@@ -1,6 +1,7 @@
 language: erlang
 otp_release:
-  - 18.2.1
+  - 19.2
+  - 18.3
   - 17.5
 before_install:
   - sudo apt-get update -qq
