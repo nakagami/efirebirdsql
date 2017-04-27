@@ -179,4 +179,14 @@ basic_test() ->
     %?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C2)),
 
     ok = efirebirdsql:commit(C2),
-    ok = efirebirdsql:close(C2).
+    ok = efirebirdsql:close(C2),
+
+    %% Fetch null value issue #6
+    {ok, C3} = efirebirdsql:connect(
+        "localhost", "sysdba", "masterkey", "/tmp/erlang_test_issue6.fdb",
+        [{createdb, true}]),
+    ok = efirebirdsql:execute(C3, <<"create table TestTable (ID int, testvalue int)">>),
+    ok = efirebirdsql:execute(C3, <<"insert into TestTable (ID, testvalue) values (2, null)">>),
+    ok = efirebirdsql:execute(C3, <<"select * from TestTable">>),
+    {ok, ResultHasNull} = efirebirdsql:fetchall(C3),
+    ?assertEqual(ResultHasNull,  [[{<<"ID">>,2}, {<<"TESTVALUE">>,null}]]).
