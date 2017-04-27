@@ -476,6 +476,8 @@ get_blob_data(Mod, Sock, TransHandle, BlobId) ->
     R = list_to_binary(SegmentList),
     {ok, R}.
 
+convert_raw_value(_Mod, _Sock, _TransHandle, _XSqlVar, null) ->
+    null;
 convert_raw_value(Mod, Sock, TransHandle, XSqlVar, RawValue) ->
     ?debugFmt("convert_raw_value() start~n", []),
     CookedValue = case XSqlVar#column.type of
