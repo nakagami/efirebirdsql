@@ -49,7 +49,11 @@ get_verifier(Username, Password, Salt) ->
 
 %% salt 32 bytes binary
 -spec get_salt() -> binary().
-get_salt() -> int_to_bin(random:uniform(1 bsl (8*32)) - 1).
+get_salt() ->
+    Bytes = 32,
+    Bits = Bytes*8,
+    <<Result:Bits/bits, _/bits>> = crypto:rand_bytes(32),
+    Result.
 
 %% client {Public, Private} keys
 -spec client_seed() -> {PublicKey::integer(), PrivateKey::integer()}.
