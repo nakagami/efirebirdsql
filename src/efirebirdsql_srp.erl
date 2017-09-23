@@ -25,13 +25,10 @@ get_prime() ->
 %% g: A generator modulo N
 get_generator() -> 2.
 
-%% get key size (bits)
-get_key_size() -> 128.
-
 %% k = H(N, g): Multiplier parameter
 -spec get_k() -> integer().
 get_k() ->
-    bin_to_int(crypto:hash(sha, [int_to_bin(get_prime()), int_to_bin(get_generator())])).
+    1277432915985975349439481660349303019122249719989.
 
 
 %% x = H(salt, H(username, :, password))
@@ -40,34 +37,43 @@ get_user_hash(User, Pass, Salt) ->
     crypto:hash(sha, [Salt, crypto:hash(sha, [User, <<$:>>, Pass])]).
 
 %% v = g^x
--spec get_verifier(list(), list(), binary()) -> binary().
+-spec get_verifier(list(), list(), binary()) -> integer().
 get_verifier(Username, Password, Salt) ->
     User = list_to_binary(Username),
     Pass = list_to_binary(Password),
     DerivedKey = get_user_hash(User, Pass, Salt),
-    crypto:mod_pow(get_generator(), DerivedKey, get_prime()).
+    V = crypto:mod_pow(get_generator(), bin_to_int(DerivedKey), get_prime()),
+    bin_to_int(V).
 
 %% salt 32 bytes binary
 -spec get_salt() -> binary().
 get_salt() ->
     Bytes = 32,
     Bits = Bytes*8,
-    <<Result:Bits/bits, _/bits>> = crypto:rand_bytes(32),
+    <<Result:Bits/bits, _/bits>> = crypto:rand_bytes(Bytes),
     Result.
+
+%% get private key
+-spec get_private_key() -> integer().
+get_private_key() ->
+    Bytes = 128,
+    Bits = Bytes * 8,
+    <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:rand_bytes(Bytes),
+    bin_to_int(PrivateKeyBin).
 
 %% client {Public, Private} keys
 -spec client_seed() -> {PublicKey::integer(), PrivateKey::integer()}.
 client_seed() ->
-    PrivateKey = random:uniform(1 bsl get_key_size()) -1,
+    PrivateKey = get_private_key(),
     PublicKey = bin_to_int(crypto:mod_pow(get_generator(), PrivateKey, get_prime())),
     {PublicKey, PrivateKey}.
 
 %% server {Public, Private} keys
--spec server_seed(binary()) -> {PublicKey:: integer(), PrivateKey::integer()}.
+-spec server_seed(integer()) -> {PublicKey:: integer(), PrivateKey::integer()}.
 server_seed(V) ->
-    PrivateKey = random:uniform(1 bsl get_key_size()) -1,
+    PrivateKey = get_private_key(),
     GB = bin_to_int(crypto:mod_pow(get_generator(), PrivateKey, get_prime())),
-    KV = (get_k() * bin_to_int(V)) rem get_prime(),
+    KV = (get_k() * V) rem get_prime(),
     PublicKey = (KV + GB) rem get_prime(),
     {PublicKey, PrivateKey}.
 
@@ -80,10 +86,12 @@ client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPriva
     X = get_user_hash(User, Pass, Salt),
     GX = bin_to_int(crypto:mod_pow(get_generator(), X, get_prime())),
     KGX = (get_k() * GX) rem get_prime(),
-    Diff = (ServerPublic - KGX) rem get_prime(),
+    Diff1 = (ServerPublic - KGX) rem get_prime(),
+    Diff = if Diff1 < 0 -> Diff1 + get_prime(); Diff1 >= 0 -> Diff1 end,
     UX = (U * bin_to_int(X)) rem get_prime(),
-    AUX = (ClientPrivate * UX) rem get_prime(),
+    AUX = (ClientPrivate + UX) rem get_prime(),
     SessionSecret = crypto:mod_pow(Diff, AUX, get_prime()),
+
     crypto:hash(sha, SessionSecret).
 
 %% server session key
