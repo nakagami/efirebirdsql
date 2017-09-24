@@ -48,7 +48,7 @@ pack_cnct_param(K, V) when is_binary(V) ->
 
 %%% parameters separate per 254 bytes
 pack_specific_data_cnct_param(Acc, _, []) ->
-    list:flatten(lists:reverse(Acc));
+    lists:flatten(lists:reverse(Acc));
 pack_specific_data_cnct_param(Acc, K, V) ->
     pack_specific_data_cnct_param(
         [pack_cnct_param(K, lists:sublist(V, 1, 254)) | Acc],
@@ -61,13 +61,13 @@ pack_specific_data_cnct_param(K, V) ->
 uid(Host, Username, PublicKey, WireCrypt) ->
     SpecificData = efirebirdsql_srp:to_hex(PublicKey),
     Data = lists:flatten([
-%        pack_cnct_param(9, Username),                   %% CNCT_login
-%        pack_cnct_param(8, "Srp"),                      %% CNCT_plugin_name
-%        pack_cnct_param(10, "Srp,Legacy_Atuh"),         %% CNCT_plugin_list
-%        pack_specific_data_cnct_param(7, SpecificData), %% CNCT_specific_data
-%        pack_cnct_param(11,
-%            [if WireCrypt=:=true -> 1; WireCrypt =/= true -> 0 end, 0, 0, 0]
-%        ),  %% CNCT_client_crypt
+        pack_cnct_param(9, Username),                   %% CNCT_login
+        pack_cnct_param(8, "Srp"),                      %% CNCT_plugin_name
+        pack_cnct_param(10, "Srp,Legacy_Atuh"),         %% CNCT_plugin_list
+        pack_specific_data_cnct_param(7, SpecificData), %% CNCT_specific_data
+        pack_cnct_param(11,
+            [if WireCrypt=:=true -> 1; WireCrypt =/= true -> 0 end, 0, 0, 0]
+        ),  %% CNCT_client_crypt
         pack_cnct_param(1, Username),                   %% CNCT_user
         pack_cnct_param(4, Host),                       %% CNCT_host
         pack_cnct_param(6, "")                          %% CNCT_user_verification
