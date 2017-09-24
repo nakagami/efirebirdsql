@@ -5,7 +5,7 @@
 %-include_lib("eunit/include/eunit.hrl").
 -define(debugFmt(X,Y), ok).
 
--export([op_connect/4, op_attach/3, op_detach/1, op_create/4, op_transaction/2,
+-export([op_connect/6, op_attach/3, op_detach/1, op_create/4, op_transaction/2,
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/1, op_execute/3,
     op_execute2/4, op_fetch/2, op_info_sql/2, op_commit_retaining/1, op_rollback_retaining/1,
     convert_row/5, get_response/2, get_fetch_response/3, get_sql_response/3,
@@ -40,14 +40,38 @@ skip4(Mod, Sock, Len) ->
         3 -> Mod:recv(Sock, 1)
     end.
 
-uid(Host, Username) ->
+
+pack_cnct_param(K, V) when is_list(V) ->
+    lists:flatten([K, length(V), V]);
+pack_cnct_param(K, V) when is_binary(V) ->
+    pack_cnct_param(K, binary_to_list(V)).
+
+%%% parameters separate per 254 bytes
+pack_specific_data_cnct_param(Acc, _, []) ->
+    list:flatten(lists:reverse(Acc));
+pack_specific_data_cnct_param(Acc, K, V) ->
+    pack_specific_data_cnct_param(
+        [pack_cnct_param(K, lists:sublist(V, 1, 254)) | Acc],
+        K,
+        if length(V) > 254 -> lists:nthtail(254, V); length(V) =< 254 -> [] end).
+
+pack_specific_data_cnct_param(K, V) ->
+    pack_specific_data_cnct_param([], K, V).
+
+uid(Host, Username, PublicKey, WireCrypt) ->
+    SpecificData = efirebirdsql_srp:to_hex(PublicKey),
     Data = lists:flatten([
-        1,  %% CNCT_user
-        length(Username),
-        Username,
-        4,  %% CNCT_host
-        length(Host),
-        Host]),
+%        pack_cnct_param(9, Username),                   %% CNCT_login
+%        pack_cnct_param(8, "Srp"),                      %% CNCT_plugin_name
+%        pack_cnct_param(10, "Srp,Legacy_Atuh"),         %% CNCT_plugin_list
+%        pack_specific_data_cnct_param(7, SpecificData), %% CNCT_specific_data
+%        pack_cnct_param(11,
+%            [if WireCrypt=:=true -> 1; WireCrypt =/= true -> 0 end, 0, 0, 0]
+%        ),  %% CNCT_client_crypt
+        pack_cnct_param(1, Username),                   %% CNCT_user
+        pack_cnct_param(4, Host),                       %% CNCT_host
+        pack_cnct_param(6, "")                          %% CNCT_user_verification
+    ]),
     efirebirdsql_conv:list_to_xdr_bytes(Data).
 
 convert_scale(Scale) ->
@@ -88,7 +112,7 @@ calc_blr(XSqlVars) ->
         [255, 76]]).
 
 %%% create op_connect binary
-op_connect(Host, Username, _Password, Database) ->
+op_connect(Host, Username, _Password, Database, PublicKey, WireCrypt) ->
     ?debugFmt("op_connect~n", []),
     %% PROTOCOL_VERSION,ArchType(Generic),MinAcceptType,MaxAcceptType,Weight
     Protocols = lists:flatten(
@@ -104,7 +128,7 @@ op_connect(Host, Username, _Password, Database) ->
         efirebirdsql_conv:byte4(1),  %% arch_generic,
         efirebirdsql_conv:list_to_xdr_string(Database),
         efirebirdsql_conv:byte4(1),  %% Count of acceptable protocols (VERSION 10 only)
-        uid(Host, Username)],
+        uid(Host, Username, PublicKey, WireCrypt)],
     list_to_binary([Buf, Protocols]).
 
 %%% create op_attach binary

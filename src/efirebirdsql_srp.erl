@@ -3,7 +3,7 @@
 
 -module(efirebirdsql_srp).
 
--export([get_verifier/3, client_proof/6, client_session/6, server_session/6, get_salt/0, client_seed/0, server_seed/1, print_bin_hex/1]).
+-export([get_verifier/3, client_proof/6, client_session/6, server_session/6, get_salt/0, client_seed/0, server_seed/1, to_hex/1]).
 
 -spec int_to_bin(integer()) -> binary().
 int_to_bin(Int) ->
@@ -122,7 +122,11 @@ client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate
     {M, K}.
 
 
-%% print binary as hex string
--spec print_bin_hex(binary()) -> ok.
-print_bin_hex(Bin) ->
-    io:format("<<~s>>~n", [[io_lib:format("~2.16.0B",[X]) || <<X:8>> <= Bin ]]).
+%% convert to hex string
+-spec to_hex(binary() | list()) -> list().
+to_hex(Bin) when is_binary(Bin) ->
+    lists:flatten([io_lib:format("~2.16.0B",[X]) || <<X:8>> <= Bin ]);
+to_hex(L) when is_list(L) ->
+    to_hex(list_to_binary(L));
+to_hex(I) when is_integer(I) ->
+    to_hex(int_to_bin(I)).

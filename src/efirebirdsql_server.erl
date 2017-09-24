@@ -13,6 +13,9 @@
 
 -record(state, {mod,
                 sock,
+                public_key,
+                private_key,
+                wire_crypt,
                 db_handle,
                 trans_handle,
                 stmt_handle,
@@ -46,9 +49,10 @@ allocate_statement(Mod, Sock, DbHandle) ->
         {op_response, {error, Msg}} ->{error, Msg}
     end.
 
-connect(Mod, Sock, Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
+connect(Mod, Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
+    Sock = State#state.sock,
     Mod:send(Sock,
-        efirebirdsql_op:op_connect(Host, Username, Password, Database)),
+        efirebirdsql_op:op_connect(Host, Username, Password, Database, State#state.public_key, State#state.wire_crypt)),
     case efirebirdsql_op:get_response(Mod, Sock) of
         {op_accept, _} ->
             case IsCreateDB of
@@ -172,10 +176,17 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
     Port = proplists:get_value(port, Options, 3050),
     IsCreateDB = proplists:get_value(createdb, Options, false),
     PageSize = proplists:get_value(pagesize, Options, 4096),
+    {Pub ,Private} = efirebirdsql_srp:client_seed(),
     case gen_tcp:connect(Host, Port, SockOptions) of
         {ok, Sock} ->
-            {R, NewState} = connect(gen_tcp, Sock, Host, Username, Password, Database, IsCreateDB, PageSize, State),
-            {reply, R, NewState#state{sock=Sock}};
+            State2 = State#state{
+                sock=Sock,
+                public_key=Pub,
+                private_key=Private,
+                wire_crypt=proplists:get_value(wire_crypt, Options, false)
+            },
+            {R, NewState} = connect(gen_tcp, Host, Username, Password, Database, IsCreateDB, PageSize, State2),
+            {reply, R, NewState};
         Error = {error, _} ->
             {reply, Error, State}
     end;
