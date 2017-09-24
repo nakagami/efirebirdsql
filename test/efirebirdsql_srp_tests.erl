@@ -19,3 +19,8 @@ random_test() ->
     {M, ClientSession} = efirebirdsql_srp:client_proof(
         Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate),
     ?assertEqual(ServerSession, ClientSession).
+
+bin_hex_test() ->
+    ?assertEqual(efirebirdsql_srp:to_hex(<<1,2,3,255>>), "010203FF"),
+    ?assertEqual(efirebirdsql_srp:to_hex([1,2,3,255]), "010203FF").
+
