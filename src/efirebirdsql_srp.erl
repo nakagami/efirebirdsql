@@ -50,7 +50,7 @@ get_verifier(Username, Password, Salt) ->
 get_salt() ->
     Bytes = 32,
     Bits = Bytes*8,
-    <<Result:Bits/bits, _/bits>> = crypto:rand_bytes(Bytes),
+    <<Result:Bits/bits, _/bits>> = crypto:strong_rand_bytes(Bytes),
     Result.
 
 %% get private key
@@ -58,7 +58,7 @@ get_salt() ->
 get_private_key() ->
     Bytes = 128,
     Bits = Bytes * 8,
-    <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:rand_bytes(Bytes),
+    <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:strong_rand_bytes(Bytes),
     bin_to_int(PrivateKeyBin).
 
 %% client {Public, Private} keys
