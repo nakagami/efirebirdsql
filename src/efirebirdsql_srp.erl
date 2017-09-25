@@ -11,6 +11,10 @@ int_to_bin(Int) ->
     Len1 = Len0 + (Len0 rem 2),
     Bits = Len1 * 4,
     <<Int:Bits>>.
+-spec int_to_bin(integer(), integer()) -> binary().
+int_to_bin(Int, Bytes) ->
+    Bits = Bytes * 8,
+    <<Int:Bits>>.
 
 -spec bin_to_int(binary()) -> integer().
 bin_to_int(Bin) ->
@@ -56,7 +60,7 @@ get_verifier(Username, Password, Salt) ->
 -spec get_salt() -> binary().
 get_salt() ->
     Bytes = 32,
-    Bits = Bytes*8,
+    Bits = Bytes * 8,
     <<Result:Bits/bits, _/bits>> = crypto:strong_rand_bytes(Bytes),
     Result.
 
@@ -88,7 +92,7 @@ server_seed(V) ->
 client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate) ->
     User = list_to_binary(Username),
     Pass = list_to_binary(Password),
-    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic), int_to_bin(ServerPublic)])),
+    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic, get_key_size()), int_to_bin(ServerPublic, get_key_size())])),
     X = get_user_hash(User, Pass, Salt),
     GX = bin_to_int(crypto:mod_pow(get_generator(), X, get_prime())),
     KGX = remainder(get_k() * GX, get_prime()),
@@ -102,7 +106,7 @@ client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPriva
 %% server session key
 -spec server_session(list(), list(), binary(), integer(), integer(), integer()) -> binary().
 server_session(Username, Password, Salt, ClientPublic, ServerPublic, ServerPrivate) ->
-    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic), int_to_bin(ServerPublic)])),
+    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic, get_key_size()), int_to_bin(ServerPublic, get_key_size())])),
     V = get_verifier(Username, Password, Salt),
     VU = bin_to_int(crypto:mod_pow(V, U, get_prime())),
     AVU = remainder(ClientPublic * VU, get_prime()),
@@ -120,8 +124,8 @@ client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate
         crypto:mod_pow(N1, N2, get_prime()),
         crypto:hash(sha, User),
         Salt,
-        int_to_bin(ClientPublic),
-        int_to_bin(ServerPublic),
+        int_to_bin(ClientPublic, get_key_size()),
+        int_to_bin(ServerPublic, get_key_size()),
         K
     ]),
     {M, K}.
