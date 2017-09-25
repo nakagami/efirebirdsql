@@ -29,7 +29,7 @@ get_prime() ->
 %% g: A generator modulo N
 get_generator() -> 2.
 
-%% get key size (bytes)
+%% get key size (bits)
 get_key_size() -> 128.
 
 %% k = H(N, g): Multiplier parameter
@@ -67,8 +67,8 @@ get_salt() ->
 %% get private key
 -spec get_private_key() -> integer().
 get_private_key() ->
-    Bits = get_key_size() * 8,
-    <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:strong_rand_bytes(get_key_size()),
+    Bits = get_key_size(),
+    <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:strong_rand_bytes(get_key_size() div 8),
     bin_to_int(PrivateKeyBin).
 
 %% client {Public, Private} keys
@@ -92,7 +92,7 @@ server_seed(V) ->
 client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate) ->
     User = list_to_binary(Username),
     Pass = list_to_binary(Password),
-    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic, get_key_size()), int_to_bin(ServerPublic, get_key_size())])),
+    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic, get_key_size() div 8), int_to_bin(ServerPublic, get_key_size() div 8)])),
     X = get_user_hash(User, Pass, Salt),
     GX = bin_to_int(crypto:mod_pow(get_generator(), X, get_prime())),
     KGX = remainder(get_k() * GX, get_prime()),
@@ -106,7 +106,7 @@ client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPriva
 %% server session key
 -spec server_session(list(), list(), binary(), integer(), integer(), integer()) -> binary().
 server_session(Username, Password, Salt, ClientPublic, ServerPublic, ServerPrivate) ->
-    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic, get_key_size()), int_to_bin(ServerPublic, get_key_size())])),
+    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic, get_key_size() div 8), int_to_bin(ServerPublic, get_key_size() div 8)])),
     V = get_verifier(Username, Password, Salt),
     VU = bin_to_int(crypto:mod_pow(V, U, get_prime())),
     AVU = remainder(ClientPublic * VU, get_prime()),
@@ -124,8 +124,8 @@ client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate
         crypto:mod_pow(N1, N2, get_prime()),
         crypto:hash(sha, User),
         Salt,
-        int_to_bin(ClientPublic, get_key_size()),
-        int_to_bin(ServerPublic, get_key_size()),
+        int_to_bin(ClientPublic, get_key_size() div 8),
+        int_to_bin(ServerPublic, get_key_size() div 8),
         K
     ]),
     {M, K}.
