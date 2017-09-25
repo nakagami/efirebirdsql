@@ -25,6 +25,9 @@ get_prime() ->
 %% g: A generator modulo N
 get_generator() -> 2.
 
+%% get key size (bytes)
+get_key_size() -> 128.
+
 %% k = H(N, g): Multiplier parameter
 -spec get_k() -> integer().
 get_k() ->
@@ -60,9 +63,8 @@ get_salt() ->
 %% get private key
 -spec get_private_key() -> integer().
 get_private_key() ->
-    Bytes = 128,
-    Bits = Bytes * 8,
-    <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:strong_rand_bytes(Bytes),
+    Bits = get_key_size() * 8,
+    <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:strong_rand_bytes(get_key_size()),
     bin_to_int(PrivateKeyBin).
 
 %% client {Public, Private} keys
