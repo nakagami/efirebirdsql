@@ -30,6 +30,10 @@ get_generator() -> 2.
 get_k() ->
     1277432915985975349439481660349303019122249719989.
 
+-spec remainder(integer(), integer()) -> integer().
+remainder(A, B) ->
+    Rem = A rem B,
+    if Rem < 0 -> Rem + B; Rem >= 0 -> Rem end.
 
 %% x = H(salt, H(username, :, password))
 -spec get_user_hash(binary(), binary(), binary()) -> binary().
@@ -73,8 +77,8 @@ client_seed() ->
 server_seed(V) ->
     PrivateKey = get_private_key(),
     GB = bin_to_int(crypto:mod_pow(get_generator(), PrivateKey, get_prime())),
-    KV = (get_k() * V) rem get_prime(),
-    PublicKey = (KV + GB) rem get_prime(),
+    KV = remainder(get_k() * V, get_prime()),
+    PublicKey = remainder(KV + GB, get_prime()),
     {PublicKey, PrivateKey}.
 
 %% client session key
@@ -85,9 +89,8 @@ client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPriva
     U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic), int_to_bin(ServerPublic)])),
     X = get_user_hash(User, Pass, Salt),
     GX = bin_to_int(crypto:mod_pow(get_generator(), X, get_prime())),
-    KGX = (get_k() * GX) rem get_prime(),
-    Diff1 = (ServerPublic - KGX) rem get_prime(),
-    Diff = if Diff1 < 0 -> Diff1 + get_prime(); Diff1 >= 0 -> Diff1 end,
+    KGX = remainder(get_k() * GX, get_prime()),
+    Diff = remainder(ServerPublic - KGX, get_prime()),
     UX = (U * bin_to_int(X)) rem get_prime(),
     AUX = (ClientPrivate + UX) rem get_prime(),
     SessionSecret = crypto:mod_pow(Diff, AUX, get_prime()),
@@ -100,7 +103,7 @@ server_session(Username, Password, Salt, ClientPublic, ServerPublic, ServerPriva
     U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic), int_to_bin(ServerPublic)])),
     V = get_verifier(Username, Password, Salt),
     VU = bin_to_int(crypto:mod_pow(V, U, get_prime())),
-    AVU = (ClientPublic * VU) rem get_prime(),
+    AVU = remainder(ClientPublic * VU, get_prime()),
     SessionSecret = crypto:mod_pow(AVU, ServerPrivate, get_prime()),
     crypto:hash(sha, SessionSecret).
 
