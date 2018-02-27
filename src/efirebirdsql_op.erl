@@ -135,10 +135,10 @@ op_connect(Host, Username, _Password, Database, PublicKey, WireCrypt) ->
 op_attach(Username, Password, Database) ->
     ?debugFmt("op_attach~n", []),
     Dpb = lists:flatten([
-        1,
-        48, length(?CHARSET), ?CHARSET,    %% isc_dpb_lc_ctype = 48
-        28, length(Username), Username,  %% isc_dpb_user_name 28
-        29, length(Password), Password   %% isc_dpb_password = 29
+        1,                              %% isc_dpb_version = 1
+        48, length(?CHARSET), ?CHARSET, %% isc_dpb_lc_ctype = 48
+        28, length(Username), Username, %% isc_dpb_user_name 28
+        29, length(Password), Password  %% isc_dpb_password = 29
     ]),
     list_to_binary(lists:flatten([
         efirebirdsql_conv:byte4(op_val(op_attach)),
