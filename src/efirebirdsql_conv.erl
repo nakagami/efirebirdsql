@@ -99,6 +99,7 @@ positive_integer_to_decimal(N, Scale) when N > 0, Scale < 0 ->
 pow10(N) -> pow10(10, N).
 pow10(V, 0) -> V;
 pow10(V, N) -> pow10(V * 10, N-1).
+
 parse_number(RawValue, Scale) when Scale =:= 0  ->
     L = size(RawValue) * 8,
     <<V:L/signed-integer>> = RawValue,
@@ -123,8 +124,10 @@ param_to_date(Year, Month, Day) ->
     JY2 = JY - 100 * C,
     J = (146097 * C) div 4 + (1461 * JY2) div 4 + (153 * JM + 2) div 5 + Day - 678882,
     efirebirdsql_conv:byte4(J).
+
 param_to_time(Hour, Minute, Second, Microsecond) ->
     efirebirdsql_conv:byte4((Hour*3600 + Minute*60 + Second) * 10000 + Microsecond div 100).
+
 param_to_blr(V) when is_integer(V) ->
     {[8, 0, 7, 0], lists:flatten([efirebirdsql_conv:byte4(V), [0, 0, 0, 0]])};
 param_to_blr(V) when is_binary(V) ->
