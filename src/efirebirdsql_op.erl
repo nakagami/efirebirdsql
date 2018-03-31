@@ -1,5 +1,5 @@
 %%% The MIT License (MIT)
-%%% Copyright (c) 2016 Hajime Nakagami<nakagami@gmail.com>
+%%% Copyright (c) 2016-2018 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_op).
 %-include_lib("eunit/include/eunit.hrl").
@@ -93,6 +93,9 @@ calc_blr_item(XSqlVar) ->
         date -> [12, 7, 0];
         time -> [13, 7, 0];
         timestamp -> [35, 7, 0];
+        decimal_fixed -> [26, convert_scale(XSqlVar#column.scale), 7, 0];
+        decimal64 -> [24, 7, 0];
+        decimal128 -> [25, 7, 0];
         blob -> [9, 0, 7, 0];
         array -> [9, 0, 7, 0];
         boolean -> [23, 7, 0]
@@ -518,6 +521,10 @@ convert_raw_value(Mod, Sock, TransHandle, XSqlVar, RawValue) ->
             date -> efirebirdsql_conv:parse_date(RawValue);
             time -> efirebirdsql_conv:parse_time(RawValue);
             timestamp -> efirebirdsql_conv:parse_timestamp(RawValue);
+            decimal_fixed -> efirebirdsql_decfloat:decimal_fixed_to_decimal(
+                RawValue, XSqlVar#column.scale);
+            decimal64 -> efirebirdsql_decfloat:decimal64_to_decimal(RawValue);
+            decimal128 -> efirebirdsql_decfloat:decimal128_to_decimal(RawValue);
             blob ->
                 {ok, B} = get_blob_data(Mod, Sock, TransHandle, RawValue),
                 B;
@@ -553,6 +560,9 @@ get_raw_value(Mod, Sock, XSqlVar) ->
             date -> 4;
             time -> 4;
             timestamp -> 8;
+            decimal_fixed -> 16;
+            decimal64 -> 8;
+            decimal128 ->  16;
             blob -> 8;
             array -> 8;
             boolean -> 1
@@ -725,6 +735,9 @@ sql_type(550) -> quad;
 sql_type(560) -> time;
 sql_type(570) -> date;
 sql_type(580) -> int64;
+sql_type(32758) -> decimal_fixed;
+sql_type(32760) -> decimal64;
+sql_type(32762) -> decimal128;
 sql_type(32764) -> boolean;
 sql_type(32766) -> null.
 

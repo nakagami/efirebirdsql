@@ -1,10 +1,11 @@
 %%% The MIT License (MIT)
-%%% Copyright (c) 2016 Hajime Nakagami<nakagami@gmail.com>
+%%% Copyright (c) 2016-2018 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_conv).
 
 -export([byte2/1, byte4/2, byte4/1, pad4/1, list_to_xdr_string/1, list_to_xdr_bytes/1,
-    parse_date/1, parse_time/1, parse_timestamp/1, parse_number/2, params_to_blr/1]).
+    parse_date/1, parse_time/1, parse_timestamp/1, parse_number/2, parse_number/3,
+    params_to_blr/1]).
 
 %%% little endian 2byte
 byte2(N) ->
@@ -87,9 +88,12 @@ parse_timestamp(RawValue) ->
 
 fill0(S, 0) -> S;
 fill0(S, N) -> fill0([48 | S], N-1).
-positive_integer_to_decimal(N, Scale) when N > 0, Scale < 0 ->
-    Shift = -Scale,
-    S = integer_to_list(N),
+to_decimal(N, Scale) when N < 0 ->
+    lists:flatten(["-", to_decimal(-N, Scale)]);
+to_decimal(N, Scale) when N >= 0 ->
+    Shift = if Scale < 0 -> -Scale; Scale >= 0 -> 0 end,
+    V = if Scale =< 0 -> N; Scale > 0 -> N * trunc(math:pow(10, Scale)) end,
+    S = integer_to_list(V),
     S2 = if length(S) =< Shift -> fill0(S, Shift - length(S) + 1);
             length(S) > Shift -> S
         end,
@@ -111,8 +115,11 @@ parse_number(RawValue, Scale) when Scale > 0 ->
 parse_number(RawValue, Scale) when Scale < 0 ->
     L = size(RawValue) * 8,
     <<V:L/signed-integer>> = RawValue,
-    if V < 0 -> lists:flatten(["-", positive_integer_to_decimal(-V, Scale)]);
-       true -> positive_integer_to_decimal(V, Scale)
+    to_decimal(V, Scale).
+parse_number(Sign, V, Scale) ->
+    case Sign of
+        0 -> to_decimal(V, Scale);
+        1 -> to_decimal(-V, Scale)
     end.
 
 %% Convert execute() parameters to BLR and values.

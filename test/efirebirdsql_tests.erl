@@ -1,5 +1,5 @@
 %%% The MIT License (MIT)
-%%% Copyright (c) 2015 Hajime Nakagami<nakagami@gmail.com>
+%%% Copyright (c) 2015-2018 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_tests).
 
@@ -190,3 +190,38 @@ basic_test() ->
     ok = efirebirdsql:execute(C3, <<"select * from TestTable">>),
     {ok, ResultHasNull} = efirebirdsql:fetchall(C3),
     ?assertEqual(ResultHasNull,  [[{<<"ID">>,2}, {<<"TESTVALUE">>,null}]]).
+
+
+create_fb4_testdb() ->
+    %% crete new database
+    {ok, C} = efirebirdsql:connect(
+        "localhost", "sysdba", "masterkey", "/tmp/erlang_fb4_test.fdb",
+        [{createdb, true}]),
+    ok = efirebirdsql:execute(C, <<"
+        CREATE TABLE dec_test (
+            d DECIMAL(20, 2),
+            df64 DECFLOAT(16),
+            df128 DECFLOAT(34),
+            s varchar(32))
+    ">>),
+    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (0.0, 0.0, 0.0, '0.0')">>),
+    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (1.0, 1.0, 1.0, '1.0')">>),
+    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (20.0, 20.0, 20.0, '20.0')">>),
+    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (-1.0, -1.0, -1.0, '-1.0')">>),
+    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (-20.0, -20.0, -20.0, '-20.0')">>),
+    efirebirdsql:close(C).
+
+fb4_fb4_test() ->
+    create_fb4_testdb(),
+    {ok, C} = efirebirdsql:connect(
+        "localhost", "sysdba", "masterkey", "/tmp/erlang_fb4_test.fdb", []),
+
+    ok = efirebirdsql:execute(C, <<"select * from dec_test">>),
+    {ok, ResultDecFloat} = efirebirdsql:fetchall(C),
+    ?assertEqual([
+        [{<<"D">>,"0.00"}, {<<"DF64">>,"0.0"}, {<<"DF128">>,"0.0"}, {<<"S">>, <<"0.0">>}],
+        [{<<"D">>,"1.00"}, {<<"DF64">>,"1.0"}, {<<"DF128">>,"1.0"}, {<<"S">>, <<"1.0">>}],
+        [{<<"D">>,"20.00"}, {<<"DF64">>,"20.0"}, {<<"DF128">>,"20.0"}, {<<"S">>, <<"20.0">>}],
+        [{<<"D">>,"-1.00"}, {<<"DF64">>,"-1.0"}, {<<"DF128">>,"-1.0"}, {<<"S">>, <<"-1.0">>}],
+        [{<<"D">>,"-20.00"}, {<<"DF64">>,"-20.0"}, {<<"DF128">>,"-20.0"}, {<<"S">>, <<"-20.0">>}]
+    ], ResultDecFloat).
