@@ -1,11 +1,11 @@
-{application, efirebirdsql,
- [{description, "Firebird Client"},
-  {vsn, "0.2.0"},
-  {modules, []},
-  {registered, []},
-  {applications, [kernel, stdlib]},
-  {env, []},
-  {included_applications, []},
-  {licenses, ["MIT"]},
-  {links, [{"Github", "https://github.com/nakagami/efirebirdsql"}]}
-]}.
+{application,efirebirdsql,
+             [{description,"Firebird Client"},
+              {vsn,"0.1.5"},
+              {modules,[]},
+              {registered,[]},
+              {applications,[kernel,stdlib]},
+              {env,[]},
+              {included_applications,[]},
+              {licenses,["MIT"]},
+              {links,[{"Github",
+                       "https://github.com/nakagami/efirebirdsql"}]}]}.
