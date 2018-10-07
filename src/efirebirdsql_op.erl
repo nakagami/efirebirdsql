@@ -118,21 +118,20 @@ calc_blr(XSqlVars) ->
 op_connect(Host, Username, _Password, Database, PublicKey, WireCrypt) ->
     ?debugFmt("op_connect~n", []),
     %% PROTOCOL_VERSION,ArchType(Generic),MinAcceptType,MaxAcceptType,Weight
-    Protocols = lists:flatten(
-        [efirebirdsql_conv:byte4(10),
-            efirebirdsql_conv:byte4(1),
-            efirebirdsql_conv:byte4(0),
-            efirebirdsql_conv:byte4(3),
-            efirebirdsql_conv:byte4(2)]),
+    Protocols = [
+        [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
+        [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
+        [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6]
+    ],
     Buf = [
         efirebirdsql_conv:byte4(op_val(op_connect)),
         efirebirdsql_conv:byte4(op_val(op_attach)),
         efirebirdsql_conv:byte4(3),  %% CONNECT_VERSION
         efirebirdsql_conv:byte4(1),  %% arch_generic,
         efirebirdsql_conv:list_to_xdr_string(Database),
-        efirebirdsql_conv:byte4(1),  %% Count of acceptable protocols (VERSION 10 only)
+        efirebirdsql_conv:byte4(length(Protocols)),
         uid(Host, Username, PublicKey, WireCrypt)],
-    list_to_binary([Buf, Protocols]).
+    list_to_binary([Buf, lists:flatten(Protocols)]).
 
 %%% create op_attach binary
 op_attach(Username, Password, Database) ->
@@ -381,7 +380,12 @@ get_response(Mod, Sock) ->
         op_accept ->
             {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
                     _AcceptArchtecture:32, _AcceptType:32>>} = Mod:recv(Sock, 12),
-            {op_accept, AcceptVersion};
+            AcceptType = case _AcceptType of
+                3 -> ptype_batch_send;
+                4 -> ptype_out_of_band;
+                5 -> ptype_lazy_send
+            end,
+            {op_accept, {AcceptVersion, AcceptType}};
         op_reject ->
             op_reject;
         op_dummy ->

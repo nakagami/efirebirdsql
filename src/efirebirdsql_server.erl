@@ -22,7 +22,10 @@
                 parameters = [],
                 stmt_type,
                 xsqlvars = [],
-                rows = []}).
+                rows = [],
+                accept_version,
+                accept_type
+                }).
 
 %% Create connection and allocate statement, Close(detatch) database.
 attach_database(Mod, Sock, User, Password, Database) ->
@@ -54,7 +57,7 @@ connect(Mod, Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
     Mod:send(Sock,
         efirebirdsql_op:op_connect(Host, Username, Password, Database, State#state.public_key, State#state.wire_crypt)),
     case efirebirdsql_op:get_response(Mod, Sock) of
-        {op_accept, _} ->
+        {op_accept, {AcceptVersion, AcceptType}} ->
             case IsCreateDB of
                 true ->
                     R = create_database(Mod, Sock, Username, Password, Database, PageSize);
@@ -65,9 +68,9 @@ connect(Mod, Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
                 {ok, DbHandle} ->
                     case allocate_statement(Mod, Sock, DbHandle) of
                         {ok, StmtHandle} ->
-                            {ok, State#state{db_handle = DbHandle, stmt_handle = StmtHandle}};
+                            {ok, State#state{db_handle = DbHandle, stmt_handle = StmtHandle, accept_version = AcceptVersion, accept_type = AcceptType}};
                         {error, Msg} ->
-                            {{error, Msg}, State#state{db_handle = DbHandle}}
+                            {{error, Msg}, State#state{db_handle = DbHandle, accept_version = AcceptVersion, accept_type = AcceptType}}
                     end;
                 {error, Msg} ->
                     {{error, Msg}, State}
