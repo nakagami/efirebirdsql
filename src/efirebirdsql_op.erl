@@ -5,7 +5,7 @@
 %-include_lib("eunit/include/eunit.hrl").
 -define(debugFmt(X,Y), ok).
 
--export([op_connect/6, op_attach/3, op_detach/1, op_create/4, op_transaction/2,
+-export([op_connect/6, op_attach/4, op_detach/1, op_create/5, op_transaction/2,
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/1, op_execute/3,
     op_execute2/4, op_fetch/2, op_info_sql/2, op_commit_retaining/1, op_rollback_retaining/1,
     convert_row/5, get_response/2, get_fetch_response/3, get_sql_response/3,
@@ -32,12 +32,12 @@
         ]).
 
 %%% skip 4 byte alignment socket stream
-skip4(Mod, Sock, Len) ->
+skip4(TcpMod, Sock, Len) ->
     case Len rem 4 of
         0 -> {ok};
-        1 -> Mod:recv(Sock, 3);
-        2 -> Mod:recv(Sock, 2);
-        3 -> Mod:recv(Sock, 1)
+        1 -> TcpMod:recv(Sock, 3);
+        2 -> TcpMod:recv(Sock, 2);
+        3 -> TcpMod:recv(Sock, 1)
     end.
 
 
@@ -65,9 +65,11 @@ uid(Host, Username, PublicKey, WireCrypt) ->
         pack_cnct_param(8, "Srp"),                      %% CNCT_plugin_name
         pack_cnct_param(10, "Srp,Legacy_Atuh"),         %% CNCT_plugin_list
         pack_specific_data_cnct_param(7, SpecificData), %% CNCT_specific_data
-        pack_cnct_param(11,
-            [if WireCrypt=:=true -> 1; WireCrypt =/= true -> 0 end, 0, 0, 0]
-        ),  %% CNCT_client_crypt
+        % TODO: support WireCrypt
+        pack_cnct_param(11, [0, 0, 0, 0]),
+%        pack_cnct_param(11,
+%            [if WireCrypt=:=true -> 1; WireCrypt =/= true -> 0 end, 0, 0, 0]
+%        ),  %% CNCT_client_crypt
         pack_cnct_param(1, Username),                   %% CNCT_user
         pack_cnct_param(4, Host),                       %% CNCT_host
         pack_cnct_param(6, "")                          %% CNCT_user_verification
@@ -118,6 +120,12 @@ calc_blr(XSqlVars) ->
 op_connect(Host, Username, _Password, Database, PublicKey, WireCrypt) ->
     ?debugFmt("op_connect~n", []),
     %% PROTOCOL_VERSION,ArchType(Generic),MinAcceptType,MaxAcceptType,Weight
+    %Protocols = [
+    %    [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
+    %    [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
+    %    [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6],
+    %    [255, 255, 128, 13, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 8]
+    %],
     Protocols = [
         [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
         [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
@@ -134,14 +142,24 @@ op_connect(Host, Username, _Password, Database, PublicKey, WireCrypt) ->
     list_to_binary([Buf, lists:flatten(Protocols)]).
 
 %%% create op_attach binary
-op_attach(Username, Password, Database) ->
+op_attach(Username, Password, Database, AcceptVersion) ->
     ?debugFmt("op_attach~n", []),
-    Dpb = lists:flatten([
-        1,                              %% isc_dpb_version = 1
-        48, length(?CHARSET), ?CHARSET, %% isc_dpb_lc_ctype = 48
-        28, length(Username), Username, %% isc_dpb_user_name 28
-        29, length(Password), Password  %% isc_dpb_password = 29
-    ]),
+
+    Dpb = case AcceptVersion of
+        13 ->
+            lists:flatten([
+                1,                              %% isc_dpb_version = 1
+                48, length(?CHARSET), ?CHARSET, %% isc_dpb_lc_ctype = 48
+                28, length(Username), Username  %% isc_dpb_user_name 28
+            ]);
+        _ ->
+            lists:flatten([
+                1,                              %% isc_dpb_version = 1
+                48, length(?CHARSET), ?CHARSET, %% isc_dpb_lc_ctype = 48
+                28, length(Username), Username, %% isc_dpb_user_name 28
+                29, length(Password), Password  %% isc_dpb_password = 29
+            ])
+        end,
     list_to_binary(lists:flatten([
         efirebirdsql_conv:byte4(op_val(op_attach)),
         efirebirdsql_conv:byte4(0),
@@ -155,19 +173,33 @@ op_detach(DbHandle) ->
         efirebirdsql_conv:byte4(DbHandle)]).
 
 %%% create op_connect binary
-op_create(Username, Password, Database, PageSize) ->
+op_create(Username, Password, Database, PageSize, AcceptVersion) ->
     ?debugFmt("op_create~n", []),
-    Dpb = lists:flatten([
-        1,
-        68, length(?CHARSET), ?CHARSET,   %% isc_dpb_set_db_charset = 68
-        48, length(?CHARSET), ?CHARSET,   %% isc_dpb_lc_ctype = 48
-        28, length(Username), Username, %% isc_dpb_user_name 28
-        29, length(Password), Password, %% isc_dpb_password = 29
-        63, 4, efirebirdsql_conv:byte4(3, little),        %% isc_dpb_sql_dialect = 63
-        24, 4, efirebirdsql_conv:byte4(1, little),        %% isc_dpb_force_write = 24
-        54, 4, efirebirdsql_conv:byte4(1, little),        %% isc_dpb_overwrite = 54
-        4, 4, efirebirdsql_conv:byte4(PageSize, little)   %% isc_dpb_page_size = 4
-    ]),
+    Dpb = case AcceptVersion of
+        13 ->
+            lists:flatten([
+                1,
+                68, length(?CHARSET), ?CHARSET,   %% isc_dpb_set_db_charset = 68
+                48, length(?CHARSET), ?CHARSET,   %% isc_dpb_lc_ctype = 48
+                28, length(Username), Username, %% isc_dpb_user_name 28
+                63, 4, efirebirdsql_conv:byte4(3, little),        %% isc_dpb_sql_dialect = 63
+                24, 4, efirebirdsql_conv:byte4(1, little),        %% isc_dpb_force_write = 24
+                54, 4, efirebirdsql_conv:byte4(1, little),        %% isc_dpb_overwrite = 54
+                4, 4, efirebirdsql_conv:byte4(PageSize, little)   %% isc_dpb_page_size = 4
+            ]);
+        _ ->
+            lists:flatten([
+                1,
+                68, length(?CHARSET), ?CHARSET,   %% isc_dpb_set_db_charset = 68
+                48, length(?CHARSET), ?CHARSET,   %% isc_dpb_lc_ctype = 48
+                28, length(Username), Username, %% isc_dpb_user_name 28
+                29, length(Password), Password, %% isc_dpb_password = 29
+                63, 4, efirebirdsql_conv:byte4(3, little),        %% isc_dpb_sql_dialect = 63
+                24, 4, efirebirdsql_conv:byte4(1, little),        %% isc_dpb_force_write = 24
+                54, 4, efirebirdsql_conv:byte4(1, little),        %% isc_dpb_overwrite = 54
+                4, 4, efirebirdsql_conv:byte4(PageSize, little)   %% isc_dpb_page_size = 4
+            ])
+        end,
     list_to_binary(lists:flatten([
         efirebirdsql_conv:byte4(op_val(op_create)),
         efirebirdsql_conv:byte4(0),
@@ -317,90 +349,90 @@ op_close_blob(BlobHandle) ->
         efirebirdsql_conv:byte4(BlobHandle)]).
 
 %%% parse status vector
-parse_status_vector_integer(Mod, Sock) ->
-    {ok, <<NumArg:32>>} = Mod:recv(Sock, 4),
+parse_status_vector_integer(TcpMod, Sock) ->
+    {ok, <<NumArg:32>>} = TcpMod:recv(Sock, 4),
     NumArg.
 
-parse_status_vector_string(Mod, Sock) ->
-    Len = parse_status_vector_integer(Mod, Sock),
-    {ok, Bin} = Mod:recv(Sock, Len),
-    skip4(Mod, Sock, Len),
+parse_status_vector_string(TcpMod, Sock) ->
+    Len = parse_status_vector_integer(TcpMod, Sock),
+    {ok, Bin} = TcpMod:recv(Sock, Len),
+    skip4(TcpMod, Sock, Len),
     binary_to_list(Bin).
 
-parse_status_vector_args(Mod, Sock, Template, Args) ->
-    {ok, <<IscArg:32>>} = Mod:recv(Sock, 4),
+parse_status_vector_args(TcpMod, Sock, Template, Args) ->
+    {ok, <<IscArg:32>>} = TcpMod:recv(Sock, 4),
     case IscArg of
     0 ->    %% isc_arg_end
         {Template, Args};
     1 ->    %% isc_arg_gds
-        V = efirebirdsql_errmsgs:get_error_msg(parse_status_vector_integer(Mod, Sock)),
-        parse_status_vector_args(Mod, Sock, [V | Template], Args);
+        V = efirebirdsql_errmsgs:get_error_msg(parse_status_vector_integer(TcpMod, Sock)),
+        parse_status_vector_args(TcpMod, Sock, [V | Template], Args);
     2 ->    %% isc_arg_string
-        V = parse_status_vector_string(Mod, Sock),
-        parse_status_vector_args(Mod, Sock, Template, [V | Args]);
+        V = parse_status_vector_string(TcpMod, Sock),
+        parse_status_vector_args(TcpMod, Sock, Template, [V | Args]);
     4 ->    %% isc_arg_number
-        V = parse_status_vector_integer(Mod, Sock),
-        parse_status_vector_args(Mod, Sock, Template, [integer_to_list(V) | Args]);
+        V = parse_status_vector_integer(TcpMod, Sock),
+        parse_status_vector_args(TcpMod, Sock, Template, [integer_to_list(V) | Args]);
     5 ->    %% isc_arg_interpreted
-        V = parse_status_vector_string(Mod, Sock),
-        parse_status_vector_args(Mod, Sock, [V | Template], Args);
+        V = parse_status_vector_string(TcpMod, Sock),
+        parse_status_vector_args(TcpMod, Sock, [V | Template], Args);
     19 ->   %% isc_arg_sql_state
-        _V = parse_status_vector_string(Mod, Sock),
-        parse_status_vector_args(Mod, Sock, Template, Args)
+        _V = parse_status_vector_string(TcpMod, Sock),
+        parse_status_vector_args(TcpMod, Sock, Template, Args)
     end.
 
-get_error_message(Mod, Sock) ->
-    {S, A} = parse_status_vector_args(Mod, Sock, [], []),
+get_error_message(TcpMod, Sock) ->
+    {S, A} = parse_status_vector_args(TcpMod, Sock, [], []),
     iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(S)), lists:reverse(A))).
 
 %% recieve and parse response
-get_response(Mod, Sock) ->
+get_response(TcpMod, Sock) ->
     ?debugFmt("get_response()~n", []),
-    {ok, <<OpCode:32>>} = Mod:recv(Sock, 4),
-    case op_name(OpCode) of
-        op_response ->
-            {ok, <<Handle:32, _ObjectID:64, Len:32>>} = Mod:recv(Sock, 16),
+    {ok, <<OpCode:32>>} = TcpMod:recv(Sock, 4),
+    Op = op_name(OpCode),
+    if Op == op_response ->
+            {ok, <<Handle:32, _ObjectID:64, Len:32>>} = TcpMod:recv(Sock, 16),
             Buf = if
                 Len =/= 0 ->
-                    {ok, RecvBuf} = Mod:recv(Sock, Len),
-                    skip4(Mod, Sock, Len),
+                    {ok, RecvBuf} = TcpMod:recv(Sock, Len),
+                    skip4(TcpMod, Sock, Len),
                     RecvBuf;
                 true -> <<>>
             end,
-            case S = get_error_message(Mod, Sock) of
-                <<>> -> {op_response, {ok, Handle, Buf}};
-                _ -> {op_response, {error, S}}
+            case S = get_error_message(TcpMod, Sock) of
+                <<>> -> {Op, {ok, Handle, Buf}};
+                _ -> {Op, {error, S}}
             end;
-        op_fetch_response ->
-            {ok, <<Status:32, Count:32>>} = Mod:recv(Sock, 8),
-            {op_fetch_response, {Status, Count}};
-        op_sql_response ->
-            {ok, <<Count:32>>} = Mod:recv(Sock, 4),
-            {op_sql_response, Count};
-        op_accept ->
+        Op == op_fetch_response ->
+            {ok, <<Status:32, Count:32>>} = TcpMod:recv(Sock, 8),
+            {Op, {Status, Count}};
+        Op == op_sql_response ->
+            {ok, <<Count:32>>} = TcpMod:recv(Sock, 4),
+            {Op, Count};
+        (Op == op_accept) or (Op == op_cond_accept) or (Op == op_accept_data) ->
             {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
-                    _AcceptArchtecture:32, _AcceptType:32>>} = Mod:recv(Sock, 12),
+                    _AcceptArchtecture:32, _AcceptType:32>>} = TcpMod:recv(Sock, 12),
             AcceptType = case _AcceptType of
                 3 -> ptype_batch_send;
                 4 -> ptype_out_of_band;
                 5 -> ptype_lazy_send
             end,
-            {op_accept, {AcceptVersion, AcceptType}};
-        op_reject ->
-            op_reject;
-        op_dummy ->
-            get_response(Mod, Sock);
+            {Op, {AcceptVersion, AcceptType}};
+        Op == op_reject ->
+            {Op, {}};
+        Op == op_dummy ->
+            get_response(TcpMod, Sock);
         true ->
             {error, "response error"}
     end.
 
 %% parse select items.
-more_select_describe_vars(Mod, Sock, StmtHandle, Start) ->
+more_select_describe_vars(TcpMod, Sock, StmtHandle, Start) ->
     %% isc_info_sql_sqlda_start + INFO_SQL_SELECT_DESCRIBE_VARS
     V = lists:flatten(
         [20, 2, Start rem 256, Start div 256, ?INFO_SQL_SELECT_DESCRIBE_VARS]),
-    Mod:send(Sock, op_info_sql(StmtHandle, V)),
-    {op_response, {ok, _, Buf}} = get_response(Mod, Sock),
+    TcpMod:send(Sock, op_info_sql(StmtHandle, V)),
+    {op_response, {ok, _, Buf}} = get_response(TcpMod, Sock),
     <<_:8/binary, DescVars/binary>> = Buf,
     DescVars.
 
@@ -414,69 +446,69 @@ parse_select_item_elem_int(DescVars) ->
     <<Num:L/signed-little>> = V,
     {Num, Rest}.
 
-parse_select_column(Mod, Sock, StmtHandle, Column, DescVars) ->
+parse_select_column(TcpMod, Sock, StmtHandle, Column, DescVars) ->
     %% Parse DescVars and return items info and rest DescVars
     <<IscInfoNum:8, Rest/binary>> = DescVars,
     case isc_info_sql_name(IscInfoNum) of
         isc_info_sql_sqlda_seq ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column#column{seq=Num}, Rest2);
+            parse_select_column(TcpMod, Sock, StmtHandle, Column#column{seq=Num}, Rest2);
         isc_info_sql_type ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column#column{type=sql_type(Num)}, Rest2);
+            parse_select_column(TcpMod, Sock, StmtHandle, Column#column{type=sql_type(Num)}, Rest2);
         isc_info_sql_sub_type ->
             {_Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
+            parse_select_column(TcpMod, Sock, StmtHandle, Column, Rest2);
         isc_info_sql_scale ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column#column{scale=Num}, Rest2);
+            parse_select_column(TcpMod, Sock, StmtHandle, Column#column{scale=Num}, Rest2);
         isc_info_sql_length ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column#column{length=Num}, Rest2);
+            parse_select_column(TcpMod, Sock, StmtHandle, Column#column{length=Num}, Rest2);
         isc_info_sql_null_ind ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
             NullInd = if Num =/= 0 -> true; Num =:= 0 -> false end,
-            parse_select_column(Mod, Sock, StmtHandle, Column#column{null_ind=NullInd}, Rest2);
+            parse_select_column(TcpMod, Sock, StmtHandle, Column#column{null_ind=NullInd}, Rest2);
         isc_info_sql_field ->
             {_S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
+            parse_select_column(TcpMod, Sock, StmtHandle, Column, Rest2);
         isc_info_sql_relation ->
             {_S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
+            parse_select_column(TcpMod, Sock, StmtHandle, Column, Rest2);
         isc_info_sql_owner ->
             {_S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
+            parse_select_column(TcpMod, Sock, StmtHandle, Column, Rest2);
         isc_info_sql_alias ->
             {S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(Mod, Sock, StmtHandle, Column#column{name=S}, Rest2);
+            parse_select_column(TcpMod, Sock, StmtHandle, Column#column{name=S}, Rest2);
         isc_info_truncated ->
-            Rest2 = more_select_describe_vars(Mod, Sock, StmtHandle, Column#column.seq),
-            parse_select_column(Mod, Sock, StmtHandle, Column, Rest2);
+            Rest2 = more_select_describe_vars(TcpMod, Sock, StmtHandle, Column#column.seq),
+            parse_select_column(TcpMod, Sock, StmtHandle, Column, Rest2);
         isc_info_sql_describe_end ->
             {Column, Rest};
         isc_info_end ->
             no_more_column
     end.
 
-parse_select_columns(Mod, Sock, StmtHandle, XSqlVars, DescVars) ->
-    case parse_select_column(Mod, Sock, StmtHandle, #column{}, DescVars) of
+parse_select_columns(TcpMod, Sock, StmtHandle, XSqlVars, DescVars) ->
+    case parse_select_column(TcpMod, Sock, StmtHandle, #column{}, DescVars) of
         {XSqlVar, Rest} -> parse_select_columns(
-            Mod, Sock, StmtHandle, [XSqlVar | XSqlVars], Rest);
+            TcpMod, Sock, StmtHandle, [XSqlVar | XSqlVars], Rest);
         no_more_column -> lists:reverse(XSqlVars)
     end.
 
-get_prepare_statement_response(Mod, Sock, StmtHandle) ->
-    {op_response, R} = get_response(Mod, Sock),
+get_prepare_statement_response(TcpMod, Sock, StmtHandle) ->
+    {op_response, R} = get_response(TcpMod, Sock),
     case R of
         {ok, _, Buf} ->
             << _21:8, _Len:16, StmtType:32/little, Rest/binary>> = Buf,
             XSqlVars = case StmtName = isc_info_sql_stmt_name(StmtType) of
                 isc_info_sql_stmt_select ->
                     << _Skip:8/binary, DescVars/binary >> = Rest,
-                    parse_select_columns(Mod, Sock, StmtHandle, [], DescVars);
+                    parse_select_columns(TcpMod, Sock, StmtHandle, [], DescVars);
                 isc_info_sql_stmt_exec_procedure ->
                     << _Skip:8/binary, DescVars/binary >> = Rest,
-                    parse_select_columns(Mod, Sock, StmtHandle, [], DescVars);
+                    parse_select_columns(TcpMod, Sock, StmtHandle, [], DescVars);
                 _ -> []
             end,
             {ok, StmtName, XSqlVars};
@@ -489,27 +521,27 @@ get_blob_segment_list(Buf, SegmentList) ->
     <<L:16/little, V:L/binary, Rest/binary>> = Buf,
     get_blob_segment_list(Rest, [V| SegmentList]).
 
-get_blob_segment(Mod, Sock, BlobHandle, SegmentList) ->
-    Mod:send(Sock, op_get_segment(BlobHandle)),
-    {op_response,  {ok, F, Buf}} = get_response(Mod, Sock),
+get_blob_segment(TcpMod, Sock, BlobHandle, SegmentList) ->
+    TcpMod:send(Sock, op_get_segment(BlobHandle)),
+    {op_response,  {ok, F, Buf}} = get_response(TcpMod, Sock),
     NewList = lists:flatten([SegmentList, get_blob_segment_list(Buf, [])]),
     case F of
         2 -> NewList;
-        _ -> get_blob_segment(Mod, Sock, BlobHandle, NewList)
+        _ -> get_blob_segment(TcpMod, Sock, BlobHandle, NewList)
     end.
 
-get_blob_data(Mod, Sock, TransHandle, BlobId) ->
-    Mod:send(Sock, op_open_blob(BlobId, TransHandle)),
-    {op_response,  {ok, BlobHandle, _}} = get_response(Mod, Sock),
-    SegmentList = get_blob_segment(Mod, Sock, BlobHandle, []),
-    Mod:send(Sock, op_close_blob(BlobHandle)),
-    {op_response,  {ok, 0, _}} = get_response(Mod, Sock),
+get_blob_data(TcpMod, Sock, TransHandle, BlobId) ->
+    TcpMod:send(Sock, op_open_blob(BlobId, TransHandle)),
+    {op_response,  {ok, BlobHandle, _}} = get_response(TcpMod, Sock),
+    SegmentList = get_blob_segment(TcpMod, Sock, BlobHandle, []),
+    TcpMod:send(Sock, op_close_blob(BlobHandle)),
+    {op_response,  {ok, 0, _}} = get_response(TcpMod, Sock),
     R = list_to_binary(SegmentList),
     {ok, R}.
 
 convert_raw_value(_Mod, _Sock, _TransHandle, _XSqlVar, null) ->
     null;
-convert_raw_value(Mod, Sock, TransHandle, XSqlVar, RawValue) ->
+convert_raw_value(TcpMod, Sock, TransHandle, XSqlVar, RawValue) ->
     ?debugFmt("convert_raw_value() start~n", []),
     CookedValue = case XSqlVar#column.type of
             long -> efirebirdsql_conv:parse_number(
@@ -530,7 +562,7 @@ convert_raw_value(Mod, Sock, TransHandle, XSqlVar, RawValue) ->
             decimal64 -> efirebirdsql_decfloat:decimal64_to_decimal(RawValue);
             decimal128 -> efirebirdsql_decfloat:decimal128_to_decimal(RawValue);
             blob ->
-                {ok, B} = get_blob_data(Mod, Sock, TransHandle, RawValue),
+                {ok, B} = get_blob_data(TcpMod, Sock, TransHandle, RawValue),
                 B;
             boolean -> if RawValue =/= <<0,0,0,0>> -> true; true -> false end;
             _ -> RawValue
@@ -541,19 +573,19 @@ convert_raw_value(Mod, Sock, TransHandle, XSqlVar, RawValue) ->
 convert_row(_Mod, _Sock, _TransHandle, [], [], Converted) ->
     ?debugFmt("convert_row()~n", []),
     lists:reverse(Converted);
-convert_row(Mod, Sock, TransHandle, XSqlVars, Row, Converted) ->
+convert_row(TcpMod, Sock, TransHandle, XSqlVars, Row, Converted) ->
     [X | XRest] = XSqlVars,
     [R | RRest] = Row,
-    convert_row(Mod, Sock, TransHandle, XRest, RRest,
-        [{X#column.name, convert_raw_value(Mod, Sock, TransHandle, X, R)} | Converted]).
+    convert_row(TcpMod, Sock, TransHandle, XRest, RRest,
+        [{X#column.name, convert_raw_value(TcpMod, Sock, TransHandle, X, R)} | Converted]).
 
-convert_row(Mod, Sock, TransHandle, XSqlVars, Row) ->
-    convert_row(Mod, Sock, TransHandle, XSqlVars, Row, []).
+convert_row(TcpMod, Sock, TransHandle, XSqlVars, Row) ->
+    convert_row(TcpMod, Sock, TransHandle, XSqlVars, Row, []).
 
-get_raw_value(Mod, Sock, XSqlVar) ->
+get_raw_value(TcpMod, Sock, XSqlVar) ->
     ?debugFmt("get_raw_value() start~n", []),
     L = case XSqlVar#column.type of
-            varying -> {ok, <<Num:32>>} = Mod:recv(Sock, 4), Num;
+            varying -> {ok, <<Num:32>>} = TcpMod:recv(Sock, 4), Num;
             text -> XSqlVar#column.length;
             long -> 4;
             short -> 4;
@@ -571,10 +603,10 @@ get_raw_value(Mod, Sock, XSqlVar) ->
             array -> 8;
             boolean -> 1
         end,
-    if L =:= 0 -> V = ""; L > 0 -> {ok, V} = Mod:recv(Sock, L) end,
+    if L =:= 0 -> V = ""; L > 0 -> {ok, V} = TcpMod:recv(Sock, L) end,
     ?debugFmt("get_raw_value() V=~p~n", [V]),
-    skip4(Mod, Sock, L),
-    {ok, NullFlag} = Mod:recv(Sock, 4),
+    skip4(TcpMod, Sock, L),
+    {ok, NullFlag} = TcpMod:recv(Sock, 4),
     ?debugFmt("get_raw_value() NullFlag=~p~n", [NullFlag]),
     case NullFlag of
         <<0,0,0,0>> -> V;
@@ -583,32 +615,32 @@ get_raw_value(Mod, Sock, XSqlVar) ->
 
 get_row(_Mod, _Sock, [], Columns) ->
     lists:reverse(Columns);
-get_row(Mod, Sock, XSqlVars, Columns) ->
+get_row(TcpMod, Sock, XSqlVars, Columns) ->
     [X | RestVars] = XSqlVars,
-    V = get_raw_value(Mod, Sock, X),
-    get_row(Mod, Sock, RestVars, [V | Columns]).
+    V = get_raw_value(TcpMod, Sock, X),
+    get_row(TcpMod, Sock, RestVars, [V | Columns]).
 
 get_fetch_response(_Mod, _Sock, Status, 0, _XSqlVars, Results) ->
     %% {list_of_response, more_data}
     {lists:reverse(Results),
         if Status =/= 100 -> true; Status =:= 100 -> false end};
-get_fetch_response(Mod, Sock, _Status, _Count, XSqlVars, Results) ->
-    Row = get_row(Mod, Sock, XSqlVars, []),
+get_fetch_response(TcpMod, Sock, _Status, _Count, XSqlVars, Results) ->
+    Row = get_row(TcpMod, Sock, XSqlVars, []),
     NewResults = [Row | Results],
-    {ok, <<_:32, NewStatus:32, NewCount:32>>} = Mod:recv(Sock, 12),
-    get_fetch_response(Mod, Sock, NewStatus, NewCount, XSqlVars, NewResults).
+    {ok, <<_:32, NewStatus:32, NewCount:32>>} = TcpMod:recv(Sock, 12),
+    get_fetch_response(TcpMod, Sock, NewStatus, NewCount, XSqlVars, NewResults).
 
-get_fetch_response(Mod, Sock, XSqlVars) ->
-    case get_response(Mod, Sock) of
+get_fetch_response(TcpMod, Sock, XSqlVars) ->
+    case get_response(TcpMod, Sock) of
         {op_response, R} ->
             {op_response, R};
         {op_fetch_response, {Status, Count}} ->
-            {op_fetch_response, get_fetch_response(Mod, Sock, Status, Count, XSqlVars, [])}
+            {op_fetch_response, get_fetch_response(TcpMod, Sock, Status, Count, XSqlVars, [])}
     end.
 
-get_sql_response(Mod, Sock, XSqlVars) ->
-    {op_sql_response, _Count} = get_response(Mod, Sock),
-    get_row(Mod, Sock, XSqlVars, []).
+get_sql_response(TcpMod, Sock, XSqlVars) ->
+    {op_sql_response, _Count} = get_response(TcpMod, Sock),
+    get_row(TcpMod, Sock, XSqlVars, []).
 
 op_name(1) -> op_connect;
 op_name(2) -> op_exit;

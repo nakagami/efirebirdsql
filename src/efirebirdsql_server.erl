@@ -23,119 +23,142 @@
                 stmt_type,
                 xsqlvars = [],
                 rows = [],
-                accept_version,
-                accept_type
+                accept_version
                 }).
 
-%% Create connection and allocate statement, Close(detatch) database.
-attach_database(Mod, Sock, User, Password, Database) ->
-    Mod:send(Sock,
-        efirebirdsql_op:op_attach(User, Password, Database)),
-    case efirebirdsql_op:get_response(Mod, Sock) of
-        {op_response, {ok, Handle, _}} -> {ok, Handle};
-        {op_response, {error, Msg}} ->{error, Msg}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Utility functions in module
+
+connect_database(TcpMod, Sock, Username, Password, Database, PageSize, AcceptVersion, IsCreateDB, State) ->
+    case IsCreateDB of
+        true ->
+            create_database(TcpMod, Sock, Username, Password, Database, PageSize, AcceptVersion, State);
+        false ->
+            attach_database(TcpMod, Sock, Username, Password, Database, AcceptVersion, State)
     end.
 
-create_database(Mod, Sock, User, Password, Database, PageSize) ->
-    Mod:send(Sock,
-        efirebirdsql_op:op_create(User, Password, Database, PageSize)),
-    case efirebirdsql_op:get_response(Mod, Sock) of
+attach_database(TcpMod, Sock, User, Password, Database, AcceptVersion, State) ->
+    TcpMod:send(Sock,
+        efirebirdsql_op:op_attach(User, Password, Database, AcceptVersion)),
+    R = case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response, {ok, Handle, _}} -> {ok, Handle};
         {op_response, {error, Msg}} ->{error, Msg}
-    end.
-
-allocate_statement(Mod, Sock, DbHandle) ->
-    Mod:send(Sock,
-        efirebirdsql_op:op_allocate_statement(DbHandle)),
-    case efirebirdsql_op:get_response(Mod, Sock) of
-        {op_response, {ok, Handle, _}} -> {ok, Handle};
-        {op_response, {error, Msg}} ->{error, Msg}
-    end.
-
-connect(Mod, Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
-    Sock = State#state.sock,
-    Mod:send(Sock,
-        efirebirdsql_op:op_connect(Host, Username, Password, Database, State#state.public_key, State#state.wire_crypt)),
-    case efirebirdsql_op:get_response(Mod, Sock) of
-        {op_accept, {AcceptVersion, AcceptType}} ->
-            case IsCreateDB of
-                true ->
-                    R = create_database(Mod, Sock, Username, Password, Database, PageSize);
-                false ->
-                    R = attach_database(Mod, Sock, Username, Password, Database)
-            end,
-            case R of
-                {ok, DbHandle} ->
-                    case allocate_statement(Mod, Sock, DbHandle) of
-                        {ok, StmtHandle} ->
-                            {ok, State#state{db_handle = DbHandle, stmt_handle = StmtHandle, accept_version = AcceptVersion, accept_type = AcceptType}};
-                        {error, Msg} ->
-                            {{error, Msg}, State#state{db_handle = DbHandle, accept_version = AcceptVersion, accept_type = AcceptType}}
-                    end;
-                {error, Msg} ->
-                    {{error, Msg}, State}
+    end,
+    case R of
+        {ok, DbHandle} ->
+            case allocate_statement(TcpMod, Sock, DbHandle) of
+                {ok, StmtHandle} ->
+                    {ok, State#state{db_handle = DbHandle, stmt_handle = StmtHandle, accept_version = AcceptVersion}};
+                {error, Msg2} ->
+                    {{error, Msg2}, State#state{db_handle = DbHandle, accept_version = AcceptVersion}}
             end;
-        op_reject -> {{error, "Connection Rejected"}, State}
+        {error, Msg3} ->
+            {{error, Msg3}, State}
     end.
 
-detach(Mod, Sock, DbHandle) ->
-    Mod:send(Sock, efirebirdsql_op:op_detach(DbHandle)),
-    case efirebirdsql_op:get_response(Mod, Sock) of
+create_database(TcpMod, Sock, User, Password, Database, PageSize, AcceptVersion, State) ->
+    TcpMod:send(Sock,
+        efirebirdsql_op:op_create(User, Password, Database, PageSize, AcceptVersion)),
+    R = case efirebirdsql_op:get_response(TcpMod, Sock) of
+        {op_response, {ok, Handle, _}} -> {ok, Handle};
+        {op_response, {error, Msg}} ->{error, Msg}
+    end,
+    case R of
+        {ok, DbHandle} ->
+            case allocate_statement(TcpMod, Sock, DbHandle) of
+                {ok, StmtHandle} ->
+                    {ok, State#state{db_handle = DbHandle, stmt_handle = StmtHandle, accept_version = AcceptVersion}};
+                {error, Msg2} ->
+                    {{error, Msg2}, State#state{db_handle = DbHandle, accept_version = AcceptVersion}}
+            end;
+        {error, Msg3} ->
+            {{error, Msg3}, State}
+    end.
+
+allocate_statement(TcpMod, Sock, DbHandle) ->
+    TcpMod:send(Sock,
+        efirebirdsql_op:op_allocate_statement(DbHandle)),
+    case efirebirdsql_op:get_response(TcpMod, Sock) of
+        {op_response, {ok, Handle, _}} -> {ok, Handle};
+        {op_response, {error, Msg}} ->{error, Msg}
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% handle functions
+
+connect(TcpMod, Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
+    Sock = State#state.sock,
+    TcpMod:send(Sock,
+        efirebirdsql_op:op_connect(Host, Username, Password, Database, State#state.public_key, State#state.wire_crypt)),
+    case efirebirdsql_op:get_response(TcpMod, Sock) of
+        {op_accept, {AcceptVersion, _AcceptType}} ->
+            connect_database(TcpMod, Sock, Username, Password, Database, PageSize, AcceptVersion, IsCreateDB, State);
+        {op_cond_accept, {AcceptVersion, _AcceptType}} ->
+            io:format("op_cond_accept");
+        {op_accept_data, {AcceptVersion, _AcceptType}} ->
+            io:format("op_accept_data");
+        {op_reject, _} -> {{error, "Connection Rejected"}, State}
+    end.
+
+detach(TcpMod, Sock, DbHandle) ->
+    TcpMod:send(Sock, efirebirdsql_op:op_detach(DbHandle)),
+    case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
         {op_response, {error, Msg}} -> {error, Msg}
     end.
 
 %% Transaction
-begin_transaction(Mod, Sock, DbHandle, Tpb) ->
-    Mod:send(Sock,
+begin_transaction(TcpMod, Sock, DbHandle, Tpb) ->
+    TcpMod:send(Sock,
         efirebirdsql_op:op_transaction(DbHandle, Tpb)),
-    case efirebirdsql_op:get_response(Mod, Sock) of
+    case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response,  {ok, Handle, _}} -> {ok, Handle};
         {op_response, {error, Msg}} -> {error, Msg}
     end.
 
 %% prepare and free statement
-prepare_statement(Mod, Sock, TransHandle, StmtHandle, Sql) ->
-    Mod:send(Sock,
+prepare_statement(TcpMod, Sock, TransHandle, StmtHandle, Sql) ->
+    TcpMod:send(Sock,
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
-    efirebirdsql_op:get_prepare_statement_response(Mod, Sock, StmtHandle).
+    efirebirdsql_op:get_prepare_statement_response(TcpMod, Sock, StmtHandle).
 
-free_statement(Mod, Sock, StmtHandle) ->
-    Mod:send(Sock, efirebirdsql_op:op_free_statement(StmtHandle)),
-    case efirebirdsql_op:get_response(Mod, Sock) of
+free_statement(TcpMod, Sock, StmtHandle) ->
+    TcpMod:send(Sock, efirebirdsql_op:op_free_statement(StmtHandle)),
+    case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
         {op_response, {error, Msg}} -> {error, Msg}
     end.
 
 %% Execute, Fetch and Description
-execute(Mod, Sock, TransHandle, StmtHandle, Params) ->
-    Mod:send(Sock,
+execute(TcpMod, Sock, TransHandle, StmtHandle, Params) ->
+    TcpMod:send(Sock,
         efirebirdsql_op:op_execute(TransHandle, StmtHandle, Params)),
-    case efirebirdsql_op:get_response(Mod, Sock) of
+    case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
         {op_response, {error, Msg}} -> {error, Msg}
     end.
 
-execute2(Mod, Sock, TransHandle, StmtHandle, Param, XSqlVars) ->
-        Mod:send(Sock,
+execute2(TcpMod, Sock, TransHandle, StmtHandle, Param, XSqlVars) ->
+        TcpMod:send(Sock,
             efirebirdsql_op:op_execute2(TransHandle, StmtHandle, Param, XSqlVars)),
-        Row = efirebirdsql_op:get_sql_response(Mod, Sock, XSqlVars),
-        case efirebirdsql_op:get_response(Mod, Sock) of
+        Row = efirebirdsql_op:get_sql_response(TcpMod, Sock, XSqlVars),
+        case efirebirdsql_op:get_response(TcpMod, Sock) of
             {op_response,  {ok, _, _}} -> {ok, Row};
             {op_response, {error, Msg}} -> {error, Msg}
         end.
 
-fetchrows(Mod, Sock, StmtHandle, XSqlVars, Results) ->
-    Mod:send(Sock,
+fetchrows(TcpMod, Sock, StmtHandle, XSqlVars, Results) ->
+    TcpMod:send(Sock,
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
-    {op_fetch_response, {NewResults, MoreData}} = efirebirdsql_op:get_fetch_response(Mod, Sock, XSqlVars),
+    {op_fetch_response, {NewResults, MoreData}} = efirebirdsql_op:get_fetch_response(TcpMod, Sock, XSqlVars),
     case MoreData of
-        true -> fetchrows(Mod, Sock,
+        true -> fetchrows(TcpMod, Sock,
             StmtHandle, XSqlVars,lists:flatten([Results, NewResults]));
         false -> {ok, Results ++ NewResults}
     end.
-fetchrows(Mod, Sock, StmtHandle, XSqlVars) ->
-    fetchrows(Mod, Sock, StmtHandle, XSqlVars, []).
+fetchrows(TcpMod, Sock, StmtHandle, XSqlVars) ->
+    fetchrows(TcpMod, Sock, StmtHandle, XSqlVars, []).
 
 description([], XSqlVar) ->
     lists:reverse(XSqlVar);
@@ -145,21 +168,23 @@ description(InXSqlVars, XSqlVar) ->
                       H#column.length, H#column.null_ind} | XSqlVar]).
 
 %% Commit and rollback
-commit(Mod, Sock, TransHandle) ->
-    Mod:send(Sock, efirebirdsql_op:op_commit_retaining(TransHandle)),
-    case efirebirdsql_op:get_response(Mod, Sock) of
+commit(TcpMod, Sock, TransHandle) ->
+    TcpMod:send(Sock, efirebirdsql_op:op_commit_retaining(TransHandle)),
+    case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
         {op_response, {error, Msg}} -> {error, Msg}
     end.
 
-rollback(Mod, Sock, TransHandle) ->
-    Mod:send(Sock, efirebirdsql_op:op_rollback_retaining(TransHandle)),
-    case efirebirdsql_op:get_response(Mod, Sock) of
+rollback(TcpMod, Sock, TransHandle) ->
+    TcpMod:send(Sock, efirebirdsql_op:op_rollback_retaining(TransHandle)),
+    case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
         {op_response, {error, Msg}} -> {error, Msg}
     end.
 
-%% -- client interface --
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% -- client interface --
 -spec start_link() -> {ok, pid()}.
 start_link() ->
     gen_server:start_link(?MODULE, [], []).
@@ -169,7 +194,9 @@ get_parameter(C, Name) when is_list(Name) ->
 get_parameter(C, Name) when is_list(Name) ->
     gen_server:call(C, {get_parameter, Name}, infinity).
 
-%% -- gen_server implementation --
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% -- gen_server implementation --
 
 init([]) ->
     {ok, #state{mod=gen_tcp}}.
