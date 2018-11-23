@@ -16,7 +16,7 @@ random_test() ->
     {ServerPublic, ServerPrivate} = efirebirdsql_srp:server_seed(V),
     ServerSession = efirebirdsql_srp:server_session(
         Username, Password, Salt, ClientPublic, ServerPublic, ServerPrivate),
-    {M, ClientSession} = efirebirdsql_srp:client_proof(
+    {_M, ClientSession} = efirebirdsql_srp:client_proof(
         Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate),
     ?assertEqual(ServerSession, ClientSession).
 

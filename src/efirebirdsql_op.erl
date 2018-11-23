@@ -67,9 +67,9 @@ uid(Host, Username, PublicKey, WireCrypt) ->
         pack_specific_data_cnct_param(7, SpecificData), %% CNCT_specific_data
         % TODO: support WireCrypt
         pack_cnct_param(11, [0, 0, 0, 0]),
-%        pack_cnct_param(11,
-%            [if WireCrypt=:=true -> 1; WireCrypt =/= true -> 0 end, 0, 0, 0]
-%        ),  %% CNCT_client_crypt
+        pack_cnct_param(11,
+            [if WireCrypt=:=true -> 1; WireCrypt =/= true -> 0 end, 0, 0, 0]
+        ),  %% CNCT_client_crypt
         pack_cnct_param(1, Username),                   %% CNCT_user
         pack_cnct_param(4, Host),                       %% CNCT_host
         pack_cnct_param(6, "")                          %% CNCT_user_verification

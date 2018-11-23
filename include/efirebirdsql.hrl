@@ -9,3 +9,19 @@
     length :: -1 | pos_integer(),
     null_ind :: true | false
 }).
+
+-record(state, {mod,
+                sock,
+                public_key,
+                private_key,
+                wire_crypt,
+                db_handle,
+                trans_handle,
+                stmt_handle,
+                parameters = [],
+                stmt_type,
+                xsqlvars = [],
+                rows = [],
+                accept_version
+                }).
+

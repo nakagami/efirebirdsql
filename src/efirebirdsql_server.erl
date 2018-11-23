@@ -1,4 +1,5 @@
 %%% The MIT License (MIT)
+
 %%% Copyright (c) 2016 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_server).
@@ -11,20 +12,6 @@
 
 -include("efirebirdsql.hrl").
 
--record(state, {mod,
-                sock,
-                public_key,
-                private_key,
-                wire_crypt,
-                db_handle,
-                trans_handle,
-                stmt_handle,
-                parameters = [],
-                stmt_type,
-                xsqlvars = [],
-                rows = [],
-                accept_version
-                }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Utility functions in module
@@ -94,9 +81,9 @@ connect(TcpMod, Host, Username, Password, Database, IsCreateDB, PageSize, State)
     case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_accept, {AcceptVersion, _AcceptType}} ->
             connect_database(TcpMod, Sock, Username, Password, Database, PageSize, AcceptVersion, IsCreateDB, State);
-        {op_cond_accept, {AcceptVersion, _AcceptType}} ->
+        {op_cond_accept, {_AcceptVersion, _AcceptType}} ->
             io:format("op_cond_accept");
-        {op_accept_data, {AcceptVersion, _AcceptType}} ->
+        {op_accept_data, {_AcceptVersion, _AcceptType}} ->
             io:format("op_accept_data");
         {op_reject, _} -> {{error, "Connection Rejected"}, State}
     end.
