@@ -32,7 +32,12 @@ init([]) ->
     {ok, #state{}}.
 
 handle_call({connect, Host, Username, Password, Database, Options}, _From, State) ->
-    efirebirdsql_protocol:connect(Host, Username, Password, Database, Options, State);
+    case efirebirdsql_protocol:connect(Host, Username, Password, Database, Options, State) of
+        {ok, R, NewStatus} ->
+            {reply, R, NewStatus};
+        {error, Reason, NewStatus} ->
+            {reply, {error, Reason}, NewStatus}
+    end;
 handle_call({transaction, Options}, _From, State) ->
     AutoCommit = proplists:get_value(auto_commit, Options, true),
     %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_no_rec_version

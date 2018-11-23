@@ -102,9 +102,9 @@ connect(Host, Username, Password, Database, Options, State) ->
                 wire_crypt=proplists:get_value(wire_crypt, Options, false)
             },
             {R, NewState} = connect(Host, Username, Password, Database, IsCreateDB, PageSize, State2),
-            {reply, R, NewState};
-        Error = {error, _} ->
-            {reply, Error, State}
+            {ok, R, NewState};
+        Error = {error, Reason} ->
+            {error, Reason, State}
     end.
 
 detach(TcpMod, Sock, DbHandle) ->
