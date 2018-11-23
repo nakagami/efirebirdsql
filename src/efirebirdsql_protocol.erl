@@ -4,8 +4,7 @@
 
 -module(efirebirdsql_protocol).
 
--export([connect_database/9, attach_database/7, create_database/8]).
--export([connect/8, detach/3, begin_transaction/4]).
+-export([connect/7, detach/3, begin_transaction/4]).
 -export([prepare_statement/5, free_statement/3]).
 -export([execute/5, execute2/6, fetchrows/4, description/2]).
 -export([commit/3, rollback/3]).
@@ -73,7 +72,8 @@ allocate_statement(TcpMod, Sock, DbHandle) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % handle functions
 
-connect(TcpMod, Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
+connect(Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
+    TcpMod = gen_tcp,
     Sock = State#state.sock,
     TcpMod:send(Sock,
         efirebirdsql_op:op_connect(Host, Username, Password, Database, State#state.public_key, State#state.wire_crypt)),

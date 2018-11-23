@@ -37,7 +37,7 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
     IsCreateDB = proplists:get_value(createdb, Options, false),
     PageSize = proplists:get_value(pagesize, Options, 4096),
     {Pub ,Private} = efirebirdsql_srp:client_seed(),
-    case gen_tcp:connect(Host, Port, SockOptions) of
+    case (State#state.mod):connect(Host, Port, SockOptions) of
         {ok, Sock} ->
             State2 = State#state{
                 sock=Sock,
@@ -45,7 +45,7 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
                 private_key=Private,
                 wire_crypt=proplists:get_value(wire_crypt, Options, false)
             },
-            {R, NewState} = efirebirdsql_protocol:connect(gen_tcp, Host, Username, Password, Database, IsCreateDB, PageSize, State2),
+            {R, NewState} = efirebirdsql_protocol:connect(Host, Username, Password, Database, IsCreateDB, PageSize, State2),
             {reply, R, NewState};
         Error = {error, _} ->
             {reply, Error, State}
