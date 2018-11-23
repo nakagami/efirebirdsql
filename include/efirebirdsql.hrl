@@ -10,7 +10,7 @@
     null_ind :: true | false
 }).
 
--record(state, {mod,
+-record(state, {mod = gen_tcp,
                 sock,
                 public_key,
                 private_key,

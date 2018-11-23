@@ -4,7 +4,7 @@
 
 -module(efirebirdsql_protocol).
 
--export([connect/7, detach/3, begin_transaction/4]).
+-export([connect/6, detach/3, begin_transaction/4]).
 -export([prepare_statement/5, free_statement/3]).
 -export([execute/5, execute2/6, fetchrows/4, description/2]).
 -export([commit/3, rollback/3]).
@@ -69,11 +69,8 @@ allocate_statement(TcpMod, Sock, DbHandle) ->
     end.
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% handle functions
-
 connect(Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
-    TcpMod = gen_tcp,
+    TcpMod = State#state.mod,
     Sock = State#state.sock,
     TcpMod:send(Sock,
         efirebirdsql_op:op_connect(Host, Username, Password, Database, State#state.public_key, State#state.wire_crypt)),
@@ -85,6 +82,29 @@ connect(Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
         {op_accept_data, {_AcceptVersion, _AcceptType}} ->
             io:format("op_accept_data");
         {op_reject, _} -> {{error, "Connection Rejected"}, State}
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% public functions
+
+connect(Host, Username, Password, Database, Options, State) ->
+    SockOptions = [{active, false}, {packet, raw}, binary],
+    Port = proplists:get_value(port, Options, 3050),
+    IsCreateDB = proplists:get_value(createdb, Options, false),
+    PageSize = proplists:get_value(pagesize, Options, 4096),
+    {Pub ,Private} = efirebirdsql_srp:client_seed(),
+    case (State#state.mod):connect(Host, Port, SockOptions) of
+        {ok, Sock} ->
+            State2 = State#state{
+                sock=Sock,
+                public_key=Pub,
+                private_key=Private,
+                wire_crypt=proplists:get_value(wire_crypt, Options, false)
+            },
+            {R, NewState} = connect(Host, Username, Password, Database, IsCreateDB, PageSize, State2),
+            {reply, R, NewState};
+        Error = {error, _} ->
+            {reply, Error, State}
     end.
 
 detach(TcpMod, Sock, DbHandle) ->

@@ -29,27 +29,10 @@ get_parameter(C, Name) when is_list(Name) ->
 %%% -- gen_server implementation --
 
 init([]) ->
-    {ok, #state{mod=gen_tcp}}.
+    {ok, #state{}}.
 
 handle_call({connect, Host, Username, Password, Database, Options}, _From, State) ->
-    SockOptions = [{active, false}, {packet, raw}, binary],
-    Port = proplists:get_value(port, Options, 3050),
-    IsCreateDB = proplists:get_value(createdb, Options, false),
-    PageSize = proplists:get_value(pagesize, Options, 4096),
-    {Pub ,Private} = efirebirdsql_srp:client_seed(),
-    case (State#state.mod):connect(Host, Port, SockOptions) of
-        {ok, Sock} ->
-            State2 = State#state{
-                sock=Sock,
-                public_key=Pub,
-                private_key=Private,
-                wire_crypt=proplists:get_value(wire_crypt, Options, false)
-            },
-            {R, NewState} = efirebirdsql_protocol:connect(Host, Username, Password, Database, IsCreateDB, PageSize, State2),
-            {reply, R, NewState};
-        Error = {error, _} ->
-            {reply, Error, State}
-    end;
+    efirebirdsql_protocol:connect(Host, Username, Password, Database, Options, State);
 handle_call({transaction, Options}, _From, State) ->
     AutoCommit = proplists:get_value(auto_commit, Options, true),
     %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_no_rec_version
