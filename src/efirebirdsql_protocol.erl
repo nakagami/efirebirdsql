@@ -4,7 +4,7 @@
 
 -module(efirebirdsql_protocol).
 
--export([connect/6, detach/3, begin_transaction/4]).
+-export([connect/5, connect/6, detach/3, begin_transaction/4]).
 -export([prepare_statement/5, free_statement/3]).
 -export([execute/5, execute2/6, fetchrows/4, description/2]).
 -export([commit/3, rollback/3]).
@@ -87,6 +87,8 @@ connect(Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % public functions
 
+connect(Host, Username, Password, Database, Options) ->
+    connect(Host, Username, Password, Database, Options, #state{}).
 connect(Host, Username, Password, Database, Options, State) ->
     SockOptions = [{active, false}, {packet, raw}, binary],
     Port = proplists:get_value(port, Options, 3050),
@@ -103,7 +105,7 @@ connect(Host, Username, Password, Database, Options, State) ->
             },
             {R, NewState} = connect(Host, Username, Password, Database, IsCreateDB, PageSize, State2),
             {ok, R, NewState};
-        Error = {error, Reason} ->
+        {error, Reason} ->
             {error, Reason, State}
     end.
 
