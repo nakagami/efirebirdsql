@@ -5,7 +5,7 @@
 -module(efirebirdsql_protocol).
 
 -export([connect/5, connect/6, detach/1, begin_transaction/2]).
--export([prepare_statement/2, free_statement/1]).
+-export([allocate_statement/1, prepare_statement/2, free_statement/1]).
 -export([execute/2, execute2/2, fetchrows/1, description/2]).
 -export([commit/1, rollback/1]).
 
@@ -131,7 +131,18 @@ begin_transaction(Tpb, State) ->
         {op_response, {error, Msg}} -> {error, Msg}
     end.
 
-%% prepare and free statement
+%% allocate, prepare and free statement
+allocate_statement(State) ->
+    TcpMod = State#state.mod,
+    Sock = State#state.sock,
+    DbHandle = State#state.db_handle,
+    TcpMod:send(Sock,
+        efirebirdsql_op:op_allocate_statement(DbHandle)),
+    case efirebirdsql_op:get_response(TcpMod, Sock) of
+        {op_response, {ok, Handle, _}} -> {ok, State#state{stmt_handle=Handle}};
+        {op_response, {error, Msg}} ->{error, Msg}
+    end.
+
 prepare_statement(Sql, State) ->
     TcpMod = State#state.mod,
     Sock = State#state.sock,
