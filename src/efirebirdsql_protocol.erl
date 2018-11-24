@@ -44,15 +44,6 @@ create_database(TcpMod, Sock, User, Password, Database, PageSize, State) ->
             {{error, Msg}, State}
     end.
 
-allocate_statement(TcpMod, Sock, DbHandle) ->
-    TcpMod:send(Sock,
-        efirebirdsql_op:op_allocate_statement(DbHandle)),
-    case efirebirdsql_op:get_response(TcpMod, Sock) of
-        {op_response, {ok, Handle, _}} -> {ok, Handle};
-        {op_response, {error, Msg}} ->{error, Msg}
-    end.
-
-
 connect(Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
     TcpMod = State#state.mod,
     Sock = State#state.sock,
