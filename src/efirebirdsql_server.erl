@@ -42,9 +42,8 @@ handle_call({transaction, Options}, _From, State) ->
     AutoCommit = proplists:get_value(auto_commit, Options, true),
     %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_no_rec_version
     Tpb = [3, 9, 6, 15, 18],
-    R = efirebirdsql_protocol:begin_transaction(State#state.db_handle,
-        lists:flatten(Tpb, if AutoCommit =:= true -> [16]; true -> [] end),
-        State),
+    R = efirebirdsql_protocol:begin_transaction(
+        lists:flatten(Tpb, if AutoCommit =:= true -> [16]; true -> [] end), State),
     case R of
         {ok, TransHandle} ->
             {reply, ok, State#state{trans_handle=TransHandle}};
@@ -52,17 +51,13 @@ handle_call({transaction, Options}, _From, State) ->
             {reply, R, State}
     end;
 handle_call(commit, _From, State) ->
-    {reply, efirebirdsql_protocol:commit(
-        State#state.trans_handle, State), State};
+    {reply, efirebirdsql_protocol:commit(State), State};
 handle_call(rollback, _From, State) ->
-    {reply, efirebirdsql_protocol:rollback(
-        State#state.trans_handle, State), State};
+    {reply, efirebirdsql_protocol:rollback(State), State};
 handle_call(detach, _From, State) ->
-    {reply, efirebirdsql_protocol:detach(State#state.db_handle, State), State};
+    {reply, efirebirdsql_protocol:detach(State), State};
 handle_call({prepare, Sql}, _From, State) ->
-    case R = efirebirdsql_protocol:prepare_statement(
-                State#state.trans_handle, State#state.stmt_handle, Sql,
-                State) of
+    case R = efirebirdsql_protocol:prepare_statement(Sql, State) of
         {ok, StmtType, XSqlVars} ->
             {reply, ok, State#state{stmt_type=StmtType, xsqlvars=XSqlVars}};
         {error, _Reason} ->
@@ -71,20 +66,14 @@ handle_call({prepare, Sql}, _From, State) ->
 handle_call({execute, Params}, _From, State) ->
     case State#state.stmt_type of
         isc_info_sql_stmt_exec_procedure ->
-            {ok, Row} = efirebirdsql_protocol:execute2(
-                State#state.trans_handle, State#state.stmt_handle, Params,
-                State#state.xsqlvars, State),
+            {ok, Row} = efirebirdsql_protocol:execute2(Params, State),
             {reply, ok, State#state{rows=[Row]}};
         _ ->
-            ok = efirebirdsql_protocol:execute(
-                State#state.trans_handle, State#state.stmt_handle, Params,
-                State),
+            ok = efirebirdsql_protocol:execute(Params, State),
             case State#state.stmt_type of
                 isc_info_sql_stmt_select ->
-                    {ok, Rows} = efirebirdsql_protocol:fetchrows(
-                        State#state.stmt_handle, State#state.xsqlvars, State),
-                    efirebirdsql_protocol:free_statement(
-                        State#state.stmt_handle, State),
+                    {ok, Rows} = efirebirdsql_protocol:fetchrows(State),
+                    efirebirdsql_protocol:free_statement(State),
                     {reply, ok, State#state{rows=Rows}};
                 _ ->
                     {reply, ok, State}

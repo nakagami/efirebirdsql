@@ -4,10 +4,10 @@
 
 -module(efirebirdsql_protocol).
 
--export([connect/5, connect/6, detach/2, begin_transaction/3]).
--export([prepare_statement/4, free_statement/2]).
--export([execute/4, execute2/5, fetchrows/3, description/2]).
--export([commit/2, rollback/2]).
+-export([connect/5, connect/6, detach/1, begin_transaction/2]).
+-export([prepare_statement/2, free_statement/1]).
+-export([execute/2, execute2/2, fetchrows/1, description/2]).
+-export([commit/1, rollback/1]).
 
 -include("efirebirdsql.hrl").
 
@@ -109,9 +109,10 @@ connect(Host, Username, Password, Database, Options, State) ->
             {error, Reason, State}
     end.
 
-detach(DbHandle, State) ->
+detach(State) ->
     TcpMod = State#state.mod,
     Sock = State#state.sock,
+    DbHandle = State#state.db_handle,
     TcpMod:send(Sock, efirebirdsql_op:op_detach(DbHandle)),
     case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
@@ -119,9 +120,10 @@ detach(DbHandle, State) ->
     end.
 
 %% Transaction
-begin_transaction(DbHandle, Tpb, State) ->
+begin_transaction(Tpb, State) ->
     TcpMod = State#state.mod,
     Sock = State#state.sock,
+    DbHandle = State#state.db_handle,
     TcpMod:send(Sock,
         efirebirdsql_op:op_transaction(DbHandle, Tpb)),
     case efirebirdsql_op:get_response(TcpMod, Sock) of
@@ -130,16 +132,19 @@ begin_transaction(DbHandle, Tpb, State) ->
     end.
 
 %% prepare and free statement
-prepare_statement(TransHandle, StmtHandle, Sql, State) ->
+prepare_statement(Sql, State) ->
     TcpMod = State#state.mod,
     Sock = State#state.sock,
+    TransHandle = State#state.trans_handle,
+    StmtHandle = State#state.stmt_handle,
     TcpMod:send(Sock,
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
     efirebirdsql_op:get_prepare_statement_response(TcpMod, Sock, StmtHandle).
 
-free_statement(StmtHandle, State) ->
+free_statement(State) ->
     TcpMod = State#state.mod,
     Sock = State#state.sock,
+    StmtHandle = State#state.stmt_handle,
     TcpMod:send(Sock, efirebirdsql_op:op_free_statement(StmtHandle)),
     case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
@@ -147,9 +152,11 @@ free_statement(StmtHandle, State) ->
     end.
 
 %% Execute, Fetch and Description
-execute(TransHandle, StmtHandle, Params, State) ->
+execute(Params, State) ->
     TcpMod = State#state.mod,
     Sock = State#state.sock,
+    TransHandle = State#state.trans_handle,
+    StmtHandle = State#state.stmt_handle,
     TcpMod:send(Sock,
         efirebirdsql_op:op_execute(TransHandle, StmtHandle, Params)),
     case efirebirdsql_op:get_response(TcpMod, Sock) of
@@ -157,9 +164,12 @@ execute(TransHandle, StmtHandle, Params, State) ->
         {op_response, {error, Msg}} -> {error, Msg}
     end.
 
-execute2(TransHandle, StmtHandle, Param, XSqlVars, State) ->
+execute2(Param, State) ->
     TcpMod = State#state.mod,
     Sock = State#state.sock,
+    TransHandle = State#state.trans_handle,
+    StmtHandle = State#state.stmt_handle,
+    XSqlVars = State#state.xsqlvars,
     TcpMod:send(Sock,
         efirebirdsql_op:op_execute2(TransHandle, StmtHandle, Param, XSqlVars)),
     Row = efirebirdsql_op:get_sql_response(TcpMod, Sock, XSqlVars),
@@ -168,19 +178,20 @@ execute2(TransHandle, StmtHandle, Param, XSqlVars, State) ->
         {op_response, {error, Msg}} -> {error, Msg}
     end.
 
-fetchrows(StmtHandle, XSqlVars, Results, State) ->
+fetchrows(Results, State) ->
     TcpMod = State#state.mod,
     Sock = State#state.sock,
+    StmtHandle = State#state.stmt_handle,
+    XSqlVars = State#state.xsqlvars,
     TcpMod:send(Sock,
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
     {op_fetch_response, {NewResults, MoreData}} = efirebirdsql_op:get_fetch_response(TcpMod, Sock, XSqlVars),
     case MoreData of
-        true -> fetchrows(
-            StmtHandle, XSqlVars,lists:flatten([Results, NewResults]), State);
+        true -> fetchrows(lists:flatten([Results, NewResults]), State);
         false -> {ok, Results ++ NewResults}
     end.
-fetchrows(StmtHandle, XSqlVars, State) ->
-    fetchrows(StmtHandle, XSqlVars, [], State).
+fetchrows(State) ->
+    fetchrows([], State).
 
 description([], XSqlVar) ->
     lists:reverse(XSqlVar);
@@ -190,18 +201,20 @@ description(InXSqlVars, XSqlVar) ->
                       H#column.length, H#column.null_ind} | XSqlVar]).
 
 %% Commit and rollback
-commit(TransHandle, State) ->
+commit(State) ->
     TcpMod = State#state.mod,
     Sock = State#state.sock,
+    TransHandle = State#state.trans_handle,
     TcpMod:send(Sock, efirebirdsql_op:op_commit_retaining(TransHandle)),
     case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
         {op_response, {error, Msg}} -> {error, Msg}
     end.
 
-rollback(TransHandle, State) ->
+rollback(State) ->
     TcpMod = State#state.mod,
     Sock = State#state.sock,
+    TransHandle = State#state.trans_handle,
     TcpMod:send(Sock, efirebirdsql_op:op_rollback_retaining(TransHandle)),
     case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response,  {ok, _, _}} -> ok;
