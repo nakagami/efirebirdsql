@@ -25,41 +25,23 @@ connect_database(TcpMod, Sock, Username, Password, Database, PageSize, IsCreateD
 attach_database(TcpMod, Sock, User, Password, Database, State) ->
     TcpMod:send(Sock,
         efirebirdsql_op:op_attach(User, Password, Database, State#state.accept_version)),
-    R = case efirebirdsql_op:get_response(TcpMod, Sock) of
-        {op_response, {ok, Handle, _}} -> {ok, Handle};
-        {op_response, {error, Msg}} ->{error, Msg}
-    end,
-    case R of
-        {ok, DbHandle} ->
-            State2 = State#state{db_handle=DbHandle},
-            case allocate_statement(TcpMod, Sock, DbHandle) of
-                {ok, StmtHandle} ->
-                    {ok, State2#state{stmt_handle = StmtHandle}};
-                {error, Msg2} ->
-                    {{error, Msg2}, State2#state{}}
-            end;
-        {error, Msg3} ->
-            {{error, Msg3}, State}
+    case efirebirdsql_op:get_response(TcpMod, Sock) of
+        {op_response, {ok, Handle, _}} ->
+            State2 = State#state{db_handle=Handle},
+            allocate_statement(State2);
+        {op_response, {error, Msg}} ->
+            {{error, Msg}, State}
     end.
 
 create_database(TcpMod, Sock, User, Password, Database, PageSize, State) ->
     TcpMod:send(Sock,
         efirebirdsql_op:op_create(User, Password, Database, PageSize, State#state.accept_version)),
-    R = case efirebirdsql_op:get_response(TcpMod, Sock) of
-        {op_response, {ok, Handle, _}} -> {ok, Handle};
-        {op_response, {error, Msg}} ->{error, Msg}
-    end,
-    case R of
-        {ok, DbHandle} ->
-            State2 = State#state{db_handle=DbHandle},
-            case allocate_statement(TcpMod, Sock, DbHandle) of
-                {ok, StmtHandle} ->
-                    {ok, State2#state{stmt_handle = StmtHandle}};
-                {error, Msg2} ->
-                    {{error, Msg2}, State2#state{}}
-            end;
-        {error, Msg3} ->
-            {{error, Msg3}, State}
+    case efirebirdsql_op:get_response(TcpMod, Sock) of
+        {op_response, {ok, Handle, _}} ->
+            State2 = State#state{db_handle=Handle},
+            allocate_statement(State2);
+        {op_response, {error, Msg}} ->
+            {{error, Msg}, State}
     end.
 
 allocate_statement(TcpMod, Sock, DbHandle) ->
