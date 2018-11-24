@@ -14,17 +14,17 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Utility functions in module
 
-connect_database(TcpMod, Sock, Username, Password, Database, PageSize, AcceptVersion, IsCreateDB, State) ->
+connect_database(TcpMod, Sock, Username, Password, Database, PageSize, IsCreateDB, State) ->
     case IsCreateDB of
         true ->
-            create_database(TcpMod, Sock, Username, Password, Database, PageSize, AcceptVersion, State);
+            create_database(TcpMod, Sock, Username, Password, Database, PageSize, State);
         false ->
-            attach_database(TcpMod, Sock, Username, Password, Database, AcceptVersion, State)
+            attach_database(TcpMod, Sock, Username, Password, Database, State)
     end.
 
-attach_database(TcpMod, Sock, User, Password, Database, AcceptVersion, State) ->
+attach_database(TcpMod, Sock, User, Password, Database, State) ->
     TcpMod:send(Sock,
-        efirebirdsql_op:op_attach(User, Password, Database, AcceptVersion)),
+        efirebirdsql_op:op_attach(User, Password, Database, State#state.accept_version)),
     R = case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response, {ok, Handle, _}} -> {ok, Handle};
         {op_response, {error, Msg}} ->{error, Msg}
@@ -33,17 +33,17 @@ attach_database(TcpMod, Sock, User, Password, Database, AcceptVersion, State) ->
         {ok, DbHandle} ->
             case allocate_statement(TcpMod, Sock, DbHandle) of
                 {ok, StmtHandle} ->
-                    {ok, State#state{db_handle = DbHandle, stmt_handle = StmtHandle, accept_version = AcceptVersion}};
+                    {ok, State#state{db_handle = DbHandle, stmt_handle = StmtHandle}};
                 {error, Msg2} ->
-                    {{error, Msg2}, State#state{db_handle = DbHandle, accept_version = AcceptVersion}}
+                    {{error, Msg2}, State#state{db_handle = DbHandle}}
             end;
         {error, Msg3} ->
             {{error, Msg3}, State}
     end.
 
-create_database(TcpMod, Sock, User, Password, Database, PageSize, AcceptVersion, State) ->
+create_database(TcpMod, Sock, User, Password, Database, PageSize, State) ->
     TcpMod:send(Sock,
-        efirebirdsql_op:op_create(User, Password, Database, PageSize, AcceptVersion)),
+        efirebirdsql_op:op_create(User, Password, Database, PageSize, State#state.accept_version)),
     R = case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response, {ok, Handle, _}} -> {ok, Handle};
         {op_response, {error, Msg}} ->{error, Msg}
@@ -52,9 +52,9 @@ create_database(TcpMod, Sock, User, Password, Database, PageSize, AcceptVersion,
         {ok, DbHandle} ->
             case allocate_statement(TcpMod, Sock, DbHandle) of
                 {ok, StmtHandle} ->
-                    {ok, State#state{db_handle = DbHandle, stmt_handle = StmtHandle, accept_version = AcceptVersion}};
+                    {ok, State#state{db_handle = DbHandle, stmt_handle = StmtHandle}};
                 {error, Msg2} ->
-                    {{error, Msg2}, State#state{db_handle = DbHandle, accept_version = AcceptVersion}}
+                    {{error, Msg2}, State#state{db_handle = DbHandle}}
             end;
         {error, Msg3} ->
             {{error, Msg3}, State}
@@ -76,7 +76,7 @@ connect(Host, Username, Password, Database, IsCreateDB, PageSize, State) ->
         efirebirdsql_op:op_connect(Host, Username, Password, Database, State#state.public_key, State#state.wire_crypt)),
     case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_accept, {AcceptVersion, _AcceptType}} ->
-            connect_database(TcpMod, Sock, Username, Password, Database, PageSize, AcceptVersion, IsCreateDB, State);
+            connect_database(TcpMod, Sock, Username, Password, Database, PageSize, IsCreateDB, State#state{accept_version=AcceptVersion});
         {op_cond_accept, {_AcceptVersion, _AcceptType}} ->
             io:format("op_cond_accept");
         {op_accept_data, {_AcceptVersion, _AcceptType}} ->
