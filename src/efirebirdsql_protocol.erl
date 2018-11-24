@@ -31,11 +31,12 @@ attach_database(TcpMod, Sock, User, Password, Database, State) ->
     end,
     case R of
         {ok, DbHandle} ->
+            State2 = State#state{db_handle=DbHandle},
             case allocate_statement(TcpMod, Sock, DbHandle) of
                 {ok, StmtHandle} ->
-                    {ok, State#state{db_handle = DbHandle, stmt_handle = StmtHandle}};
+                    {ok, State2#state{stmt_handle = StmtHandle}};
                 {error, Msg2} ->
-                    {{error, Msg2}, State#state{db_handle = DbHandle}}
+                    {{error, Msg2}, State2#state{}}
             end;
         {error, Msg3} ->
             {{error, Msg3}, State}
@@ -50,11 +51,12 @@ create_database(TcpMod, Sock, User, Password, Database, PageSize, State) ->
     end,
     case R of
         {ok, DbHandle} ->
+            State2 = State#state{db_handle=DbHandle},
             case allocate_statement(TcpMod, Sock, DbHandle) of
                 {ok, StmtHandle} ->
-                    {ok, State#state{db_handle = DbHandle, stmt_handle = StmtHandle}};
+                    {ok, State2#state{stmt_handle = StmtHandle}};
                 {error, Msg2} ->
-                    {{error, Msg2}, State#state{db_handle = DbHandle}}
+                    {{error, Msg2}, State2#state{}}
             end;
         {error, Msg3} ->
             {{error, Msg3}, State}
