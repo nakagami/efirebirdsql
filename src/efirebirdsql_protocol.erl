@@ -17,25 +17,14 @@
 connect_database(TcpMod, Sock, Username, Password, Database, PageSize, IsCreateDB, State) ->
     case IsCreateDB of
         true ->
-            create_database(TcpMod, Sock, Username, Password, Database, PageSize, State);
+            TcpMod:send(Sock,
+                efirebirdsql_op:op_create(
+                    Username, Password, Database, PageSize, State#state.accept_version));
         false ->
-            attach_database(TcpMod, Sock, Username, Password, Database, State)
-    end.
-
-attach_database(TcpMod, Sock, User, Password, Database, State) ->
-    TcpMod:send(Sock,
-        efirebirdsql_op:op_attach(User, Password, Database, State#state.accept_version)),
-    case efirebirdsql_op:get_response(TcpMod, Sock) of
-        {op_response, {ok, Handle, _}} ->
-            State2 = State#state{db_handle=Handle},
-            allocate_statement(State2);
-        {op_response, {error, Msg}} ->
-            {{error, Msg}, State}
-    end.
-
-create_database(TcpMod, Sock, User, Password, Database, PageSize, State) ->
-    TcpMod:send(Sock,
-        efirebirdsql_op:op_create(User, Password, Database, PageSize, State#state.accept_version)),
+            TcpMod:send(Sock,
+                efirebirdsql_op:op_attach(
+                    Username, Password, Database, State#state.accept_version))
+    end,
     case efirebirdsql_op:get_response(TcpMod, Sock) of
         {op_response, {ok, Handle, _}} ->
             State2 = State#state{db_handle=Handle},
