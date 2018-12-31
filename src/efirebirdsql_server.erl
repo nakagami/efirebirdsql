@@ -95,7 +95,7 @@ handle_call(fetchall, _From, State) ->
 handle_call(description, _From, State) ->
     case State#state.stmt_type of
         isc_info_sql_stmt_select
-            -> {reply, efirebirdsql_protocol:description(State#state.xsqlvars, []), State};
+            -> {reply, efirebirdsql_protocol:description(State#state.xsqlvars), State};
         _
             -> {reply, no_result, State}
     end;

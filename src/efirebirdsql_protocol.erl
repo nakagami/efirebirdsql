@@ -6,7 +6,7 @@
 
 -export([connect/5, connect/6, detach/1, begin_transaction/2]).
 -export([allocate_statement/1, prepare_statement/2, free_statement/1]).
--export([execute/2, execute2/2, fetchrows/1, description/2]).
+-export([execute/2, execute2/2, fetchrows/1, description/1]).
 -export([commit/1, rollback/1]).
 
 -include("efirebirdsql.hrl").
@@ -174,6 +174,8 @@ description(InXSqlVars, XSqlVar) ->
     [H | T] = InXSqlVars,
     description(T, [{H#column.name, H#column.type, H#column.scale,
                       H#column.length, H#column.null_ind} | XSqlVar]).
+description(InXSqlVar) ->
+    description(InXSqlVar, []).
 
 %% Commit and rollback
 commit(State) ->
