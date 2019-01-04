@@ -117,7 +117,7 @@ calc_blr(XSqlVars) ->
         [255, 76]]).
 
 %%% create op_connect binary
-op_connect(Host, Username, _Password, Database, State) ->
+op_connect(Host, Username, Password, Database, State) ->
     ?debugFmt("op_connect~n", []),
     %% PROTOCOL_VERSION,ArchType(Generic),MinAcceptType,MaxAcceptType,Weight
     Protocols = if State#state.auth_plugin == '' -> [
@@ -139,7 +139,7 @@ op_connect(Host, Username, _Password, Database, State) ->
         efirebirdsql_conv:byte4(1),  %% arch_generic,
         efirebirdsql_conv:list_to_xdr_string(Database),
         efirebirdsql_conv:byte4(length(Protocols)),
-        uid(Host, Username, State#state.public_key, State#state.wire_crypt)],
+        uid(Host, Username, State#state.client_public, State#state.wire_crypt)],
     list_to_binary([Buf, lists:flatten(Protocols)]).
 
 %%% create op_attach binary
@@ -425,7 +425,6 @@ get_connect_response(op_accept, TcpMod, Sock, State) ->
 get_connect_response(_, TcpMod, Sock, State) ->
     {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
             _AcceptArchtecture:32, _AcceptType:32>>} = TcpMod:recv(Sock, 12),
-    NewState = State#state{accept_version=AcceptVersion},
 
     {ok, <<Len1:32>>} = TcpMod:recv(Sock, 4),
     {ok, Data} = TcpMod:recv(Sock, Len1),
@@ -437,10 +436,17 @@ get_connect_response(_, TcpMod, Sock, State) ->
     {ok, <<Len3:32>>} = TcpMod:recv(Sock, 4),
     {ok, _} = TcpMod:recv(Sock, Len3),  % skip keys
     skip4(TcpMod, Sock, Len3),
-    % TODO:
-    %case binary_to_list(PluginName) of
-    %    'Srp' ->
-    %end,
+    case binary_to_list(PluginName) of
+        'Srp' ->
+            <<SaltLen:16, Salt:SaltLen/binary, _KeyLen:16, ServerPublic/binary>> = Data,
+            {AuthData, _SessionKey} = efirebirdsql_srp:client_proof(
+                State#state.user, State#state.password, Salt,
+                State#state.client_public, ServerPublic, State#state.client_private);
+        _ ->
+            AuthData = '',
+            _SessionKey = ''
+    end,
+    NewState = State#state{accept_version=AcceptVersion, auth_data=AuthData},
     {ok, NewState}.
 
 get_connect_response(TcpMod, Sock, State) ->

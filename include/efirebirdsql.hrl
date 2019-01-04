@@ -12,8 +12,10 @@
 
 -record(state, {mod = gen_tcp,
                 sock,
-                public_key,
-                private_key,
+                user,
+                password,
+                client_private,
+                client_public,
                 auth_data,
                 auth_plugin,
                 wire_crypt,

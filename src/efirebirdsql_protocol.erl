@@ -62,8 +62,8 @@ connect(Host, Username, Password, Database, Options, State) ->
         {ok, Sock} ->
             State2 = State#state{
                 sock=Sock,
-                public_key=Public,
-                private_key=Private,
+                client_private=Private,
+                client_public=Public,
                 auth_plugin=proplists:get_value(auth_plugin, Options, ''),
                 wire_crypt=proplists:get_value(wire_crypt, Options, false)
             },
