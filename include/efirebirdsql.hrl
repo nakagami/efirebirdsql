@@ -14,6 +14,8 @@
                 sock,
                 public_key,
                 private_key,
+                auth_data,
+                auth_plugin,
                 wire_crypt,
                 db_handle,
                 trans_handle,

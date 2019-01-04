@@ -3,7 +3,8 @@
 
 -module(efirebirdsql_srp).
 
--export([get_verifier/3, client_proof/6, client_session/6, server_session/6, get_salt/0, client_seed/0, server_seed/1, to_hex/1]).
+-export([get_verifier/3, client_proof/6, client_session/6, server_session/6, get_salt/0, get_private_key/0, client_public/1, server_seed/1, to_hex/1]).
+
 
 -spec int_to_bin(integer()) -> binary().
 int_to_bin(Int) ->
@@ -72,11 +73,9 @@ get_private_key() ->
     bin_to_int(PrivateKeyBin).
 
 %% client {Public, Private} keys
--spec client_seed() -> {PublicKey::integer(), PrivateKey::integer()}.
-client_seed() ->
-    PrivateKey = get_private_key(),
-    PublicKey = bin_to_int(crypto:mod_pow(get_generator(), PrivateKey, get_prime())),
-    {PublicKey, PrivateKey}.
+-spec client_public(integer()) -> integer().
+client_public(PrivateKey) ->
+    bin_to_int(crypto:mod_pow(get_generator(), PrivateKey, get_prime())).
 
 %% server {Public, Private} keys
 -spec server_seed(integer()) -> {PublicKey:: integer(), PrivateKey::integer()}.
@@ -129,7 +128,6 @@ client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate
         K
     ]),
     {M, K}.
-
 
 %% convert to hex string
 -spec to_hex(binary() | list()) -> list().

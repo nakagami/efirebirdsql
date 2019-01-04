@@ -5,10 +5,10 @@
 %-include_lib("eunit/include/eunit.hrl").
 -define(debugFmt(X,Y), ok).
 
--export([op_connect/6, op_attach/4, op_detach/1, op_create/5, op_transaction/2,
+-export([op_connect/5, op_attach/4, op_detach/1, op_create/5, op_transaction/2,
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/1, op_execute/3,
     op_execute2/4, op_fetch/2, op_info_sql/2, op_commit_retaining/1, op_rollback_retaining/1,
-    convert_row/5, get_response/2, get_fetch_response/3, get_sql_response/3,
+    convert_row/5, get_response/2, get_connect_response/3, get_fetch_response/3, get_sql_response/3,
     get_prepare_statement_response/3]).
 
 -include("efirebirdsql.hrl").
@@ -47,16 +47,17 @@ pack_cnct_param(K, V) when is_binary(V) ->
     pack_cnct_param(K, binary_to_list(V)).
 
 %%% parameters separate per 254 bytes
-pack_specific_data_cnct_param(Acc, _, []) ->
+pack_specific_data_cnct_param(Acc, _, _, []) ->
     lists:flatten(lists:reverse(Acc));
-pack_specific_data_cnct_param(Acc, K, V) ->
+pack_specific_data_cnct_param(Acc, Idx, K, V) ->
     pack_specific_data_cnct_param(
-        [pack_cnct_param(K, lists:sublist(V, 1, 254)) | Acc],
+        [pack_cnct_param(K, [Idx | lists:sublist(V, 1, 254)]) | Acc],
+        Idx + 1,
         K,
         if length(V) > 254 -> lists:nthtail(254, V); length(V) =< 254 -> [] end).
 
 pack_specific_data_cnct_param(K, V) ->
-    pack_specific_data_cnct_param([], K, V).
+    pack_specific_data_cnct_param([], 0, K, V).
 
 uid(Host, Username, PublicKey, WireCrypt) ->
     SpecificData = efirebirdsql_srp:to_hex(PublicKey),
@@ -66,7 +67,6 @@ uid(Host, Username, PublicKey, WireCrypt) ->
         pack_cnct_param(10, "Srp,Legacy_Atuh"),         %% CNCT_plugin_list
         pack_specific_data_cnct_param(7, SpecificData), %% CNCT_specific_data
         % TODO: support WireCrypt
-        pack_cnct_param(11, [0, 0, 0, 0]),
         pack_cnct_param(11,
             [if WireCrypt=:=true -> 1; WireCrypt =/= true -> 0 end, 0, 0, 0]
         ),  %% CNCT_client_crypt
@@ -117,20 +117,21 @@ calc_blr(XSqlVars) ->
         [255, 76]]).
 
 %%% create op_connect binary
-op_connect(Host, Username, _Password, Database, PublicKey, WireCrypt) ->
+op_connect(Host, Username, _Password, Database, State) ->
     ?debugFmt("op_connect~n", []),
     %% PROTOCOL_VERSION,ArchType(Generic),MinAcceptType,MaxAcceptType,Weight
-    %Protocols = [
-    %    [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
-    %    [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
-    %    [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6],
-    %    [255, 255, 128, 13, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 8]
-    %],
-    Protocols = [
+    Protocols = if State#state.auth_plugin == '' -> [
         [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
         [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
         [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6]
-    ],
+    ];
+        true -> [
+        [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
+        [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
+        [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6],
+        [255, 255, 128, 13, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 8]
+    ]
+    end,
     Buf = [
         efirebirdsql_conv:byte4(op_val(op_connect)),
         efirebirdsql_conv:byte4(op_val(op_attach)),
@@ -138,14 +139,14 @@ op_connect(Host, Username, _Password, Database, PublicKey, WireCrypt) ->
         efirebirdsql_conv:byte4(1),  %% arch_generic,
         efirebirdsql_conv:list_to_xdr_string(Database),
         efirebirdsql_conv:byte4(length(Protocols)),
-        uid(Host, Username, PublicKey, WireCrypt)],
+        uid(Host, Username, State#state.public_key, State#state.wire_crypt)],
     list_to_binary([Buf, lists:flatten(Protocols)]).
 
 %%% create op_attach binary
-op_attach(Username, Password, Database, AcceptVersion) ->
+op_attach(Username, Password, Database, State) ->
     ?debugFmt("op_attach~n", []),
 
-    Dpb = case AcceptVersion of
+    Dpb = case State#state.accept_version of
         13 ->
             lists:flatten([
                 1,                              %% isc_dpb_version = 1
@@ -173,9 +174,9 @@ op_detach(DbHandle) ->
         efirebirdsql_conv:byte4(DbHandle)]).
 
 %%% create op_connect binary
-op_create(Username, Password, Database, PageSize, AcceptVersion) ->
+op_create(Username, Password, Database, PageSize, State) ->
     ?debugFmt("op_create~n", []),
-    Dpb = case AcceptVersion of
+    Dpb = case State#state.accept_version of
         13 ->
             lists:flatten([
                 1,
@@ -409,21 +410,54 @@ get_response(TcpMod, Sock) ->
         Op == op_sql_response ->
             {ok, <<Count:32>>} = TcpMod:recv(Sock, 4),
             {Op, Count};
-        (Op == op_accept) or (Op == op_cond_accept) or (Op == op_accept_data) ->
-            {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
-                    _AcceptArchtecture:32, _AcceptType:32>>} = TcpMod:recv(Sock, 12),
-            AcceptType = case _AcceptType of
-                3 -> ptype_batch_send;
-                4 -> ptype_out_of_band;
-                5 -> ptype_lazy_send
-            end,
-            {Op, {AcceptVersion, AcceptType}};
-        Op == op_reject ->
-            {Op, {}};
         Op == op_dummy ->
             get_response(TcpMod, Sock);
         true ->
             {error, "response error"}
+    end.
+
+%% recieve and parse connect() response
+get_connect_response(op_accept, TcpMod, Sock, State) ->
+    {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
+            _AcceptArchtecture:32, _AcceptType:32>>} = TcpMod:recv(Sock, 12),
+    NewState = State#state{accept_version=AcceptVersion},
+    {ok, NewState};
+get_connect_response(_, TcpMod, Sock, State) ->
+    {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
+            _AcceptArchtecture:32, _AcceptType:32>>} = TcpMod:recv(Sock, 12),
+    NewState = State#state{accept_version=AcceptVersion},
+
+    {ok, <<Len1:32>>} = TcpMod:recv(Sock, 4),
+    {ok, Data} = TcpMod:recv(Sock, Len1),
+    skip4(TcpMod, Sock, Len1),
+    {ok, <<Len2:32>>} = TcpMod:recv(Sock, 4),
+    {ok, PluginName} = TcpMod:recv(Sock, Len2),
+    skip4(TcpMod, Sock, Len2),
+    {ok, <<IsAuthenticated:32>>} = TcpMod:recv(Sock, 4),
+    {ok, <<Len3:32>>} = TcpMod:recv(Sock, 4),
+    {ok, _} = TcpMod:recv(Sock, Len3),  % skip keys
+    skip4(TcpMod, Sock, Len3),
+    % TODO:
+    %case binary_to_list(PluginName) of
+    %    'Srp' ->
+    %end,
+    {ok, NewState}.
+
+get_connect_response(TcpMod, Sock, State) ->
+    ?debugFmt("get_connect_response()~n", []),
+    {ok, <<OpCode:32>>} = TcpMod:recv(Sock, 4),
+    Op = op_name(OpCode),
+    if (Op == op_accept) or (Op == op_cond_accept) or (Op == op_accept_data) ->
+            get_connect_response(Op, TcpMod, Sock, State);
+        Op == op_dummy ->
+            get_connect_response(TcpMod, Sock, State);
+        Op == op_response ->
+            {ok, <<_Handle:32, _ObjectID:64, _Len:32>>} = TcpMod:recv(Sock, 16),
+            {error, get_error_message(TcpMod, Sock), State};
+        Op == op_reject ->
+            {error, "connectoin rejected", State};
+        true ->
+            {error, Op, State}
     end.
 
 %% parse select items.

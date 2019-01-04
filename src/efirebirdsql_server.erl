@@ -12,7 +12,6 @@
 
 -include("efirebirdsql.hrl").
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% -- client interface --
 -spec start_link() -> {ok, pid()}.
@@ -33,8 +32,8 @@ init([]) ->
 
 handle_call({connect, Host, Username, Password, Database, Options}, _From, State) ->
     case efirebirdsql_protocol:connect(Host, Username, Password, Database, Options, State) of
-        {ok, R, State2} ->
-            {reply, R, State2};
+        {ok, State2} ->
+            {reply, ok, State2};
         {error, Reason, State2} ->
             {reply, {error, Reason}, State2}
     end;

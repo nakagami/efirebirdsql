@@ -18,7 +18,8 @@
     {timeout, Timeout :: integer()} |
     {createdb, IsCreateDB :: boolean()} |
     {auto_commit, AutoCommit :: boolean()} |
-    {pagesize, PageSize :: integer()}.
+    {pagesize, PageSize :: integer()} |
+    {auth_plugin, AuthPlugin :: string()}.
 
 -spec start_link() -> {ok, pid()}.
 start_link() ->
