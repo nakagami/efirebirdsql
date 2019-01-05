@@ -443,7 +443,7 @@ get_connect_response(_, TcpMod, Sock, State) ->
     {ok, <<IsAuthenticated:32>>} = TcpMod:recv(Sock, 4),
     {ok, <<Len3:32>>} = TcpMod:recv(Sock, 4),
     case binary_to_list(PluginName) of
-        'Srp' ->
+        "Srp" ->
             <<SaltLen:16, Salt:SaltLen/binary, _KeyLen:16, ServerPublic/binary>> = Data,
             {AuthData, _SessionKey} = efirebirdsql_srp:client_proof(
                 State#state.user, State#state.password, Salt,
