@@ -56,7 +56,7 @@ connect(Host, Username, Password, Database, Options, State) ->
         {ok, Sock} ->
             State2 = State#state{
                 sock=Sock,
-                user=Username,
+                user=string:to_upper(Username),
                 password=Password,
                 client_private=Private,
                 client_public=Public,

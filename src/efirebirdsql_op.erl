@@ -154,8 +154,8 @@ op_attach(Database, State) ->
             lists:flatten([
                 1,                              %% isc_dpb_version = 1
                 48, length(?CHARSET), ?CHARSET, %% isc_dpb_lc_ctype = 48
-                28, length(Username), Username  %% isc_dpb_user_name 28
-                84, length(AuthData), AuthData, %% isc_dpb_specific_auth_data = 84
+                28, length(Username), Username, %% isc_dpb_user_name 28
+                84, length(AuthData), AuthData  %% isc_dpb_specific_auth_data = 84
             ]);
         _ ->
             lists:flatten([
