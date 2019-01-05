@@ -91,7 +91,7 @@ server_seed(V) ->
 client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate) ->
     User = list_to_binary(Username),
     Pass = list_to_binary(Password),
-    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic, get_key_size() div 8), int_to_bin(ServerPublic, get_key_size() div 8)])),
+    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic, get_key_size()), int_to_bin(ServerPublic, get_key_size())])),
     X = get_user_hash(User, Pass, Salt),
     GX = bin_to_int(crypto:mod_pow(get_generator(), X, get_prime())),
     KGX = remainder(get_k() * GX, get_prime()),
