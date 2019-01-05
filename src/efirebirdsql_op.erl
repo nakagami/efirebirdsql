@@ -444,7 +444,8 @@ get_connect_response(_, TcpMod, Sock, State) ->
     {ok, <<Len3:32>>} = TcpMod:recv(Sock, 4),
     case binary_to_list(PluginName) of
         "Srp" ->
-            <<SaltLen:16, Salt:SaltLen/binary, _KeyLen:16, ServerPublic/binary>> = Data,
+            <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = Data,
+            ServerPublic = binary_to_integer(Bin, 16),
             {AuthData, _SessionKey} = efirebirdsql_srp:client_proof(
                 State#state.user, State#state.password, Salt,
                 State#state.client_public, ServerPublic, State#state.client_private);
