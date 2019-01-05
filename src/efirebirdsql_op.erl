@@ -417,7 +417,7 @@ get_response(TcpMod, Sock) ->
         Op == op_dummy ->
             get_response(TcpMod, Sock);
         true ->
-            {error, "response error"}
+            {error, Op}
     end.
 
 %% recieve and parse connect() response
@@ -438,8 +438,6 @@ get_connect_response(_, TcpMod, Sock, State) ->
     skip4(TcpMod, Sock, Len2),
     {ok, <<IsAuthenticated:32>>} = TcpMod:recv(Sock, 4),
     {ok, <<Len3:32>>} = TcpMod:recv(Sock, 4),
-    {ok, _} = TcpMod:recv(Sock, Len3),  % skip keys
-    skip4(TcpMod, Sock, Len3),
     case binary_to_list(PluginName) of
         'Srp' ->
             <<SaltLen:16, Salt:SaltLen/binary, _KeyLen:16, ServerPublic/binary>> = Data,
