@@ -148,12 +148,14 @@ op_attach(Database, State) ->
     ?debugFmt("op_attach~n", []),
     Username = State#state.user,
     Password = State#state.password,
+    AuthData = State#state.auth_data,
     Dpb = case State#state.accept_version of
         13 ->
             lists:flatten([
                 1,                              %% isc_dpb_version = 1
                 48, length(?CHARSET), ?CHARSET, %% isc_dpb_lc_ctype = 48
                 28, length(Username), Username  %% isc_dpb_user_name 28
+                84, length(AuthData), AuthData, %% isc_dpb_specific_auth_data = 84
             ]);
         _ ->
             lists:flatten([
@@ -180,16 +182,18 @@ op_create(Database, PageSize, State) ->
     ?debugFmt("op_create~n", []),
     Username = State#state.user,
     Password = State#state.password,
+    AuthData = State#state.auth_data,
     Dpb = case State#state.accept_version of
         13 ->
             lists:flatten([
                 1,
-                68, length(?CHARSET), ?CHARSET,   %% isc_dpb_set_db_charset = 68
-                48, length(?CHARSET), ?CHARSET,   %% isc_dpb_lc_ctype = 48
+                68, length(?CHARSET), ?CHARSET, %% isc_dpb_set_db_charset = 68
+                48, length(?CHARSET), ?CHARSET, %% isc_dpb_lc_ctype = 48
                 28, length(Username), Username, %% isc_dpb_user_name 28
-                63, 4, efirebirdsql_conv:byte4(3, little),        %% isc_dpb_sql_dialect = 63
-                24, 4, efirebirdsql_conv:byte4(1, little),        %% isc_dpb_force_write = 24
-                54, 4, efirebirdsql_conv:byte4(1, little),        %% isc_dpb_overwrite = 54
+                63, 4, efirebirdsql_conv:byte4(3, little),  %% isc_dpb_sql_dialect = 63
+                24, 4, efirebirdsql_conv:byte4(1, little),  %% isc_dpb_force_write = 24
+                54, 4, efirebirdsql_conv:byte4(1, little),  %% isc_dpb_overwrite = 54
+                84, length(AuthData), AuthData, %% isc_dpb_specific_auth_data = 84
                 4, 4, efirebirdsql_conv:byte4(PageSize, little)   %% isc_dpb_page_size = 4
             ]);
         _ ->
