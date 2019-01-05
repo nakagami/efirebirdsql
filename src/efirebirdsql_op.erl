@@ -453,7 +453,7 @@ get_connect_response(_, TcpMod, Sock, State) ->
             AuthData = '',
             _SessionKey = ''
     end,
-    NewState = State#state{accept_version=AcceptVersion, auth_data=binary_to_list(AuthData)},
+    NewState = State#state{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)},
     {ok, NewState}.
 
 get_connect_response(TcpMod, Sock, State) ->
