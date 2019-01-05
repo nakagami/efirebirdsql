@@ -105,7 +105,7 @@ client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPriva
 %% server session key
 -spec server_session(list(), list(), binary(), integer(), integer(), integer()) -> binary().
 server_session(Username, Password, Salt, ClientPublic, ServerPublic, ServerPrivate) ->
-    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic, get_key_size() div 8), int_to_bin(ServerPublic, get_key_size() div 8)])),
+    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic, get_key_size()), int_to_bin(ServerPublic, get_key_size())])),
     V = get_verifier(Username, Password, Salt),
     VU = bin_to_int(crypto:mod_pow(V, U, get_prime())),
     AVU = remainder(ClientPublic * VU, get_prime()),
@@ -123,8 +123,8 @@ client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate
         crypto:mod_pow(N1, N2, get_prime()),
         crypto:hash(sha, User),
         Salt,
-        int_to_bin(ClientPublic, get_key_size() div 8),
-        int_to_bin(ServerPublic, get_key_size() div 8),
+        int_to_bin(ClientPublic, get_key_size()),
+        int_to_bin(ServerPublic, get_key_size()),
         K
     ]),
     {M, K}.
