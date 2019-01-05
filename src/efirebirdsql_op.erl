@@ -441,19 +441,24 @@ get_connect_response(_, TcpMod, Sock, State) ->
     {ok, PluginName} = TcpMod:recv(Sock, Len2),
     skip4(TcpMod, Sock, Len2),
     {ok, <<IsAuthenticated:32>>} = TcpMod:recv(Sock, 4),
-    {ok, <<Len3:32>>} = TcpMod:recv(Sock, 4),
-    case binary_to_list(PluginName) of
-        "Srp" ->
-            <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = Data,
-            ServerPublic = binary_to_integer(Bin, 16),
-            {AuthData, _SessionKey} = efirebirdsql_srp:client_proof(
-                State#state.user, State#state.password, Salt,
-                State#state.client_public, ServerPublic, State#state.client_private);
-        _ ->
-            AuthData = '',
-            _SessionKey = ''
+    {ok, <<_:32>>} = TcpMod:recv(Sock, 4),
+    if
+        IsAuthenticated == 0 ->
+            case binary_to_list(PluginName) of
+                "Srp" ->
+                    <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = Data,
+                    ServerPublic = binary_to_integer(Bin, 16),
+                    {AuthData, _SessionKey} = efirebirdsql_srp:client_proof(
+                        State#state.user, State#state.password, Salt,
+                        State#state.client_public, ServerPublic, State#state.client_private);
+                _ ->
+                    AuthData = '',
+                    _SessionKey = ''
+            end,
+            NewState = State#state{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)};
+        true ->
+            NewState = State
     end,
-    NewState = State#state{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)},
     {ok, NewState}.
 
 get_connect_response(TcpMod, Sock, State) ->

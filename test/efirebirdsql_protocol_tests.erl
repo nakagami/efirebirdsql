@@ -9,8 +9,9 @@
 -include("efirebirdsql.hrl").
 
 protocol_test() ->
-    {ok, C} = efirebirdsql_protocol:connect(
-        "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb",
-        [{createdb, true}, {auth_plugin, "Srp"}]).
+    {ok, State} = efirebirdsql_protocol:connect(
+        "localhost", "sysdba", "masterkey", "/tmp/erlang_protocol_test.fdb",
+        [{createdb, true}, {auth_plugin, "Srp"}]),
+    ok = efirebirdsql_protocol:detach(State).
 
 
