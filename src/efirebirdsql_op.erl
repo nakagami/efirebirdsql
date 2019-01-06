@@ -31,16 +31,6 @@
         8       %% isc_info_sql_describe_end
         ]).
 
-%%% skip 4 byte alignment socket stream
-skip4(State, Len) ->
-    case Len rem 4 of
-        0 -> {ok};
-        1 -> efirebirdsql_socket:recv(State, 3);
-        2 -> efirebirdsql_socket:recv(State, 2);
-        3 -> efirebirdsql_socket:recv(State, 1)
-    end.
-
-
 pack_cnct_param(K, V) when is_list(V) ->
     lists:flatten([K, length(V), V]);
 pack_cnct_param(K, V) when is_binary(V) ->
@@ -364,8 +354,7 @@ parse_status_vector_integer(State) ->
 
 parse_status_vector_string(State) ->
     Len = parse_status_vector_integer(State),
-    {ok, Bin} = efirebirdsql_socket:recv(State, Len),
-    skip4(State, Len),
+    {ok, Bin} = efirebirdsql_socket:recv_align(State, Len),
     binary_to_list(Bin).
 
 parse_status_vector_args(State, Template, Args) ->
@@ -403,8 +392,7 @@ get_response(State) ->
             {ok, <<Handle:32, _ObjectID:64, Len:32>>} = efirebirdsql_socket:recv(State, 16),
             Buf = if
                 Len =/= 0 ->
-                    {ok, RecvBuf} = efirebirdsql_socket:recv(State, Len),
-                    skip4(State, Len),
+                    {ok, RecvBuf} = efirebirdsql_socket:recv_align(State, Len),
                     RecvBuf;
                 true -> <<>>
             end,
@@ -435,11 +423,9 @@ get_connect_response(_, State) ->
             _AcceptArchtecture:32, _AcceptType:32>>} = efirebirdsql_socket:recv(State, 12),
 
     {ok, <<Len1:32>>} = efirebirdsql_socket:recv(State, 4),
-    {ok, Data} = efirebirdsql_socket:recv(State, Len1),
-    skip4(State, Len1),
+    {ok, Data} = efirebirdsql_socket:recv_align(State, Len1),
     {ok, <<Len2:32>>} = efirebirdsql_socket:recv(State, 4),
-    {ok, PluginName} = efirebirdsql_socket:recv(State, Len2),
-    skip4(State, Len2),
+    {ok, PluginName} = efirebirdsql_socket:recv_align(State, Len2),
     {ok, <<IsAuthenticated:32>>} = efirebirdsql_socket:recv(State, 4),
     {ok, <<_:32>>} = efirebirdsql_socket:recv(State, 4),
     if
@@ -655,9 +641,8 @@ get_raw_value(State, XSqlVar) ->
             array -> 8;
             boolean -> 1
         end,
-    if L =:= 0 -> V = ""; L > 0 -> {ok, V} = efirebirdsql_socket:recv(State, L) end,
+    if L =:= 0 -> V = ""; L > 0 -> {ok, V} = efirebirdsql_socket:recv_align(State, L) end,
     ?debugFmt("get_raw_value() V=~p~n", [V]),
-    skip4(State, L),
     {ok, NullFlag} = efirebirdsql_socket:recv(State, 4),
     ?debugFmt("get_raw_value() NullFlag=~p~n", [NullFlag]),
     case NullFlag of
