@@ -8,8 +8,8 @@
 -export([op_connect/3, op_attach/2, op_detach/1, op_create/3, op_transaction/2,
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/1, op_execute/3,
     op_execute2/4, op_fetch/2, op_info_sql/2, op_commit_retaining/1, op_rollback_retaining/1,
-    convert_row/5, get_response/2, get_connect_response/3, get_fetch_response/3, get_sql_response/3,
-    get_prepare_statement_response/3]).
+    convert_row/3, get_response/1, get_connect_response/1, get_fetch_response/1, get_sql_response/1,
+    get_prepare_statement_response/1]).
 
 -include("efirebirdsql.hrl").
 
@@ -32,12 +32,12 @@
         ]).
 
 %%% skip 4 byte alignment socket stream
-skip4(TcpMod, Sock, Len) ->
+skip4(State, Len) ->
     case Len rem 4 of
         0 -> {ok};
-        1 -> TcpMod:recv(Sock, 3);
-        2 -> TcpMod:recv(Sock, 2);
-        3 -> TcpMod:recv(Sock, 1)
+        1 -> efirebirdsql_socket:recv(State, 3);
+        2 -> efirebirdsql_socket:recv(State, 2);
+        3 -> efirebirdsql_socket:recv(State, 1)
     end.
 
 
@@ -358,90 +358,90 @@ op_close_blob(BlobHandle) ->
         efirebirdsql_conv:byte4(BlobHandle)]).
 
 %%% parse status vector
-parse_status_vector_integer(TcpMod, Sock) ->
-    {ok, <<NumArg:32>>} = TcpMod:recv(Sock, 4),
+parse_status_vector_integer(State) ->
+    {ok, <<NumArg:32>>} = efirebridsql_socket:recv(State, 4),
     NumArg.
 
-parse_status_vector_string(TcpMod, Sock) ->
-    Len = parse_status_vector_integer(TcpMod, Sock),
-    {ok, Bin} = TcpMod:recv(Sock, Len),
-    skip4(TcpMod, Sock, Len),
+parse_status_vector_string(State) ->
+    Len = parse_status_vector_integer(State),
+    {ok, Bin} = efirebirdsql_socket:recv(State, Len),
+    skip4(State, Len),
     binary_to_list(Bin).
 
-parse_status_vector_args(TcpMod, Sock, Template, Args) ->
-    {ok, <<IscArg:32>>} = TcpMod:recv(Sock, 4),
+parse_status_vector_args(State, Template, Args) ->
+    {ok, <<IscArg:32>>} = efirebirdsql_socket:recv(State, 4),
     case IscArg of
     0 ->    %% isc_arg_end
         {Template, Args};
     1 ->    %% isc_arg_gds
-        V = efirebirdsql_errmsgs:get_error_msg(parse_status_vector_integer(TcpMod, Sock)),
-        parse_status_vector_args(TcpMod, Sock, [V | Template], Args);
+        V = efirebirdsql_errmsgs:get_error_msg(parse_status_vector_integer(State)),
+        parse_status_vector_args(State, [V | Template], Args);
     2 ->    %% isc_arg_string
-        V = parse_status_vector_string(TcpMod, Sock),
-        parse_status_vector_args(TcpMod, Sock, Template, [V | Args]);
+        V = parse_status_vector_string(State),
+        parse_status_vector_args(State, Template, [V | Args]);
     4 ->    %% isc_arg_number
-        V = parse_status_vector_integer(TcpMod, Sock),
-        parse_status_vector_args(TcpMod, Sock, Template, [integer_to_list(V) | Args]);
+        V = parse_status_vector_integer(State),
+        parse_status_vector_args(State, Template, [integer_to_list(V) | Args]);
     5 ->    %% isc_arg_interpreted
-        V = parse_status_vector_string(TcpMod, Sock),
-        parse_status_vector_args(TcpMod, Sock, [V | Template], Args);
+        V = parse_status_vector_string(State),
+        parse_status_vector_args(State, [V | Template], Args);
     19 ->   %% isc_arg_sql_state
-        _V = parse_status_vector_string(TcpMod, Sock),
-        parse_status_vector_args(TcpMod, Sock, Template, Args)
+        _V = parse_status_vector_string(State),
+        parse_status_vector_args(State, Template, Args)
     end.
 
-get_error_message(TcpMod, Sock) ->
-    {S, A} = parse_status_vector_args(TcpMod, Sock, [], []),
+get_error_message(State) ->
+    {S, A} = parse_status_vector_args(State, [], []),
     iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(S)), lists:reverse(A))).
 
 %% recieve and parse response
-get_response(TcpMod, Sock) ->
+get_response(State) ->
     ?debugFmt("get_response()~n", []),
-    {ok, <<OpCode:32>>} = TcpMod:recv(Sock, 4),
+    {ok, <<OpCode:32>>} = efirebirdsql_socket:recv(State, 4),
     Op = op_name(OpCode),
     if Op == op_response ->
-            {ok, <<Handle:32, _ObjectID:64, Len:32>>} = TcpMod:recv(Sock, 16),
+            {ok, <<Handle:32, _ObjectID:64, Len:32>>} = efirebirdsql_socket:recv(State, 16),
             Buf = if
                 Len =/= 0 ->
-                    {ok, RecvBuf} = TcpMod:recv(Sock, Len),
-                    skip4(TcpMod, Sock, Len),
+                    {ok, RecvBuf} = efirebirdsql_socekt:recv(State, Len),
+                    skip4(State, Len),
                     RecvBuf;
                 true -> <<>>
             end,
-            case S = get_error_message(TcpMod, Sock) of
+            case S = get_error_message(State) of
                 <<>> -> {Op, {ok, Handle, Buf}};
                 _ -> {Op, {error, S}}
             end;
         Op == op_fetch_response ->
-            {ok, <<Status:32, Count:32>>} = TcpMod:recv(Sock, 8),
+            {ok, <<Status:32, Count:32>>} = efirebirdsql_socket:recv(State, 8),
             {Op, {Status, Count}};
         Op == op_sql_response ->
-            {ok, <<Count:32>>} = TcpMod:recv(Sock, 4),
+            {ok, <<Count:32>>} = efirebirdsql_socket:recv(State, 4),
             {Op, Count};
         Op == op_dummy ->
-            get_response(TcpMod, Sock);
+            get_response(State);
         true ->
             {error, Op}
     end.
 
 %% recieve and parse connect() response
-get_connect_response(op_accept, TcpMod, Sock, State) ->
+get_connect_response(op_accept, State) ->
     {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
-            _AcceptArchtecture:32, _AcceptType:32>>} = TcpMod:recv(Sock, 12),
+            _AcceptArchtecture:32, _AcceptType:32>>} = efirebirdsql_socket:recv(State, 12),
     NewState = State#state{accept_version=AcceptVersion},
     {ok, NewState};
-get_connect_response(_, TcpMod, Sock, State) ->
+get_connect_response(_, State) ->
     {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
-            _AcceptArchtecture:32, _AcceptType:32>>} = TcpMod:recv(Sock, 12),
+            _AcceptArchtecture:32, _AcceptType:32>>} = efirebirdsql_socket:recv(State, 12),
 
-    {ok, <<Len1:32>>} = TcpMod:recv(Sock, 4),
-    {ok, Data} = TcpMod:recv(Sock, Len1),
-    skip4(TcpMod, Sock, Len1),
-    {ok, <<Len2:32>>} = TcpMod:recv(Sock, 4),
-    {ok, PluginName} = TcpMod:recv(Sock, Len2),
-    skip4(TcpMod, Sock, Len2),
-    {ok, <<IsAuthenticated:32>>} = TcpMod:recv(Sock, 4),
-    {ok, <<_:32>>} = TcpMod:recv(Sock, 4),
+    {ok, <<Len1:32>>} = efirebirdsql_socket:recv(State, 4),
+    {ok, Data} = efirebirdsql_socket:recv(State, Len1),
+    skip4(State, Len1),
+    {ok, <<Len2:32>>} = efirebirdsql_socket:recv(State, 4),
+    {ok, PluginName} = efirebirdsql_socket:recv(State, Len2),
+    skip4(State, Len2),
+    {ok, <<IsAuthenticated:32>>} = efirebirdsql_socket:recv(State, 4),
+    {ok, <<_:32>>} = efirebirdsql_socket:recv(State, 4),
     if
         IsAuthenticated == 0 ->
             case binary_to_list(PluginName) of
@@ -461,17 +461,17 @@ get_connect_response(_, TcpMod, Sock, State) ->
     end,
     {ok, NewState}.
 
-get_connect_response(TcpMod, Sock, State) ->
+get_connect_response(State) ->
     ?debugFmt("get_connect_response()~n", []),
-    {ok, <<OpCode:32>>} = TcpMod:recv(Sock, 4),
+    {ok, <<OpCode:32>>} = efirebirdsql_socket:recv(State, 4),
     Op = op_name(OpCode),
     if (Op == op_accept) or (Op == op_cond_accept) or (Op == op_accept_data) ->
-            get_connect_response(Op, TcpMod, Sock, State);
+            get_connect_response(Op, State);
         Op == op_dummy ->
-            get_connect_response(TcpMod, Sock, State);
+            get_connect_response(State);
         Op == op_response ->
-            {ok, <<_Handle:32, _ObjectID:64, _Len:32>>} = TcpMod:recv(Sock, 16),
-            {error, get_error_message(TcpMod, Sock), State};
+            {ok, <<_Handle:32, _ObjectID:64, _Len:32>>} = efirebirdsql_socket:recv(State, 16),
+            {error, get_error_message(State), State};
         Op == op_reject ->
             {error, "connectoin rejected", State};
         true ->
@@ -479,12 +479,12 @@ get_connect_response(TcpMod, Sock, State) ->
     end.
 
 %% parse select items.
-more_select_describe_vars(TcpMod, Sock, StmtHandle, Start) ->
+more_select_describe_vars(State, Start) ->
     %% isc_info_sql_sqlda_start + INFO_SQL_SELECT_DESCRIBE_VARS
     V = lists:flatten(
         [20, 2, Start rem 256, Start div 256, ?INFO_SQL_SELECT_DESCRIBE_VARS]),
-    TcpMod:send(Sock, op_info_sql(StmtHandle, V)),
-    {op_response, {ok, _, Buf}} = get_response(TcpMod, Sock),
+    efirebirdsql_socket:send(State, op_info_sql(State#state.stmt_handle, V)),
+    {op_response, {ok, _, Buf}} = get_response(State),
     <<_:8/binary, DescVars/binary>> = Buf,
     DescVars.
 
@@ -498,69 +498,69 @@ parse_select_item_elem_int(DescVars) ->
     <<Num:L/signed-little>> = V,
     {Num, Rest}.
 
-parse_select_column(TcpMod, Sock, StmtHandle, Column, DescVars) ->
+parse_select_column(State, Column, DescVars) ->
     %% Parse DescVars and return items info and rest DescVars
     <<IscInfoNum:8, Rest/binary>> = DescVars,
     case isc_info_sql_name(IscInfoNum) of
         isc_info_sql_sqlda_seq ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(TcpMod, Sock, StmtHandle, Column#column{seq=Num}, Rest2);
+            parse_select_column(State, Column#column{seq=Num}, Rest2);
         isc_info_sql_type ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(TcpMod, Sock, StmtHandle, Column#column{type=sql_type(Num)}, Rest2);
+            parse_select_column(State, Column#column{type=sql_type(Num)}, Rest2);
         isc_info_sql_sub_type ->
             {_Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(TcpMod, Sock, StmtHandle, Column, Rest2);
+            parse_select_column(State, Column, Rest2);
         isc_info_sql_scale ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(TcpMod, Sock, StmtHandle, Column#column{scale=Num}, Rest2);
+            parse_select_column(State, Column#column{scale=Num}, Rest2);
         isc_info_sql_length ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
-            parse_select_column(TcpMod, Sock, StmtHandle, Column#column{length=Num}, Rest2);
+            parse_select_column(State, Column#column{length=Num}, Rest2);
         isc_info_sql_null_ind ->
             {Num, Rest2} = parse_select_item_elem_int(Rest),
             NullInd = if Num =/= 0 -> true; Num =:= 0 -> false end,
-            parse_select_column(TcpMod, Sock, StmtHandle, Column#column{null_ind=NullInd}, Rest2);
+            parse_select_column(State, Column#column{null_ind=NullInd}, Rest2);
         isc_info_sql_field ->
             {_S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(TcpMod, Sock, StmtHandle, Column, Rest2);
+            parse_select_column(State, Column, Rest2);
         isc_info_sql_relation ->
             {_S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(TcpMod, Sock, StmtHandle, Column, Rest2);
+            parse_select_column(State, Column, Rest2);
         isc_info_sql_owner ->
             {_S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(TcpMod, Sock, StmtHandle, Column, Rest2);
+            parse_select_column(State, Column, Rest2);
         isc_info_sql_alias ->
             {S, Rest2} = parse_select_item_elem_binary(Rest),
-            parse_select_column(TcpMod, Sock, StmtHandle, Column#column{name=S}, Rest2);
+            parse_select_column(State, Column#column{name=S}, Rest2);
         isc_info_truncated ->
-            Rest2 = more_select_describe_vars(TcpMod, Sock, StmtHandle, Column#column.seq),
-            parse_select_column(TcpMod, Sock, StmtHandle, Column, Rest2);
+            Rest2 = more_select_describe_vars(State, Column#column.seq),
+            parse_select_column(State, Column, Rest2);
         isc_info_sql_describe_end ->
             {Column, Rest};
         isc_info_end ->
             no_more_column
     end.
 
-parse_select_columns(TcpMod, Sock, StmtHandle, XSqlVars, DescVars) ->
-    case parse_select_column(TcpMod, Sock, StmtHandle, #column{}, DescVars) of
+parse_select_columns(State, XSqlVars, DescVars) ->
+    case parse_select_column(State, #column{}, DescVars) of
         {XSqlVar, Rest} -> parse_select_columns(
-            TcpMod, Sock, StmtHandle, [XSqlVar | XSqlVars], Rest);
+            State, [XSqlVar | XSqlVars], Rest);
         no_more_column -> lists:reverse(XSqlVars)
     end.
 
-get_prepare_statement_response(TcpMod, Sock, StmtHandle) ->
-    {op_response, R} = get_response(TcpMod, Sock),
+get_prepare_statement_response(State) ->
+    {op_response, R} = get_response(State),
     case R of
         {ok, _, Buf} ->
             << _21:8, _Len:16, StmtType:32/little, Rest/binary>> = Buf,
             XSqlVars = case StmtName = isc_info_sql_stmt_name(StmtType) of
                 isc_info_sql_stmt_select ->
                     << _Skip:8/binary, DescVars/binary >> = Rest,
-                    parse_select_columns(TcpMod, Sock, StmtHandle, [], DescVars);
+                    parse_select_columns(State, [], DescVars);
                 isc_info_sql_stmt_exec_procedure ->
                     << _Skip:8/binary, DescVars/binary >> = Rest,
-                    parse_select_columns(TcpMod, Sock, StmtHandle, [], DescVars);
+                    parse_select_columns(State, [], DescVars);
                 _ -> []
             end,
             {ok, StmtName, XSqlVars};
@@ -573,27 +573,27 @@ get_blob_segment_list(Buf, SegmentList) ->
     <<L:16/little, V:L/binary, Rest/binary>> = Buf,
     get_blob_segment_list(Rest, [V| SegmentList]).
 
-get_blob_segment(TcpMod, Sock, BlobHandle, SegmentList) ->
-    TcpMod:send(Sock, op_get_segment(BlobHandle)),
-    {op_response,  {ok, F, Buf}} = get_response(TcpMod, Sock),
+get_blob_segment(State, BlobHandle, SegmentList) ->
+    efirebirdsql_socket:send(State, op_get_segment(BlobHandle)),
+    {op_response,  {ok, F, Buf}} = get_response(State),
     NewList = lists:flatten([SegmentList, get_blob_segment_list(Buf, [])]),
     case F of
         2 -> NewList;
-        _ -> get_blob_segment(TcpMod, Sock, BlobHandle, NewList)
+        _ -> get_blob_segment(State, BlobHandle, NewList)
     end.
 
-get_blob_data(TcpMod, Sock, TransHandle, BlobId) ->
-    TcpMod:send(Sock, op_open_blob(BlobId, TransHandle)),
-    {op_response,  {ok, BlobHandle, _}} = get_response(TcpMod, Sock),
-    SegmentList = get_blob_segment(TcpMod, Sock, BlobHandle, []),
-    TcpMod:send(Sock, op_close_blob(BlobHandle)),
-    {op_response,  {ok, 0, _}} = get_response(TcpMod, Sock),
+get_blob_data(State, BlobId) ->
+    efirebirdsql_socket:send(State, op_open_blob(BlobId, State#state.trans_handle)),
+    {op_response,  {ok, BlobHandle, _}} = get_response(State),
+    SegmentList = get_blob_segment(State, BlobHandle, []),
+    efirebirdsql_socket:send(State, op_close_blob(BlobHandle)),
+    {op_response,  {ok, 0, _}} = get_response(State),
     R = list_to_binary(SegmentList),
     {ok, R}.
 
-convert_raw_value(_Mod, _Sock, _TransHandle, _XSqlVar, null) ->
+convert_raw_value(_State, _XSqlVar, null) ->
     null;
-convert_raw_value(TcpMod, Sock, TransHandle, XSqlVar, RawValue) ->
+convert_raw_value(State, XSqlVar, RawValue) ->
     ?debugFmt("convert_raw_value() start~n", []),
     CookedValue = case XSqlVar#column.type of
             long -> efirebirdsql_conv:parse_number(
@@ -614,7 +614,7 @@ convert_raw_value(TcpMod, Sock, TransHandle, XSqlVar, RawValue) ->
             decimal64 -> efirebirdsql_decfloat:decimal64_to_decimal(RawValue);
             decimal128 -> efirebirdsql_decfloat:decimal128_to_decimal(RawValue);
             blob ->
-                {ok, B} = get_blob_data(TcpMod, Sock, TransHandle, RawValue),
+                {ok, B} = get_blob_data(State, RawValue),
                 B;
             boolean -> if RawValue =/= <<0,0,0,0>> -> true; true -> false end;
             _ -> RawValue
@@ -622,22 +622,22 @@ convert_raw_value(TcpMod, Sock, TransHandle, XSqlVar, RawValue) ->
     ?debugFmt("convert_raw_value() end ~p~n", [CookedValue]),
     CookedValue.
 
-convert_row(_Mod, _Sock, _TransHandle, [], [], Converted) ->
+convert_row(_State, [], [], Converted) ->
     ?debugFmt("convert_row()~n", []),
     lists:reverse(Converted);
-convert_row(TcpMod, Sock, TransHandle, XSqlVars, Row, Converted) ->
+convert_row(State, XSqlVars, Row, Converted) ->
     [X | XRest] = XSqlVars,
     [R | RRest] = Row,
-    convert_row(TcpMod, Sock, TransHandle, XRest, RRest,
-        [{X#column.name, convert_raw_value(TcpMod, Sock, TransHandle, X, R)} | Converted]).
+    convert_row(State, XRest, RRest,
+        [{X#column.name, convert_raw_value(State, X, R)} | Converted]).
 
-convert_row(TcpMod, Sock, TransHandle, XSqlVars, Row) ->
-    convert_row(TcpMod, Sock, TransHandle, XSqlVars, Row, []).
+convert_row(State, XSqlVars, Row) ->
+    convert_row(State, XSqlVars, Row, []).
 
-get_raw_value(TcpMod, Sock, XSqlVar) ->
+get_raw_value(State, XSqlVar) ->
     ?debugFmt("get_raw_value() start~n", []),
     L = case XSqlVar#column.type of
-            varying -> {ok, <<Num:32>>} = TcpMod:recv(Sock, 4), Num;
+            varying -> {ok, <<Num:32>>} = efirebirdsql_socket:recv(State, 4), Num;
             text -> XSqlVar#column.length;
             long -> 4;
             short -> 4;
@@ -655,44 +655,44 @@ get_raw_value(TcpMod, Sock, XSqlVar) ->
             array -> 8;
             boolean -> 1
         end,
-    if L =:= 0 -> V = ""; L > 0 -> {ok, V} = TcpMod:recv(Sock, L) end,
+    if L =:= 0 -> V = ""; L > 0 -> {ok, V} = efirebirdsql_socket:recv(State, L) end,
     ?debugFmt("get_raw_value() V=~p~n", [V]),
-    skip4(TcpMod, Sock, L),
-    {ok, NullFlag} = TcpMod:recv(Sock, 4),
+    skip4(State, L),
+    {ok, NullFlag} = efirebirdsql_socket:recv(State, 4),
     ?debugFmt("get_raw_value() NullFlag=~p~n", [NullFlag]),
     case NullFlag of
         <<0,0,0,0>> -> V;
         _ -> null
     end.
 
-get_row(_Mod, _Sock, [], Columns) ->
+get_row(_State, [], Columns) ->
     lists:reverse(Columns);
-get_row(TcpMod, Sock, XSqlVars, Columns) ->
+get_row(State, XSqlVars, Columns) ->
     [X | RestVars] = XSqlVars,
-    V = get_raw_value(TcpMod, Sock, X),
-    get_row(TcpMod, Sock, RestVars, [V | Columns]).
+    V = get_raw_value(State, X),
+    get_row(State, RestVars, [V | Columns]).
 
-get_fetch_response(_Mod, _Sock, Status, 0, _XSqlVars, Results) ->
+get_fetch_response(_State, Status, 0, _XSqlVars, Results) ->
     %% {list_of_response, more_data}
     {lists:reverse(Results),
         if Status =/= 100 -> true; Status =:= 100 -> false end};
-get_fetch_response(TcpMod, Sock, _Status, _Count, XSqlVars, Results) ->
-    Row = get_row(TcpMod, Sock, XSqlVars, []),
+get_fetch_response(State, _Status, _Count, XSqlVars, Results) ->
+    Row = get_row(State, XSqlVars, []),
     NewResults = [Row | Results],
-    {ok, <<_:32, NewStatus:32, NewCount:32>>} = TcpMod:recv(Sock, 12),
-    get_fetch_response(TcpMod, Sock, NewStatus, NewCount, XSqlVars, NewResults).
+    {ok, <<_:32, NewStatus:32, NewCount:32>>} = efirebirdsql_socket:recv(State, 12),
+    get_fetch_response(State, NewStatus, NewCount, XSqlVars, NewResults).
 
-get_fetch_response(TcpMod, Sock, XSqlVars) ->
-    case get_response(TcpMod, Sock) of
+get_fetch_response(State) ->
+    case get_response(State) of
         {op_response, R} ->
             {op_response, R};
         {op_fetch_response, {Status, Count}} ->
-            {op_fetch_response, get_fetch_response(TcpMod, Sock, Status, Count, XSqlVars, [])}
+            {op_fetch_response, get_fetch_response(State, Status, Count, State#state.xsqlvars, [])}
     end.
 
-get_sql_response(TcpMod, Sock, XSqlVars) ->
-    {op_sql_response, _Count} = get_response(TcpMod, Sock),
-    get_row(TcpMod, Sock, XSqlVars, []).
+get_sql_response(State) ->
+    {op_sql_response, _Count} = get_response(State),
+    get_row(State, State#state.xsqlvars, []).
 
 op_name(1) -> op_connect;
 op_name(2) -> op_exit;

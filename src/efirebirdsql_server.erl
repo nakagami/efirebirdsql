@@ -81,14 +81,12 @@ handle_call({execute, Params}, _From, State) ->
 handle_call(fetchone, _From, State) ->
     [R | Rest] = State#state.rows,
     ConvertedRow = efirebirdsql_op:convert_row(
-        State#state.mod, State#state.sock,
-        State#state.trans_handle, State#state.xsqlvars, R
+        State, State#state.xsqlvars, R
     ),
     {reply, {ok, ConvertedRow}, State#state{rows=Rest}};
 handle_call(fetchall, _From, State) ->
     ConvertedRows = [efirebirdsql_op:convert_row(
-        State#state.mod, State#state.sock,
-        State#state.trans_handle, State#state.xsqlvars, R
+        State, State#state.xsqlvars, R
     ) || R <- State#state.rows],
     {reply, {ok, ConvertedRows}, State};
 handle_call(description, _From, State) ->
