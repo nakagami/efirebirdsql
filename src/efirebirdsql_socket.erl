@@ -8,10 +8,8 @@
 -include("efirebirdsql.hrl").
 
 send(State, Data) ->
-    gen_tcp:send(State#state.sock, Data),
-    State.
+    gen_tcp:send(State#state.sock, Data).
 
 recv(State, Len) ->
-    gen_tcp:recv(State#state.sock, Len),
-    State.
+    gen_tcp:recv(State#state.sock, Len).
 
