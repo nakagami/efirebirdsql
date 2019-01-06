@@ -359,7 +359,7 @@ op_close_blob(BlobHandle) ->
 
 %%% parse status vector
 parse_status_vector_integer(State) ->
-    {ok, <<NumArg:32>>} = efirebridsql_socket:recv(State, 4),
+    {ok, <<NumArg:32>>} = efirebirdsql_socket:recv(State, 4),
     NumArg.
 
 parse_status_vector_string(State) ->

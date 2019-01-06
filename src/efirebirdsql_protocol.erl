@@ -99,7 +99,7 @@ prepare_statement(Sql, State) ->
     efirebirdsql_op:get_prepare_statement_response(State).
 
 free_statement(State) ->
-    efirebridsql_socket:send(State, efirebirdsql_op:op_free_statement(State#state.stmt_handle)),
+    efirebirdsql_socket:send(State, efirebirdsql_op:op_free_statement(State#state.stmt_handle)),
     case efirebirdsql_op:get_response(State) of
         {op_response,  {ok, _, _}} -> ok;
         {op_response, {error, Msg}} -> {error, Msg}
