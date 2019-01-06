@@ -403,7 +403,7 @@ get_response(State) ->
             {ok, <<Handle:32, _ObjectID:64, Len:32>>} = efirebirdsql_socket:recv(State, 16),
             Buf = if
                 Len =/= 0 ->
-                    {ok, RecvBuf} = efirebirdsql_socekt:recv(State, Len),
+                    {ok, RecvBuf} = efirebirdsql_socket:recv(State, Len),
                     skip4(State, Len),
                     RecvBuf;
                 true -> <<>>
