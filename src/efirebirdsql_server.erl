@@ -39,15 +39,9 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
     end;
 handle_call({transaction, Options}, _From, State) ->
     AutoCommit = proplists:get_value(auto_commit, Options, true),
-    %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_no_rec_version
-    Tpb = [3, 9, 6, 15, 18],
-    R = efirebirdsql_protocol:begin_transaction(
-        lists:flatten(Tpb, if AutoCommit =:= true -> [16]; true -> [] end), State),
-    case R of
-        {ok, TransHandle} ->
-            {reply, ok, State#state{trans_handle=TransHandle}};
-        {error, _Reason} ->
-            {reply, R, State}
+    case efirebirdsql_protocol:begin_transaction(AutoCommit, State) of
+        {ok, S2} -> {reply, ok, S2};
+        {error, Reason, S2} -> {reply, Reason, S2}
     end;
 handle_call(commit, _From, State) ->
     {reply, efirebirdsql_protocol:commit(State), State};

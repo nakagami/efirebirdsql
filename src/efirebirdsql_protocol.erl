@@ -74,12 +74,17 @@ detach(State) ->
     end.
 
 %% Transaction
-begin_transaction(Tpb, State) ->
+begin_transaction(AutoCommit, State) ->
+    %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_no_rec_version
+    Tpb = if
+        AutoCommit =:= true -> [3, 9, 6, 15, 18, 16];
+        AutoCommit =:= false -> [3, 9, 6, 15, 18]
+    end,
     efirebirdsql_socket:send(State,
         efirebirdsql_op:op_transaction(State#state.db_handle, Tpb)),
     case efirebirdsql_op:get_response(State) of
-        {op_response,  {ok, Handle, _}} -> {ok, Handle};
-        {op_response, {error, Msg}} -> {error, Msg}
+        {op_response,  {ok, Handle, _}} -> {ok, State#state{trans_handle=Handle}};
+        {op_response, {error, Msg}} -> {error, Msg, State}
     end.
 
 %% allocate, prepare and free statement
