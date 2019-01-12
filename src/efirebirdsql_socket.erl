@@ -16,7 +16,7 @@ recv(State, Len) ->
 recv_align(State, Len) ->
     {T, V} = recv(State, Len),
     case Len rem 4 of
-        0 -> {ok, <<>>};
+        0 -> ok;
         1 -> recv(State, 3);
         2 -> recv(State, 2);
         3 -> recv(State, 1)
