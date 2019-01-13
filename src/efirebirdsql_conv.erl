@@ -174,6 +174,7 @@ params_to_blr(Params, Blr, Value) ->
 params_to_blr(Params) ->
     {BlrBody, Value} = params_to_blr(Params, [], []),
     L = length(Params) * 2,
+    %% TODO: support protocol version 13
     Blr = lists:flatten([[5, 2, 4, 0], efirebirdsql_conv:byte2(L), BlrBody, [255, 76]]),
     {Blr, Value}.
 

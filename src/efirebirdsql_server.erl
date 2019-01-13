@@ -44,49 +44,41 @@ handle_call({transaction, Options}, _From, State) ->
         {error, Reason, S2} -> {reply, Reason, S2}
     end;
 handle_call(commit, _From, State) ->
-    {reply, efirebirdsql_protocol:commit(State), State};
+    case efirebirdsql_protocol:commit(State) of
+        {ok, S2} -> {reply, ok, S2};
+        {error, Reason, S2} -> {reply, Reason, S2}
+    end;
 handle_call(rollback, _From, State) ->
-    {reply, efirebirdsql_protocol:rollback(State), State};
+    case efirebirdsql_protocol:rollback(State) of
+        {ok, S2} -> {reply, ok, S2};
+        {error, Reason, S2} -> {reply, Reason, S2}
+    end;
+
 handle_call(detach, _From, State) ->
-    {reply, efirebirdsql_protocol:detach(State), State};
+    case efirebirdsql_protocol:detach(State) of
+        {ok, S2} -> {reply, ok, S2};
+        {error, Reason, S2} -> {reply, Reason, S2}
+    end;
 handle_call({prepare, Sql}, _From, State) ->
-    case R = efirebirdsql_protocol:prepare_statement(Sql, State) of
-        {ok, StmtType, XSqlVars} ->
-            {reply, ok, State#state{stmt_type=StmtType, xsqlvars=XSqlVars}};
-        {error, _Reason} ->
-            {reply, R, State}
+    case efirebirdsql_protocol:prepare_statement(Sql, State) of
+        {ok, S2} -> {reply, ok, S2};
+        {error, Reason, S2} -> {reply, Reason, S2}
     end;
 handle_call({execute, Params}, _From, State) ->
-    case State#state.stmt_type of
-        isc_info_sql_stmt_exec_procedure ->
-            {ok, Row} = efirebirdsql_protocol:execute2(Params, State),
-            {reply, ok, State#state{rows=[Row]}};
-        _ ->
-            ok = efirebirdsql_protocol:execute(Params, State),
-            case State#state.stmt_type of
-                isc_info_sql_stmt_select ->
-                    {ok, Rows} = efirebirdsql_protocol:fetchrows(State),
-                    efirebirdsql_protocol:free_statement(State),
-                    {reply, ok, State#state{rows=Rows}};
-                _ ->
-                    {reply, ok, State}
-            end
+    case efirebirdsql_protocol:execute(State, Params) of
+        {ok, S2} -> {reply, ok, S2};
+        {error, Reason, S2} -> {reply, Reason, S2}
     end;
 handle_call(fetchone, _From, State) ->
-    [R | Rest] = State#state.rows,
-    ConvertedRow = efirebirdsql_op:convert_row(
-        State, State#state.xsqlvars, R
-    ),
-    {reply, {ok, ConvertedRow}, State#state{rows=Rest}};
+    {ok, ConvertedRow, S2} = efirebirdsql_protocol:fetchone(State),
+    {reply, {ok, ConvertedRow}, S2};
 handle_call(fetchall, _From, State) ->
-    ConvertedRows = [efirebirdsql_op:convert_row(
-        State, State#state.xsqlvars, R
-    ) || R <- State#state.rows],
-    {reply, {ok, ConvertedRows}, State};
+    {ok, Rows, S2} = efirebirdsql_protocol:fetchall(State),
+    {reply, {ok, Rows}, S2};
 handle_call(description, _From, State) ->
     case State#state.stmt_type of
         isc_info_sql_stmt_select
-            -> {reply, efirebirdsql_protocol:description(State#state.xsqlvars), State};
+            -> {reply, efirebirdsql_protocol:description(State), State};
         _
             -> {reply, no_result, State}
     end;

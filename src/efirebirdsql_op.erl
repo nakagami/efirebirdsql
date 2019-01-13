@@ -111,18 +111,25 @@ calc_blr(XSqlVars) ->
 op_connect(Host, Database, State) ->
     ?debugFmt("op_connect~n", []),
     %% PROTOCOL_VERSION,ArchType(Generic),MinAcceptType,MaxAcceptType,Weight
-    Protocols = if State#state.auth_plugin == '' -> [
+    %% TODO: switch accept protocol version
+    Protocols = [
+%    Protocols = if State#state.auth_plugin == 'Legacy_Auth' -> [
         [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
         [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
         [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6]
-    ];
-        true -> [
-        [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
-        [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
-        [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6],
-        [255, 255, 128, 13, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 8]
-    ]
-    end,
+    ],
+%    Protocols = if State#state.auth_plugin == '' -> [
+%        [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
+%        [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
+%        [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6]
+%    ];
+%        true -> [
+%        [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
+%        [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
+%        [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6],
+%        [255, 255, 128, 13, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 8]
+%    ]
+%    end,
     Buf = [
         efirebirdsql_conv:byte4(op_val(op_connect)),
         efirebirdsql_conv:byte4(op_val(op_attach)),
@@ -137,17 +144,17 @@ op_connect(Host, Database, State) ->
 op_attach(Database, State) ->
     ?debugFmt("op_attach~n", []),
     Username = State#state.user,
-    Password = State#state.password,
-    AuthData = State#state.auth_data,
-    Dpb = case State#state.accept_version of
-        13 ->
+    Dpb = if
+        State#state.accept_version >= 13 ->
+            AuthData = State#state.auth_data,
             lists:flatten([
                 1,                              %% isc_dpb_version = 1
                 48, length(?CHARSET), ?CHARSET, %% isc_dpb_lc_ctype = 48
                 28, length(Username), Username, %% isc_dpb_user_name 28
                 84, length(AuthData), AuthData  %% isc_dpb_specific_auth_data = 84
             ]);
-        _ ->
+        State#state.accept_version < 13 ->
+            Password = State#state.password,
             lists:flatten([
                 1,                              %% isc_dpb_version = 1
                 48, length(?CHARSET), ?CHARSET, %% isc_dpb_lc_ctype = 48
@@ -171,10 +178,9 @@ op_detach(DbHandle) ->
 op_create(Database, PageSize, State) ->
     ?debugFmt("op_create~n", []),
     Username = State#state.user,
-    Password = State#state.password,
-    AuthData = State#state.auth_data,
-    Dpb = case State#state.accept_version of
-        13 ->
+    Dpb = if
+        State#state.accept_version >= 13 ->
+            AuthData = State#state.auth_data,
             lists:flatten([
                 1,
                 68, length(?CHARSET), ?CHARSET, %% isc_dpb_set_db_charset = 68
@@ -186,7 +192,8 @@ op_create(Database, PageSize, State) ->
                 84, length(AuthData), AuthData, %% isc_dpb_specific_auth_data = 84
                 4, 4, efirebirdsql_conv:byte4(PageSize, little)   %% isc_dpb_page_size = 4
             ]);
-        _ ->
+        State#state.accept_version < 13 ->
+            Password = State#state.password,
             lists:flatten([
                 1,
                 68, length(?CHARSET), ?CHARSET,   %% isc_dpb_set_db_charset = 68
@@ -204,7 +211,6 @@ op_create(Database, PageSize, State) ->
         efirebirdsql_conv:byte4(0),
         efirebirdsql_conv:list_to_xdr_string(Database),
         efirebirdsql_conv:list_to_xdr_bytes(Dpb)])).
-
 
 %%% begin transaction
 op_transaction(DbHandle, Tpb) ->
@@ -349,85 +355,85 @@ op_close_blob(BlobHandle) ->
 
 %%% parse status vector
 parse_status_vector_integer(State) ->
-    {ok, <<NumArg:32>>} = efirebirdsql_socket:recv(State, 4),
-    NumArg.
+    {ok, <<NumArg:32>>, S2} = efirebirdsql_socket:recv(State, 4),
+    {NumArg,S2}.
 
 parse_status_vector_string(State) ->
-    Len = parse_status_vector_integer(State),
-    {ok, Bin} = efirebirdsql_socket:recv_align(State, Len),
-    binary_to_list(Bin).
+    {Len, S2} = parse_status_vector_integer(State),
+    {ok, Bin, S3} = efirebirdsql_socket:recv_align(S2, Len),
+    {binary_to_list(Bin), S3}.
 
 parse_status_vector_args(State, Template, Args) ->
-    {ok, <<IscArg:32>>} = efirebirdsql_socket:recv(State, 4),
+    {ok, <<IscArg:32>>, S2} = efirebirdsql_socket:recv(State, 4),
     case IscArg of
     0 ->    %% isc_arg_end
-        {Template, Args};
+        {S2, Template, Args};
     1 ->    %% isc_arg_gds
-        V = efirebirdsql_errmsgs:get_error_msg(parse_status_vector_integer(State)),
-        parse_status_vector_args(State, [V | Template], Args);
+        {N, S3} = parse_status_vector_integer(S2),
+        Msg = efirebirdsql_errmsgs:get_error_msg(N),
+        parse_status_vector_args(S3, [Msg | Template], Args);
     2 ->    %% isc_arg_string
-        V = parse_status_vector_string(State),
-        parse_status_vector_args(State, Template, [V | Args]);
+        {V, S3} = parse_status_vector_string(S2),
+        parse_status_vector_args(S3, Template, [V | Args]);
     4 ->    %% isc_arg_number
-        V = parse_status_vector_integer(State),
-        parse_status_vector_args(State, Template, [integer_to_list(V) | Args]);
+        {V, S3} = parse_status_vector_integer(S2),
+        parse_status_vector_args(S3, Template, [integer_to_list(V) | Args]);
     5 ->    %% isc_arg_interpreted
-        V = parse_status_vector_string(State),
-        parse_status_vector_args(State, [V | Template], Args);
+        {V, S3} = parse_status_vector_string(S2),
+        parse_status_vector_args(S3, [V | Template], Args);
     19 ->   %% isc_arg_sql_state
-        _V = parse_status_vector_string(State),
-        parse_status_vector_args(State, Template, Args)
+        {_V, S3} = parse_status_vector_string(S2),
+        parse_status_vector_args(S3, Template, Args)
     end.
 
 get_error_message(State) ->
-    {S, A} = parse_status_vector_args(State, [], []),
-    iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(S)), lists:reverse(A))).
+    {S2, Msg, Arg} = parse_status_vector_args(State, [], []),
+    {iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(Msg)), lists:reverse(Arg))), S2}.
 
 %% recieve and parse response
 get_response(State) ->
     ?debugFmt("get_response()~n", []),
-    {ok, <<OpCode:32>>} = efirebirdsql_socket:recv(State, 4),
+    {ok, <<OpCode:32>>, S2} = efirebirdsql_socket:recv(State, 4),
     Op = op_name(OpCode),
     if Op == op_response ->
-            {ok, <<Handle:32, _ObjectID:64, Len:32>>} = efirebirdsql_socket:recv(State, 16),
+            {ok, <<Handle:32, _ObjectID:64, Len:32>>, S3} = efirebirdsql_socket:recv(S2, 16),
             Buf = if
                 Len =/= 0 ->
-                    {ok, RecvBuf} = efirebirdsql_socket:recv_align(State, Len),
+                    {ok, RecvBuf, S4} = efirebirdsql_socket:recv_align(S3, Len),
                     RecvBuf;
-                true -> <<>>
+                true -> S4 = S3, <<>>
             end,
-            case S = get_error_message(State) of
-                <<>> -> {Op, {ok, Handle, Buf}};
-                _ -> {Op, {error, S}}
+            {S, S5} = get_error_message(S4),
+            case S of
+                <<>> -> {Op, {ok, Handle, Buf}, S5};
+                _ -> {Op, {error, S}, S5}
             end;
         Op == op_fetch_response ->
-            {ok, <<Status:32, Count:32>>} = efirebirdsql_socket:recv(State, 8),
-            {Op, {Status, Count}};
+            {ok, <<Status:32, Count:32>>, S3} = efirebirdsql_socket:recv(S2, 8),
+            {Op, {Status, Count}, S3};
         Op == op_sql_response ->
-            {ok, <<Count:32>>} = efirebirdsql_socket:recv(State, 4),
-            {Op, Count};
+            {ok, <<Count:32>>, S3} = efirebirdsql_socket:recv(S2, 4),
+            {Op, Count, S3};
         Op == op_dummy ->
-            get_response(State);
+            get_response(S2);
         true ->
-            {error, Op}
+            {error, Op, S2}
     end.
 
 %% recieve and parse connect() response
 get_connect_response(op_accept, State) ->
     {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
-            _AcceptArchtecture:32, _AcceptType:32>>} = efirebirdsql_socket:recv(State, 12),
-    NewState = State#state{accept_version=AcceptVersion},
-    {ok, NewState};
+            _AcceptArchtecture:32, _AcceptType:32>>, S2} = efirebirdsql_socket:recv(State, 12),
+    {ok, S2#state{accept_version=AcceptVersion}};
 get_connect_response(_, State) ->
     {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
-            _AcceptArchtecture:32, _AcceptType:32>>} = efirebirdsql_socket:recv(State, 12),
-
-    {ok, <<Len1:32>>} = efirebirdsql_socket:recv(State, 4),
-    {ok, Data} = efirebirdsql_socket:recv_align(State, Len1),
-    {ok, <<Len2:32>>} = efirebirdsql_socket:recv(State, 4),
-    {ok, PluginName} = efirebirdsql_socket:recv_align(State, Len2),
-    {ok, <<IsAuthenticated:32>>} = efirebirdsql_socket:recv(State, 4),
-    {ok, <<_:32>>} = efirebirdsql_socket:recv(State, 4),
+            _AcceptArchtecture:32, _AcceptType:32>>,S2} = efirebirdsql_socket:recv(State, 12),
+    {ok, <<Len1:32>>,S3} = efirebirdsql_socket:recv(S2, 4),
+    {ok, Data, S4} = efirebirdsql_socket:recv_align(S3, Len1),
+    {ok, <<Len2:32>>,S5} = efirebirdsql_socket:recv(S4, 4),
+    {ok, PluginName,S6} = efirebirdsql_socket:recv_align(S5, Len2),
+    {ok, <<IsAuthenticated:32>>, S7} = efirebirdsql_socket:recv(S6, 4),
+    {ok, <<_:32>>, S8} = efirebirdsql_socket:recv(S7, 4),
     if
         IsAuthenticated == 0 ->
             case binary_to_list(PluginName) of
@@ -441,27 +447,28 @@ get_connect_response(_, State) ->
                     AuthData = '',
                     _SessionKey = ''
             end,
-            NewState = State#state{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)};
+            NewState = S8#state{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)};
         true ->
-            NewState = State
+            NewState = S8
     end,
     {ok, NewState}.
 
 get_connect_response(State) ->
     ?debugFmt("get_connect_response()~n", []),
-    {ok, <<OpCode:32>>} = efirebirdsql_socket:recv(State, 4),
+    {ok, <<OpCode:32>>, S2} = efirebirdsql_socket:recv(State, 4),
     Op = op_name(OpCode),
     if (Op == op_accept) or (Op == op_cond_accept) or (Op == op_accept_data) ->
-            get_connect_response(Op, State);
+            get_connect_response(Op, S2);
         Op == op_dummy ->
-            get_connect_response(State);
+            get_connect_response(S2);
         Op == op_response ->
-            {ok, <<_Handle:32, _ObjectID:64, _Len:32>>} = efirebirdsql_socket:recv(State, 16),
-            {error, get_error_message(State), State};
+            {ok, <<_Handle:32, _ObjectID:64, _Len:32>>, S3} = efirebirdsql_socket:recv(S2, 16),
+            {Msg, S4} = get_error_message(S3),
+            {error, Msg, S4};
         Op == op_reject ->
-            {error, "connectoin rejected", State};
+            {error, "connectoin rejected", S2};
         true ->
-            {error, Op, State}
+            {error, Op, S2}
     end.
 
 %% parse select items.
@@ -469,10 +476,10 @@ more_select_describe_vars(State, Start) ->
     %% isc_info_sql_sqlda_start + INFO_SQL_SELECT_DESCRIBE_VARS
     V = lists:flatten(
         [20, 2, Start rem 256, Start div 256, ?INFO_SQL_SELECT_DESCRIBE_VARS]),
-    efirebirdsql_socket:send(State, op_info_sql(State#state.stmt_handle, V)),
-    {op_response, {ok, _, Buf}} = get_response(State),
+    S2 = efirebirdsql_socket:send(State, op_info_sql(State#state.stmt_handle, V)),
+    {op_response, {ok, _, Buf},S3} = get_response(S2),
     <<_:8/binary, DescVars/binary>> = Buf,
-    DescVars.
+    {S3, DescVars}.
 
 parse_select_item_elem_binary(DescVars) ->
     <<L:16/little, V:L/binary, Rest/binary>> = DescVars,
@@ -520,37 +527,36 @@ parse_select_column(State, Column, DescVars) ->
             {S, Rest2} = parse_select_item_elem_binary(Rest),
             parse_select_column(State, Column#column{name=S}, Rest2);
         isc_info_truncated ->
-            Rest2 = more_select_describe_vars(State, Column#column.seq),
-            parse_select_column(State, Column, Rest2);
+            {S2, Rest2} = more_select_describe_vars(State, Column#column.seq),
+            parse_select_column(S2, Column, Rest2);
         isc_info_sql_describe_end ->
-            {Column, Rest};
+            {State, Column, Rest};
         isc_info_end ->
-            no_more_column
+            {State, no_more_column}
     end.
 
 parse_select_columns(State, XSqlVars, DescVars) ->
     case parse_select_column(State, #column{}, DescVars) of
-        {XSqlVar, Rest} -> parse_select_columns(
-            State, [XSqlVar | XSqlVars], Rest);
-        no_more_column -> lists:reverse(XSqlVars)
+        {S2, XSqlVar, Rest} -> parse_select_columns(S2, [XSqlVar | XSqlVars], Rest);
+        {S2, no_more_column} -> {S2, lists:reverse(XSqlVars)}
     end.
 
 get_prepare_statement_response(State) ->
-    {op_response, R} = get_response(State),
+    {op_response, R, S2} = get_response(State),
     case R of
         {ok, _, Buf} ->
             << _21:8, _Len:16, StmtType:32/little, Rest/binary>> = Buf,
-            XSqlVars = case StmtName = isc_info_sql_stmt_name(StmtType) of
+            {S3, XSqlVars} = case StmtName = isc_info_sql_stmt_name(StmtType) of
                 isc_info_sql_stmt_select ->
                     << _Skip:8/binary, DescVars/binary >> = Rest,
                     parse_select_columns(State, [], DescVars);
                 isc_info_sql_stmt_exec_procedure ->
                     << _Skip:8/binary, DescVars/binary >> = Rest,
                     parse_select_columns(State, [], DescVars);
-                _ -> []
+                _ -> {S2, []}
             end,
-            {ok, StmtName, XSqlVars};
-        {error, _} -> R
+            {ok, S3#state{stmt_type=StmtName, xsqlvars=XSqlVars}};
+        {error, _} -> {error, R, S2}
     end.
 
 get_blob_segment_list(<<>>, SegmentList) ->
@@ -560,124 +566,137 @@ get_blob_segment_list(Buf, SegmentList) ->
     get_blob_segment_list(Rest, [V| SegmentList]).
 
 get_blob_segment(State, BlobHandle, SegmentList) ->
-    efirebirdsql_socket:send(State, op_get_segment(BlobHandle)),
-    {op_response,  {ok, F, Buf}} = get_response(State),
+    S2 = efirebirdsql_socket:send(State, op_get_segment(BlobHandle)),
+    {op_response,  {ok, F, Buf}, S3} = get_response(S2),
     NewList = lists:flatten([SegmentList, get_blob_segment_list(Buf, [])]),
     case F of
-        2 -> NewList;
-        _ -> get_blob_segment(State, BlobHandle, NewList)
+        2 -> {NewList, S2};
+        _ -> get_blob_segment(S3, BlobHandle, NewList)
     end.
 
 get_blob_data(State, BlobId) ->
-    efirebirdsql_socket:send(State, op_open_blob(BlobId, State#state.trans_handle)),
-    {op_response,  {ok, BlobHandle, _}} = get_response(State),
-    SegmentList = get_blob_segment(State, BlobHandle, []),
-    efirebirdsql_socket:send(State, op_close_blob(BlobHandle)),
-    {op_response,  {ok, 0, _}} = get_response(State),
+    S2 = efirebirdsql_socket:send(State,
+        op_open_blob(BlobId, State#state.trans_handle)),
+    {op_response,  {ok, BlobHandle, _}, S3} = get_response(S2),
+    {SegmentList, S4} = get_blob_segment(S3, BlobHandle, []),
+    S5 = efirebirdsql_socket:send(S4, op_close_blob(BlobHandle)),
+    {op_response,  {ok, 0, _}, S6} = get_response(S5),
     R = list_to_binary(SegmentList),
-    {ok, R}.
+    {ok, R, S6}.
 
-convert_raw_value(_State, _XSqlVar, null) ->
-    null;
+convert_raw_value(State, _XSqlVar, null) ->
+    {null, State};
 convert_raw_value(State, XSqlVar, RawValue) ->
     ?debugFmt("convert_raw_value() start~n", []),
     CookedValue = case XSqlVar#column.type of
-            long -> efirebirdsql_conv:parse_number(
+            long -> S2 = State, efirebirdsql_conv:parse_number(
                 RawValue, XSqlVar#column.scale);
-            short -> efirebirdsql_conv:parse_number(
+            short -> S2 = State, efirebirdsql_conv:parse_number(
                 RawValue, XSqlVar#column.scale);
-            int64 -> efirebirdsql_conv:parse_number(
+            int64 -> S2 = State, efirebirdsql_conv:parse_number(
                 RawValue, XSqlVar#column.scale);
-            quad -> efirebirdsql_conv:parse_number(
+            quad -> S2 = State, efirebirdsql_conv:parse_number(
                 RawValue, XSqlVar#column.scale);
-            double -> L = size(RawValue) * 8, <<V:L/float>> = RawValue, V;
-            float -> L = size(RawValue) * 8, <<V:L/float>> = RawValue, V;
-            date -> efirebirdsql_conv:parse_date(RawValue);
-            time -> efirebirdsql_conv:parse_time(RawValue);
-            timestamp -> efirebirdsql_conv:parse_timestamp(RawValue);
-            decimal_fixed -> efirebirdsql_decfloat:decimal_fixed_to_decimal(
+            double -> S2 = State, L = size(RawValue) * 8, <<V:L/float>> = RawValue, V;
+            float -> S2 = State, L = size(RawValue) * 8, <<V:L/float>> = RawValue, V;
+            date -> S2 = State, efirebirdsql_conv:parse_date(RawValue);
+            time -> S2 = State, efirebirdsql_conv:parse_time(RawValue);
+            timestamp -> S2 = State, efirebirdsql_conv:parse_timestamp(RawValue);
+            decimal_fixed -> S2 = State, efirebirdsql_decfloat:decimal_fixed_to_decimal(
                 RawValue, XSqlVar#column.scale);
-            decimal64 -> efirebirdsql_decfloat:decimal64_to_decimal(RawValue);
-            decimal128 -> efirebirdsql_decfloat:decimal128_to_decimal(RawValue);
+            decimal64 -> S2 = State, efirebirdsql_decfloat:decimal64_to_decimal(RawValue);
+            decimal128 -> S2 = State, efirebirdsql_decfloat:decimal128_to_decimal(RawValue);
             blob ->
-                {ok, B} = get_blob_data(State, RawValue),
+                {ok, B, S2} = get_blob_data(State, RawValue),
                 B;
-            boolean -> if RawValue =/= <<0,0,0,0>> -> true; true -> false end;
-            _ -> RawValue
+            boolean -> S2 = State, if RawValue =/= <<0,0,0,0>> -> true; true -> false end;
+            _ -> S2 = State, RawValue
         end,
     ?debugFmt("convert_raw_value() end ~p~n", [CookedValue]),
-    CookedValue.
+    {CookedValue, S2}.
 
-convert_row(_State, [], [], Converted) ->
+convert_row(State, [], [], Converted) ->
     ?debugFmt("convert_row()~n", []),
-    lists:reverse(Converted);
+    {lists:reverse(Converted), State};
 convert_row(State, XSqlVars, Row, Converted) ->
     [X | XRest] = XSqlVars,
     [R | RRest] = Row,
-    convert_row(State, XRest, RRest,
-        [{X#column.name, convert_raw_value(State, X, R)} | Converted]).
+    {V, S2} = convert_raw_value(State, X, R),
+    convert_row(S2, XRest, RRest, [{X#column.name, V} | Converted]).
 
 convert_row(State, XSqlVars, Row) ->
     convert_row(State, XSqlVars, Row, []).
 
 get_raw_value(State, XSqlVar) ->
     ?debugFmt("get_raw_value() start~n", []),
-    L = case XSqlVar#column.type of
-            varying -> {ok, <<Num:32>>} = efirebirdsql_socket:recv(State, 4), Num;
-            text -> XSqlVar#column.length;
-            long -> 4;
-            short -> 4;
-            int64 -> 8;
-            quad -> 8;
-            double -> 8;
-            float -> 4;
-            date -> 4;
-            time -> 4;
-            timestamp -> 8;
-            decimal_fixed -> 16;
-            decimal64 -> 8;
-            decimal128 ->  16;
-            blob -> 8;
-            array -> 8;
-            boolean -> 1
-        end,
-    if L =:= 0 -> V = ""; L > 0 -> {ok, V} = efirebirdsql_socket:recv_align(State, L) end,
+    if
+        XSqlVar#column.type =:= varying ->
+            {ok, <<L:32>>, S2} = efirebirdsql_socket:recv(State, 4);
+        true ->
+            L = case XSqlVar#column.type of
+                text -> XSqlVar#column.length;
+                long -> 4;
+                short -> 4;
+                int64 -> 8;
+                quad -> 8;
+                double -> 8;
+                float -> 4;
+                date -> 4;
+                time -> 4;
+                timestamp -> 8;
+                decimal_fixed -> 16;
+                decimal64 -> 8;
+                decimal128 ->  16;
+                blob -> 8;
+                array -> 8;
+                boolean -> 1
+            end,
+            S2 = State
+    end,
+    if
+        L =:= 0 -> V = "", S3 = S2;
+        L > 0 -> {ok, V, S3} = efirebirdsql_socket:recv_align(S2, L)
+    end,
+
     ?debugFmt("get_raw_value() V=~p~n", [V]),
-    {ok, NullFlag} = efirebirdsql_socket:recv(State, 4),
+    {ok, NullFlag, S4} = efirebirdsql_socket:recv(S3, 4),
     ?debugFmt("get_raw_value() NullFlag=~p~n", [NullFlag]),
     case NullFlag of
-        <<0,0,0,0>> -> V;
-        _ -> null
+        <<0,0,0,0>> -> {V, S4};
+        _ -> {null, S4}
     end.
 
-get_row(_State, [], Columns) ->
-    lists:reverse(Columns);
+get_row(State, [], Columns) ->
+    {lists:reverse(Columns), State};
 get_row(State, XSqlVars, Columns) ->
     [X | RestVars] = XSqlVars,
-    V = get_raw_value(State, X),
-    get_row(State, RestVars, [V | Columns]).
+    {V, S2} = get_raw_value(State, X),
+    get_row(S2, RestVars, [V | Columns]).
 
-get_fetch_response(_State, Status, 0, _XSqlVars, Results) ->
+get_fetch_response(State, Status, 0, _XSqlVars, Results) ->
     %% {list_of_response, more_data}
     {lists:reverse(Results),
-        if Status =/= 100 -> true; Status =:= 100 -> false end};
+        if Status =/= 100 -> true; Status =:= 100 -> false end, State};
 get_fetch_response(State, _Status, _Count, XSqlVars, Results) ->
-    Row = get_row(State, XSqlVars, []),
+    {Row, S2} = get_row(State, XSqlVars, []),
     NewResults = [Row | Results],
-    {ok, <<_:32, NewStatus:32, NewCount:32>>} = efirebirdsql_socket:recv(State, 12),
-    get_fetch_response(State, NewStatus, NewCount, XSqlVars, NewResults).
+    {ok, <<_:32, NewStatus:32, NewCount:32>>, S3} = efirebirdsql_socket:recv(S2, 12),
+    get_fetch_response(S3, NewStatus, NewCount, XSqlVars, NewResults).
 
 get_fetch_response(State) ->
+    %% TODO: support protocol version 13
     case get_response(State) of
-        {op_response, R} ->
-            {op_response, R};
-        {op_fetch_response, {Status, Count}} ->
-            {op_fetch_response, get_fetch_response(State, Status, Count, State#state.xsqlvars, [])}
+        {op_response, R, S2} ->
+            {op_response, R, S2};
+        {op_fetch_response, {Status, Count}, S2} ->
+            {Results, MoreData, S3} = get_fetch_response(State, Status, Count, S2#state.xsqlvars, []),
+            {op_fetch_response, Results, MoreData, S3}
     end.
 
 get_sql_response(State) ->
-    {op_sql_response, _Count} = get_response(State),
-    get_row(State, State#state.xsqlvars, []).
+    %% TODO: support protocol version 13
+    {op_sql_response, _Count, S2} = get_response(State),
+    get_row(S2, S2#state.xsqlvars, []).
 
 op_name(1) -> op_connect;
 op_name(2) -> op_exit;
