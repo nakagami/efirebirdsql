@@ -111,7 +111,7 @@ calc_blr(XSqlVars) ->
 op_connect(Host, Database, State) ->
     ?debugFmt("op_connect~n", []),
     %% PROTOCOL_VERSION,ArchType(Generic),MinAcceptType,MaxAcceptType,Weight
-    Protocols = if State#state.auth_plugin == '' -> [
+    Protocols = if State#state.auth_plugin == 'Legacy_Auth' -> [
         [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
         [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
         [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6]
