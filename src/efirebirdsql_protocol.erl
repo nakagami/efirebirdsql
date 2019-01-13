@@ -210,6 +210,6 @@ fetchall(State, ConvertedRows, Rows) ->
     {ConvertedRow, S2} = efirebirdsql_op:convert_row(
         State, State#state.xsqlvars, R
     ),
-    fetchall(State, [ConvertedRow | ConvertedRows], Rest).
+    fetchall(S2, [ConvertedRow | ConvertedRows], Rest).
 fetchall(State) ->
     fetchall(State, [], State#state.rows).
