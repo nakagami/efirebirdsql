@@ -2,7 +2,6 @@
 %%% Copyright (c) 2016-2018 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_op).
-%-include_lib("eunit/include/eunit.hrl").
 -define(debugFmt(X,Y), ok).
 
 -export([op_connect/3, op_attach/2, op_detach/1, op_create/3, op_transaction/2,
