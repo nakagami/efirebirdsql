@@ -128,11 +128,8 @@ fetchrows(State) ->
     fetchrows([], State).
 
 execute(State, Params, isc_info_sql_stmt_exec_procedure) ->
-    TransHandle = State#state.trans_handle,
-    StmtHandle = State#state.stmt_handle,
-    XSqlVars = State#state.xsqlvars,
     S2 = efirebirdsql_socket:send(State,
-        efirebirdsql_op:op_execute2(TransHandle, StmtHandle, Params, XSqlVars)),
+        efirebirdsql_op:op_execute2(State, Params)),
     {Row, S3} = efirebirdsql_op:get_sql_response(S2),
     case efirebirdsql_op:get_response(S3) of
         {op_response,  {ok, _, _}, S4} -> {ok, S4#state{rows=[Row]}};
@@ -140,10 +137,8 @@ execute(State, Params, isc_info_sql_stmt_exec_procedure) ->
     end
 ;
 execute(State, Params, isc_info_sql_stmt_select) ->
-    TransHandle = State#state.trans_handle,
-    StmtHandle = State#state.stmt_handle,
     S2 = efirebirdsql_socket:send(State,
-        efirebirdsql_op:op_execute(TransHandle, StmtHandle, Params)),
+        efirebirdsql_op:op_execute(State, Params)),
     case efirebirdsql_op:get_response(S2) of
         {op_response, {ok, _, _}, S3} ->
             case fetchrows(S3) of
@@ -157,10 +152,8 @@ execute(State, Params, isc_info_sql_stmt_select) ->
     end
 ;
 execute(State, Params, _StmtType) ->
-    TransHandle = State#state.trans_handle,
-    StmtHandle = State#state.stmt_handle,
     S2 = efirebirdsql_socket:send(State,
-        efirebirdsql_op:op_execute(TransHandle, StmtHandle, Params)),
+        efirebirdsql_op:op_execute(State, Params)),
     case efirebirdsql_op:get_response(S2) of
         {op_response,  {ok, _, _}, S3} -> {ok, S3};
         {op_response, {error, Msg}, S3} -> {error, Msg, S3}
