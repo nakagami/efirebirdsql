@@ -262,7 +262,7 @@ op_execute(State, Params) ->
                 efirebirdsql_conv:byte4(0),
                 efirebirdsql_conv:byte4(0)]);
         length(Params) > 0 ->
-            {Blr, Value} = efirebirdsql_conv:params_to_blr(Params),
+            {Blr, Value} = efirebirdsql_conv:params_to_blr(State#state.accept_version, Params),
             list_to_binary([
                 efirebirdsql_conv:byte4(op_val(op_execute)),
                 efirebirdsql_conv:byte4(StmtHandle),
@@ -291,7 +291,7 @@ op_execute2(State, Params) ->
                 OutputBlr,
                 efirebirdsql_conv:byte4(0)]);
         length(Params) > 0 ->
-            {Blr, Value} = efirebirdsql_conv:params_to_blr(Params),
+            {Blr, Value} = efirebirdsql_conv:params_to_blr(State#state.accept_version, Params),
             list_to_binary([
                 efirebirdsql_conv:byte4(op_val(op_execute2)),
                 efirebirdsql_conv:byte4(StmtHandle),

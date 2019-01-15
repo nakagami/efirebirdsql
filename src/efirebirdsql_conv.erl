@@ -5,7 +5,7 @@
 
 -export([byte2/1, byte4/2, byte4/1, pad4/1, list_to_xdr_string/1, list_to_xdr_bytes/1,
     parse_date/1, parse_time/1, parse_timestamp/1, parse_number/2, parse_number/3,
-    params_to_blr/1]).
+    params_to_blr/2]).
 
 %%% little endian 2byte
 byte2(N) ->
@@ -136,11 +136,11 @@ param_to_time(Hour, Minute, Second, Microsecond) ->
     efirebirdsql_conv:byte4((Hour*3600 + Minute*60 + Second) * 10000 + Microsecond div 100).
 
 param_to_blr(V) when is_integer(V) ->
-    {[8, 0, 7, 0], lists:flatten([efirebirdsql_conv:byte4(V), [0, 0, 0, 0]])};
+    {[8, 0, 7, 0], efirebirdsql_conv:byte4(V)};
 param_to_blr(V) when is_binary(V) ->
     B = binary_to_list(V),
     {lists:flatten([14, efirebirdsql_conv:byte2(length(B)), 7, 0]),
-        lists:flatten([B, efirebirdsql_conv:pad4(B), [0, 0, 0, 0]])};
+        lists:flatten([B, efirebirdsql_conv:pad4(B)])};
 param_to_blr(V) when is_list(V) ->
     %% TODO: decimal
     {[], []};
@@ -149,30 +149,46 @@ param_to_blr(V) when is_float(V) ->
     {[], []};
 param_to_blr({Year, Month, Day}) ->
     %% date
-    {[12, 7, 0], lists:flatten([param_to_date(Year, Month, Day), [0, 0, 0, 0]])};
+    {[12, 7, 0], lists:flatten(param_to_date(Year, Month, Day))};
 param_to_blr({Hour, Minute, Second, Microsecond}) ->
     %% time
-    {[13, 7, 0], lists:flatten([param_to_time(Hour, Minute, Second, Microsecond), [0, 0, 0, 0]])};
+    {[13, 7, 0], lists:flatten(param_to_time(Hour, Minute, Second, Microsecond))};
 param_to_blr({{Year, Month, Day}, {Hour, Minute, Second, Microsecond}}) ->
     %% timestamp
     {[35, 7, 0], lists:flatten([param_to_date(Year, Month, Day),
-        param_to_time(Hour, Minute, Second, Microsecond), [0, 0, 0, 0]])};
+        param_to_time(Hour, Minute, Second, Microsecond)])};
 param_to_blr(true) ->
-    {[23, 7, 0], [1, 0, 0, 0, 0, 0, 0, 0]};
+    {[23, 7, 0], [1, 0, 0, 0]};
 param_to_blr(false) ->
-    {[23, 7, 0], [0, 0, 0, 0, 0, 0, 0, 0]};
-param_to_blr(null) ->
-    {[14, 0, 0, 7, 0], [0, 0, 0, 0, 255, 255, 255, 255]}.
+    {[23, 7, 0], [0, 0, 0, 0]}.
 
-params_to_blr([], Blr, Value) ->
+params_to_blr(_AcceptVersion, [], Blr, Value) ->
     {Blr, Value};
-params_to_blr(Params, Blr, Value) ->
+params_to_blr(AcceptVersion, Params, Blr, Value) ->
     [V | RestParams] = Params,
-    {NewBlr, NewValue} = param_to_blr(V),
-    params_to_blr(RestParams, [NewBlr | Blr], [NewValue | Value]).
 
-params_to_blr(Params) ->
-    {BlrBody, Value} = params_to_blr(Params, [], []),
+    {NewBlr, NewValue} = if
+        AcceptVersion >= 13 ->
+            if
+                V =:= null ->
+                    {[], []};
+                V =/= null ->
+                    param_to_blr(V)
+            end;
+        AcceptVersion < 13 ->
+            if
+                V =:= null ->
+                    {[14, 0, 0, 7, 0], [0, 0, 0, 0, 255, 255, 255, 255]};
+                V =/= null ->
+                    {B, V2} = param_to_blr(V),
+                    {B, V2 ++ [0, 0, 0, 0]}
+            end
+        end,
+
+    params_to_blr(AcceptVersion, RestParams, [NewBlr | Blr], [NewValue | Value]).
+
+params_to_blr(AcceptVersion, Params) ->
+    {BlrBody, Value} = params_to_blr(AcceptVersion, Params, [], []),
     L = length(Params) * 2,
     %% TODO: support protocol version 13
     Blr = lists:flatten([[5, 2, 4, 0], efirebirdsql_conv:byte2(L), BlrBody, [255, 76]]),
