@@ -18,6 +18,8 @@
                 auth_data,
                 auth_plugin,
                 wire_crypt,
+                read_state,     % RC4 crypto stream state
+                write_state,    % RC4 crypto stream state
                 db_handle,
                 trans_handle,
                 stmt_handle,
