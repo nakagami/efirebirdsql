@@ -59,7 +59,7 @@ connect(Host, Username, Password, Database, Options, State) ->
                 password=Password,
                 client_private=Private,
                 client_public=Public,
-                auth_plugin=proplists:get_value(auth_plugin, Options, ''),
+                auth_plugin=proplists:get_value(auth_plugin, Options, "Srp"),
                 wire_crypt=proplists:get_value(wire_crypt, Options, false)
             },
             connect_database(Host, Database, IsCreateDB, PageSize, State2);

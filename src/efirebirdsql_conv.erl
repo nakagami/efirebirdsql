@@ -162,6 +162,27 @@ param_to_blr(true) ->
 param_to_blr(false) ->
     {[23, 7, 0], [0, 0, 0, 0]}.
 
+null_indicator_bits([], Ind) ->
+    Ind;
+null_indicator_bits(Params, Ind) ->
+    [X | RestParams] = Params,
+    Flag = if X =:= null -> 1; X =/= null -> 0 end,
+    null_indicator_bits(RestParams, Ind * 2 + Flag).
+
+null_indicator_bits(Params) ->
+    null_indicator_bits(Params, 0).
+
+null_bitmap(Params) ->
+    Bitmap = null_indicator_bits(Params),
+    Len = if
+        length(Params) rem 8 =:= 0 ->
+            length(Params) div 8;
+        length(Params) rem 8 =/= 0 ->
+            length(Params) div 8  + 1
+        end,
+    L = binary_to_list(<<Bitmap:Len/little-unit:8>>),
+    L ++ pad4(L).
+
 params_to_blr(_AcceptVersion, [], Blr, Value) ->
     {Blr, Value};
 params_to_blr(AcceptVersion, Params, Blr, Value) ->
@@ -192,5 +213,11 @@ params_to_blr(AcceptVersion, Params) ->
     L = length(Params) * 2,
     %% TODO: support protocol version 13
     Blr = lists:flatten([[5, 2, 4, 0], efirebirdsql_conv:byte2(L), BlrBody, [255, 76]]),
-    {Blr, Value}.
+    NullBitmap = if
+            AcceptVersion >= 13 ->
+                null_bitmap(Params);
+            AcceptVersion < 13 ->
+                []
+        end,
+    {Blr, NullBitmap ++ Value}.
 

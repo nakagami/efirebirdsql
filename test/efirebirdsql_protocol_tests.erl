@@ -14,8 +14,8 @@ protocol_test() ->
         [{createdb, true}, {auth_plugin, "Srp"}]),
     {ok, S2} = efirebirdsql_protocol:begin_transaction(true, S1),
     {ok, S3} = efirebirdsql_protocol:prepare_statement(
-        <<"SELECT * FROM RDB$RELATIONS">>, S2),
-    {ok, S4} = efirebirdsql_protocol:execute(S3, []),
+        <<"SELECT * FROM RDB$RELATIONS WHERE RDB$SYSTEM_FLAG=?">>, S2),
+    {ok, S4} = efirebirdsql_protocol:execute(S3, [1]),
     _Description = efirebirdsql_protocol:description(S4),
     {ok, Row, S5} = efirebirdsql_protocol:fetchone(S4),
 %    io:format("Rows=~p~n", Row),

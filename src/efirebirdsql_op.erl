@@ -109,26 +109,19 @@ calc_blr(XSqlVars) ->
 %%% create op_connect binary
 op_connect(Host, Database, State) ->
     ?debugFmt("op_connect~n", []),
-    %% PROTOCOL_VERSION,ArchType(Generic),MinAcceptType,MaxAcceptType,Weight
-    %% TODO: switch accept protocol version
-    Protocols = [
-%    Protocols = if State#state.auth_plugin == 'Legacy_Auth' -> [
+    %% PROTOCOL_VERSION,ArchType(Generic)=1,MinAcceptType=0,MaxAcceptType=4,Weight
+    Protocols = if State#state.auth_plugin == "Legacy_Auth" -> [
         [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
         [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
         [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6]
-    ],
-%    Protocols = if State#state.auth_plugin == '' -> [
-%        [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
-%        [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
-%        [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6]
-%    ];
-%        true -> [
-%        [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
-%        [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
-%        [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6],
-%        [255, 255, 128, 13, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 8]
-%    ]
-%    end,
+    ];
+        true -> [
+        [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
+        [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
+        [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6],
+        [255, 255, 128, 13, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 8]
+    ]
+    end,
     Buf = [
         efirebirdsql_conv:byte4(op_val(op_connect)),
         efirebirdsql_conv:byte4(op_val(op_attach)),
@@ -660,23 +653,37 @@ get_raw_value(State, XSqlVar) ->
             S2 = State
     end,
     if
-        L =:= 0 -> V = "", S3 = S2;
-        L > 0 -> {ok, V, S3} = efirebirdsql_socket:recv_align(S2, L)
-    end,
-
-    ?debugFmt("get_raw_value() V=~p~n", [V]),
-    {ok, NullFlag, S4} = efirebirdsql_socket:recv(S3, 4),
-    ?debugFmt("get_raw_value() NullFlag=~p~n", [NullFlag]),
-    case NullFlag of
-        <<0,0,0,0>> -> {V, S4};
-        _ -> {null, S4}
+        L =:= 0 ->
+            {"", S2};
+        L > 0 ->
+            {ok, V, S3} = efirebirdsql_socket:recv_align(S2, L),
+            {V, S3}
     end.
+
+get_raw_or_null_value(State, XSqlVar) ->
+    {V, S2} = get_raw_value(State, XSqlVar),
+    {ok, NullFlag, S3} = efirebirdsql_socket:recv(S2, 4),
+    case NullFlag of
+        <<0,0,0,0>> -> {V, S3};
+        _ -> {null, S3}
+    end.
+
+get_row(State, [], Columns, _NullBitmap, _Idx) ->
+    {lists:reverse(Columns), State};
+get_row(State, XSqlVars, Columns, NullBitmap, Idx) ->
+    [X | RestVars] = XSqlVars,
+    if NullBitmap band (1 bsl Idx) =/= 0 ->
+            {V, S2} = {null, State};
+        true ->
+            {V, S2} = get_raw_value(State, X)
+    end,
+    get_row(S2, RestVars, [V | Columns], NullBitmap, Idx + 1).
 
 get_row(State, [], Columns) ->
     {lists:reverse(Columns), State};
 get_row(State, XSqlVars, Columns) ->
     [X | RestVars] = XSqlVars,
-    {V, S2} = get_raw_value(State, X),
+    {V, S2} = get_raw_or_null_value(State, X),
     get_row(S2, RestVars, [V | Columns]).
 
 get_fetch_response(State, Status, 0, _XSqlVars, Results) ->
@@ -684,10 +691,16 @@ get_fetch_response(State, Status, 0, _XSqlVars, Results) ->
     {lists:reverse(Results),
         if Status =/= 100 -> true; Status =:= 100 -> false end, State};
 get_fetch_response(State, _Status, _Count, XSqlVars, Results) ->
-    {Row, S2} = get_row(State, XSqlVars, []),
+    {Row, S3} = if
+        State#state.accept_version >= 13 ->
+            {NullBitmap, S2} = efirebirdsql_socket:recv_null_bitmap(State, length(State#state.xsqlvars)),
+            get_row(S2, XSqlVars, [], NullBitmap, 0);
+        State#state.accept_version < 13 ->
+            get_row(State, XSqlVars, [])
+        end,
     NewResults = [Row | Results],
-    {ok, <<_:32, NewStatus:32, NewCount:32>>, S3} = efirebirdsql_socket:recv(S2, 12),
-    get_fetch_response(S3, NewStatus, NewCount, XSqlVars, NewResults).
+    {ok, <<_:32, NewStatus:32, NewCount:32>>, S4} = efirebirdsql_socket:recv(S3, 12),
+    get_fetch_response(S4, NewStatus, NewCount, XSqlVars, NewResults).
 
 get_fetch_response(State) ->
     %% TODO: support protocol version 13
@@ -695,14 +708,24 @@ get_fetch_response(State) ->
         {op_response, R, S2} ->
             {op_response, R, S2};
         {op_fetch_response, {Status, Count}, S2} ->
-            {Results, MoreData, S3} = get_fetch_response(State, Status, Count, S2#state.xsqlvars, []),
-            {op_fetch_response, Results, MoreData, S3}
+            {Results, MoreData, S4} = get_fetch_response(State, Status, Count, S2#state.xsqlvars, []),
+            {op_fetch_response, Results, MoreData, S4}
     end.
 
 get_sql_response(State) ->
     %% TODO: support protocol version 13
-    {op_sql_response, _Count, S2} = get_response(State),
-    get_row(S2, S2#state.xsqlvars, []).
+    {op_sql_response, Count, S2} = get_response(State),
+    case Count of
+        0 ->
+            {[], S2};
+        _ ->
+            if State#state.accept_version >= 13 ->
+                {NullBitmap, S3} = efirebirdsql_socket:recv_null_bitmap(State, length(S2#state.xsqlvars)),
+                get_row(S3, S3#state.xsqlvars, [], NullBitmap, 0);
+            State#state.accept_version < 13 ->
+                get_row(S2, S2#state.xsqlvars, [])
+            end
+    end.
 
 op_name(1) -> op_connect;
 op_name(2) -> op_exit;
