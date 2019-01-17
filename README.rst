@@ -38,15 +38,3 @@ Commit and rollback transaction::
 
 
 See also test/efirebirdsql_tests.erl
-
-Server Configuretion with Firebird 3+
---------------------------------------
-
-This driver connect with wire protocol version 10 (Interbase 6),
-So if you use with Firebird 3+ server, you need to modify firebird.conf like below.
-
-::
-
-   AuthServer = Srp, Legacy_Auth
-   WireCrypt = Enabled
-
