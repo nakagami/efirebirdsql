@@ -96,7 +96,7 @@ rollback(C) ->
 -spec close(efirebirdsql:connection())
     -> ok | {error, Reason :: binary()}.
 close(C) ->
-    gen_server:call(C, detach, infinity),
+    gen_server:call(C, close, infinity),
     catch gen_server:cast(C, stop),
     ok.
 

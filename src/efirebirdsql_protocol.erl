@@ -4,7 +4,7 @@
 
 -module(efirebirdsql_protocol).
 
--export([connect/5, connect/6, detach/1, begin_transaction/2]).
+-export([connect/5, connect/6, close/1, begin_transaction/2]).
 -export([allocate_statement/1, prepare_statement/2]).
 -export([execute/2, description/1]).
 -export([commit/1, rollback/1]).
@@ -63,12 +63,18 @@ connect(Host, Username, Password, Database, Options, State) ->
         {error, Reason, State}
     end.
 
-detach(State) ->
+close(State) ->
     S2 = efirebirdsql_socket:send(State,
-        efirebirdsql_op:op_detach(State#state.db_handle)),
-    case efirebirdsql_op:get_response(S2) of
-    {op_response,  {ok, _, _}, S3} -> {ok, S3};
-    {op_response, {error, Msg}, S3} -> {error, Msg, S3}
+        efirebirdsql_op:op_commit_retaining(State#state.trans_handle)),
+    S3 = efirebirdsql_socket:send(S2,
+        efirebirdsql_op:op_detach(S2#state.db_handle)),
+    case efirebirdsql_op:get_response(S3) of
+    {op_response,  {ok, _, _}, S4} ->
+        {ok, S4},
+        gen_tcp:close(S4#state.sock),
+        {ok, #state{}};
+    {op_response, {error, Msg}, S4} ->
+        {error, Msg, S4}
     end.
 
 %% Transaction

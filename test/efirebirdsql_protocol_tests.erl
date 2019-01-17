@@ -18,10 +18,8 @@ protocol_test() ->
     {ok, S4} = efirebirdsql_protocol:execute(S3, [1]),
     _Description = efirebirdsql_protocol:description(S4),
     {ok, Rows, S5} = efirebirdsql_protocol:fetchall(S4),
-%    io:format("Rows=~p~n", Row),
+%    io:format("Rows=~p~n", [Rows]),
 
-    {ok, S6} = efirebirdsql_protocol:rollback(S5).
-%% TODO: detach
-%    {ok, _} = efirebirdsql_protocol:detach(S6).
-
+    {ok, S6} = efirebirdsql_protocol:rollback(S5),
+    {ok, _} = efirebirdsql_protocol:close(S6).
 

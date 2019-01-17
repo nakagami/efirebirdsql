@@ -54,8 +54,8 @@ handle_call(rollback, _From, State) ->
     {error, Reason, S2} -> {reply, Reason, S2}
     end;
 
-handle_call(detach, _From, State) ->
-    case efirebirdsql_protocol:detach(State) of
+handle_call(close, _From, State) ->
+    case efirebirdsql_protocol:close(State) of
     {ok, S2} -> {reply, ok, S2};
     {error, Reason, S2} -> {reply, Reason, S2}
     end;
