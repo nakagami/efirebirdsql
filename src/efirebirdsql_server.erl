@@ -32,42 +32,42 @@ init([]) ->
 
 handle_call({connect, Host, Username, Password, Database, Options}, _From, State) ->
     case efirebirdsql_protocol:connect(Host, Username, Password, Database, Options, State) of
-        {ok, State2} ->
-            {reply, ok, State2};
-        {error, Reason, State2} ->
-            {reply, {error, Reason}, State2}
+    {ok, State2} ->
+        {reply, ok, State2};
+    {error, Reason, State2} ->
+        {reply, {error, Reason}, State2}
     end;
 handle_call({transaction, Options}, _From, State) ->
     AutoCommit = proplists:get_value(auto_commit, Options, true),
     case efirebirdsql_protocol:begin_transaction(AutoCommit, State) of
-        {ok, S2} -> {reply, ok, S2};
-        {error, Reason, S2} -> {reply, Reason, S2}
+    {ok, S2} -> {reply, ok, S2};
+    {error, Reason, S2} -> {reply, Reason, S2}
     end;
 handle_call(commit, _From, State) ->
     case efirebirdsql_protocol:commit(State) of
-        {ok, S2} -> {reply, ok, S2};
-        {error, Reason, S2} -> {reply, Reason, S2}
+    {ok, S2} -> {reply, ok, S2};
+    {error, Reason, S2} -> {reply, Reason, S2}
     end;
 handle_call(rollback, _From, State) ->
     case efirebirdsql_protocol:rollback(State) of
-        {ok, S2} -> {reply, ok, S2};
-        {error, Reason, S2} -> {reply, Reason, S2}
+    {ok, S2} -> {reply, ok, S2};
+    {error, Reason, S2} -> {reply, Reason, S2}
     end;
 
 handle_call(detach, _From, State) ->
     case efirebirdsql_protocol:detach(State) of
-        {ok, S2} -> {reply, ok, S2};
-        {error, Reason, S2} -> {reply, Reason, S2}
+    {ok, S2} -> {reply, ok, S2};
+    {error, Reason, S2} -> {reply, Reason, S2}
     end;
 handle_call({prepare, Sql}, _From, State) ->
     case efirebirdsql_protocol:prepare_statement(Sql, State) of
-        {ok, S2} -> {reply, ok, S2};
-        {error, Reason, S2} -> {reply, Reason, S2}
+    {ok, S2} -> {reply, ok, S2};
+    {error, Reason, S2} -> {reply, Reason, S2}
     end;
 handle_call({execute, Params}, _From, State) ->
     case efirebirdsql_protocol:execute(State, Params) of
-        {ok, S2} -> {reply, ok, S2};
-        {error, Reason, S2} -> {reply, Reason, S2}
+    {ok, S2} -> {reply, ok, S2};
+    {error, Reason, S2} -> {reply, Reason, S2}
     end;
 handle_call(fetchone, _From, State) ->
     {ok, ConvertedRow, S2} = efirebirdsql_protocol:fetchone(State),
@@ -77,16 +77,16 @@ handle_call(fetchall, _From, State) ->
     {reply, {ok, Rows}, S2};
 handle_call(description, _From, State) ->
     case State#state.stmt_type of
-        isc_info_sql_stmt_select
-            -> {reply, efirebirdsql_protocol:description(State), State};
-        _
-            -> {reply, no_result, State}
+    isc_info_sql_stmt_select
+        -> {reply, efirebirdsql_protocol:description(State), State};
+    _
+        -> {reply, no_result, State}
     end;
 handle_call({get_parameter, Name}, _From, State) ->
     Value1 = case lists:keysearch(Name, 1, State#state.parameters) of
         {value, {Name, Value}} -> Value;
         false                  -> undefined
-    end,
+        end,
     {reply, {ok, Value1}, State}.
 
 handle_cast(_Msg, State) ->

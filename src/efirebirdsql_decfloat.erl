@@ -58,7 +58,7 @@ dpd_to_int(Dpd) ->
             8 + B4,
             8 + B7
         ]
-    end,
+        end,
     lists:nth(3, D) * 100 + lists:nth(2, D) * 10 + lists:nth(1, D).
 
 -spec calc_significand_segments(integer(), list()) -> integer().
@@ -84,41 +84,42 @@ calc_significand(Prefix, DpdBits, NumBits) ->
 decimal128_to_sign_digits_exponent(Bin) ->
     %% https://en.wikipedia.org/wiki/Decimal128_floating-point_format
     <<Sign:1, Combination:17, DpdBits:110>> = Bin,
-    if Combination band 2#11111000000000000 =:= 2#11111000000000000, Sign =:= 0 -> "NaN";
-       Combination band 2#11111000000000000 =:= 2#11111000000000000, Sign =:= 1 -> "-NaN";
-       Combination band 2#11111000000000000 =:= 2#11110000000000000, Sign =:= 0 -> "-Infinity";
-       Combination band 2#11111000000000000 =:= 2#11110000000000000, Sign =:= 1 -> "Infinity";
-       true ->
-        Exponent = if
-            Combination band 2#11000000000000000 =:= 2#00000000000000000 ->
-                2#00000000000000 + Combination band 2#111111111111;
-            Combination band 2#11000000000000000 =:= 2#01000000000000000 ->
-                2#01000000000000 + Combination band 2#111111111111;
-            Combination band 2#11000000000000000 =:= 2#10000000000000000 ->
-                2#10000000000000 + Combination band 2#111111111111;
-            Combination band 2#11110000000000000 =:= 2#11000000000000000 ->
-                2#00000000000000 + Combination band 2#111111111111;
-            Combination band 2#11110000000000000 =:= 2#11010000000000000 ->
-                2#01000000000000 + Combination band 2#111111111111;
-            Combination band 2#11110000000000000 =:= 2#11100000000000000 ->
-                2#10000000000000 + Combination band 2#111111111111
-        end - 6176,
-        Prefix = if
-            Combination band 2#11000000000000000 =:= 2#00000000000000000 ->
-                (Combination bsr 12) band 2#111;
-            Combination band 2#11000000000000000 =:= 2#01000000000000000 ->
-                (Combination bsr 12) band 2#111;
-            Combination band 2#11000000000000000 =:= 2#10000000000000000 ->
-                (Combination bsr 12) band 2#111;
-            Combination band 2#11110000000000000 =:= 2#11000000000000000 ->
-                8 + (Combination bsr 12) band 2#1;
-            Combination band 2#11110000000000000 =:= 2#11010000000000000 ->
-                8 + (Combination bsr 12) band 2#1;
-            Combination band 2#11110000000000000 =:= 2#11100000000000000 ->
-                8 + (Combination bsr 12) band 2#1
-        end,
-        Digits = calc_significand(Prefix, DpdBits, 110),
-        {Sign, Digits, Exponent}
+    if
+        Combination band 2#11111000000000000 =:= 2#11111000000000000, Sign =:= 0 -> "NaN";
+        Combination band 2#11111000000000000 =:= 2#11111000000000000, Sign =:= 1 -> "-NaN";
+        Combination band 2#11111000000000000 =:= 2#11110000000000000, Sign =:= 0 -> "-Infinity";
+        Combination band 2#11111000000000000 =:= 2#11110000000000000, Sign =:= 1 -> "Infinity";
+        true ->
+            Exponent = if
+                Combination band 2#11000000000000000 =:= 2#00000000000000000 ->
+                    2#00000000000000 + Combination band 2#111111111111;
+                Combination band 2#11000000000000000 =:= 2#01000000000000000 ->
+                    2#01000000000000 + Combination band 2#111111111111;
+                Combination band 2#11000000000000000 =:= 2#10000000000000000 ->
+                    2#10000000000000 + Combination band 2#111111111111;
+                Combination band 2#11110000000000000 =:= 2#11000000000000000 ->
+                    2#00000000000000 + Combination band 2#111111111111;
+                Combination band 2#11110000000000000 =:= 2#11010000000000000 ->
+                    2#01000000000000 + Combination band 2#111111111111;
+                Combination band 2#11110000000000000 =:= 2#11100000000000000 ->
+                    2#10000000000000 + Combination band 2#111111111111
+                end - 6176,
+            Prefix = if
+                Combination band 2#11000000000000000 =:= 2#00000000000000000 ->
+                    (Combination bsr 12) band 2#111;
+                Combination band 2#11000000000000000 =:= 2#01000000000000000 ->
+                    (Combination bsr 12) band 2#111;
+                Combination band 2#11000000000000000 =:= 2#10000000000000000 ->
+                    (Combination bsr 12) band 2#111;
+                Combination band 2#11110000000000000 =:= 2#11000000000000000 ->
+                    8 + (Combination bsr 12) band 2#1;
+                Combination band 2#11110000000000000 =:= 2#11010000000000000 ->
+                    8 + (Combination bsr 12) band 2#1;
+                Combination band 2#11110000000000000 =:= 2#11100000000000000 ->
+                    8 + (Combination bsr 12) band 2#1
+                end,
+            Digits = calc_significand(Prefix, DpdBits, 110),
+            {Sign, Digits, Exponent}
     end.
 
 %% ------------------------------------------------------------------------------------
@@ -126,8 +127,8 @@ decimal128_to_sign_digits_exponent(Bin) ->
 -spec decimal_fixed_to_decimal(binary(), integer()) -> list().
 decimal_fixed_to_decimal(Bin, Scale) ->
     case decimal128_to_sign_digits_exponent(Bin) of
-        {Sign, V, _} -> efirebirdsql_conv:parse_number(Sign, V, Scale);
-        V -> V
+    {Sign, V, _} -> efirebirdsql_conv:parse_number(Sign, V, Scale);
+    V -> V
     end.
 
 
@@ -135,46 +136,47 @@ decimal_fixed_to_decimal(Bin, Scale) ->
 decimal64_to_decimal(Bin) ->
     %% https://en.wikipedia.org/wiki/Decimal64_floating-point_format
     <<Sign:1, Combination:5, BaseExponent:8, DpdBits:50>> = Bin,
-    if Combination =:= 2#11111, Sign =:= 0 -> "NaN";
-       Combination =:= 2#11111, Sign =:= 1 -> "-NaN";
-       Combination =:= 2#11110, Sign =:= 0 -> "Infinity";
-       Combination =:= 2#11110, Sign =:= 1 -> "-Infinity";
-       true ->
-        Exponent = if
-            Combination band 2#11000 =:= 2#00000 ->
-                2#0000000000 + BaseExponent;
-            Combination band 2#11000 =:= 2#01000 ->
-                2#0100000000 + BaseExponent;
-            Combination band 2#11000 =:= 2#10000 ->
-                2#1000000000 + BaseExponent;
-            Combination band 2#11000 =:= 2#11000 ->
-                2#0000000000 + BaseExponent;
-            Combination band 2#11000 =:= 2#11010 ->
-                2#0100000000 + BaseExponent;
-            Combination band 2#11000 =:= 2#11100 ->
-                2#1000000000 + BaseExponent
-        end - 398,
-        Prefix = if
-            Combination band 2#11000 =:= 2#00000 ->
-                Combination band 2#111;
-            Combination band 2#11000 =:= 2#01000 ->
-                Combination band 2#111;
-            Combination band 2#11000 =:= 2#10000 ->
-                Combination band 2#111;
-            Combination band 2#11000 =:= 2#11000 ->
-                8 + (Combination band 2#1);
-            Combination band 2#11000 =:= 2#11100 ->
-                8 + (Combination band 2#1);
-            Combination band 2#11000 =:= 2#11100 ->
-                8 + (Combination band 2#1)
-        end,
-        Digits = calc_significand(Prefix, DpdBits, 50),
-        efirebirdsql_conv:parse_number(Sign, Digits, Exponent)
+    if
+        Combination =:= 2#11111, Sign =:= 0 -> "NaN";
+        Combination =:= 2#11111, Sign =:= 1 -> "-NaN";
+        Combination =:= 2#11110, Sign =:= 0 -> "Infinity";
+        Combination =:= 2#11110, Sign =:= 1 -> "-Infinity";
+        true ->
+            Exponent = if
+                Combination band 2#11000 =:= 2#00000 ->
+                    2#0000000000 + BaseExponent;
+                Combination band 2#11000 =:= 2#01000 ->
+                    2#0100000000 + BaseExponent;
+                Combination band 2#11000 =:= 2#10000 ->
+                    2#1000000000 + BaseExponent;
+                Combination band 2#11000 =:= 2#11000 ->
+                    2#0000000000 + BaseExponent;
+                Combination band 2#11000 =:= 2#11010 ->
+                    2#0100000000 + BaseExponent;
+                Combination band 2#11000 =:= 2#11100 ->
+                    2#1000000000 + BaseExponent
+            end - 398,
+            Prefix = if
+                Combination band 2#11000 =:= 2#00000 ->
+                    Combination band 2#111;
+                Combination band 2#11000 =:= 2#01000 ->
+                    Combination band 2#111;
+                Combination band 2#11000 =:= 2#10000 ->
+                    Combination band 2#111;
+                Combination band 2#11000 =:= 2#11000 ->
+                    8 + (Combination band 2#1);
+                Combination band 2#11000 =:= 2#11100 ->
+                    8 + (Combination band 2#1);
+                Combination band 2#11000 =:= 2#11100 ->
+                    8 + (Combination band 2#1)
+            end,
+            Digits = calc_significand(Prefix, DpdBits, 50),
+            efirebirdsql_conv:parse_number(Sign, Digits, Exponent)
     end.
 
 -spec decimal128_to_decimal(binary()) -> list().
 decimal128_to_decimal(Bin) ->
     case decimal128_to_sign_digits_exponent(Bin) of
-        {Sign, V, Scale} -> efirebirdsql_conv:parse_number(Sign, V, Scale);
-        V -> V
+    {Sign, V, Scale} -> efirebirdsql_conv:parse_number(Sign, V, Scale);
+    V -> V
     end.

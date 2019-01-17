@@ -3,37 +3,37 @@
 
 -module(efirebirdsql_conv).
 
--export([byte2/1, byte4/2, byte4/1, pad4/1, list_to_xdr_string/1, list_to_xdr_bytes/1,
-    parse_date/1, parse_time/1, parse_timestamp/1, parse_number/2, parse_number/3,
-    params_to_blr/2]).
+-export([byte2/1, byte4/2, byte4/1, pad4/1, list_to_xdr_string/1,
+    list_to_xdr_bytes/1, parse_date/1, parse_time/1, parse_timestamp/1,
+    parse_number/2, parse_number/3, params_to_blr/2]).
 
 %%% little endian 2byte
 byte2(N) ->
     LB = binary:encode_unsigned(N, little),
     LB2 = case size(LB) of
-            1 -> << LB/binary, <<0>>/binary >>;
-            2 -> LB
-        end,
+    1 -> << LB/binary, <<0>>/binary >>;
+    2 -> LB
+    end,
     binary_to_list(LB2).
 
 %%% big endian number list fill 4 byte alignment
 byte4(N, big) ->
     LB = binary:encode_unsigned(N, big),
     LB4 = case size(LB) of
-            1 -> << <<0,0,0>>/binary, LB/binary >>;
-            2 -> << <<0,0>>/binary, LB/binary >>;
-            3 -> << <<0>>/binary, LB/binary >>;
-            4 -> LB
-        end,
+    1 -> << <<0,0,0>>/binary, LB/binary >>;
+    2 -> << <<0,0>>/binary, LB/binary >>;
+    3 -> << <<0>>/binary, LB/binary >>;
+    4 -> LB
+    end,
     binary_to_list(LB4);
 byte4(N, little) ->
     LB = binary:encode_unsigned(N, little),
     LB4 = case size(LB) of
-            1 -> << LB/binary, <<0,0,0>>/binary >>;
-            2 -> << LB/binary, <<0,0>>/binary >>;
-            3 -> << LB/binary, <<0>>/binary >>;
-            4 -> LB
-        end,
+    1 -> << LB/binary, <<0,0,0>>/binary >>;
+    2 -> << LB/binary, <<0,0>>/binary >>;
+    3 -> << LB/binary, <<0>>/binary >>;
+    4 -> LB
+    end,
     binary_to_list(LB4).
 
 byte4(N) ->
@@ -94,8 +94,9 @@ to_decimal(N, Scale) when N >= 0 ->
     Shift = if Scale < 0 -> -Scale; Scale >= 0 -> 0 end,
     V = if Scale =< 0 -> N; Scale > 0 -> N * trunc(math:pow(10, Scale)) end,
     S = integer_to_list(V),
-    S2 = if length(S) =< Shift -> fill0(S, Shift - length(S) + 1);
-            length(S) > Shift -> S
+    S2 = if length(S) =< Shift ->
+        fill0(S, Shift - length(S) + 1);
+        length(S) > Shift -> S
         end,
     {I, F} = lists:split(length(S2) - Shift, S2),
     lists:flatten([I, ".", F]).
@@ -176,9 +177,9 @@ null_bitmap(Params) ->
     Bitmap = null_indicator_bits(Params),
     Len = if
         length(Params) rem 8 =:= 0 ->
-            length(Params) div 8;
+        length(Params) div 8;
         length(Params) rem 8 =/= 0 ->
-            length(Params) div 8  + 1
+        length(Params) div 8  + 1
         end,
     L = binary_to_list(<<Bitmap:Len/little-unit:8>>),
     L ++ pad4(L).
@@ -191,18 +192,16 @@ params_to_blr(AcceptVersion, Params, Blr, Value) ->
     {NewBlr, NewValue} = if
         AcceptVersion >= 13 ->
             if
-                V =:= null ->
-                    {[], []};
-                V =/= null ->
-                    param_to_blr(V)
+            V =:= null -> {[], []};
+            V =/= null -> param_to_blr(V)
             end;
         AcceptVersion < 13 ->
             if
-                V =:= null ->
-                    {[14, 0, 0, 7, 0], [0, 0, 0, 0, 255, 255, 255, 255]};
-                V =/= null ->
-                    {B, V2} = param_to_blr(V),
-                    {B, V2 ++ [0, 0, 0, 0]}
+            V =:= null ->
+                {[14, 0, 0, 7, 0], [0, 0, 0, 0, 255, 255, 255, 255]};
+            V =/= null ->
+                {B, V2} = param_to_blr(V),
+                {B, V2 ++ [0, 0, 0, 0]}
             end
         end,
 
@@ -211,13 +210,9 @@ params_to_blr(AcceptVersion, Params, Blr, Value) ->
 params_to_blr(AcceptVersion, Params) ->
     {BlrBody, Value} = params_to_blr(AcceptVersion, Params, [], []),
     L = length(Params) * 2,
-    %% TODO: support protocol version 13
     Blr = lists:flatten([[5, 2, 4, 0], efirebirdsql_conv:byte2(L), BlrBody, [255, 76]]),
     NullBitmap = if
-            AcceptVersion >= 13 ->
-                null_bitmap(Params);
-            AcceptVersion < 13 ->
-                []
+        AcceptVersion >= 13 -> null_bitmap(Params);
+        AcceptVersion < 13 -> []
         end,
     {Blr, NullBitmap ++ Value}.
-

@@ -2,6 +2,7 @@
 %%% Copyright (c) 2016 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_srp).
+-define(SRP_DEBUG, 0).
 
 -export([get_verifier/3, client_proof/6, client_session/6, server_session/6, get_salt/0, get_private_key/0, client_public/1, server_seed/1, to_hex/1]).
 
@@ -61,16 +62,26 @@ get_verifier(Username, Password, Salt) ->
 -spec get_salt() -> binary().
 get_salt() ->
     Bytes = 32,
-    Bits = Bytes * 8,
-    <<Result:Bits/bits, _/bits>> = crypto:strong_rand_bytes(Bytes),
-    Result.
+    case ?SRP_DEBUG of
+    0 ->
+        Bits = Bytes * 8,
+        <<Result:Bits/bits, _/bits>> = crypto:strong_rand_bytes(Bytes),
+        Result;
+    1 ->
+        int_to_bin(16#02E268803000000079A478A700000002D1A6979000000026E1601C000000054F, Bytes)
+    end.
 
 %% get private key
 -spec get_private_key() -> integer().
 get_private_key() ->
-    Bits = get_key_size(),
-    <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:strong_rand_bytes(get_key_size() div 8),
-    bin_to_int(PrivateKeyBin).
+    case ?SRP_DEBUG of
+    0 ->
+        Bits = get_key_size(),
+        <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:strong_rand_bytes(get_key_size() div 8),
+        bin_to_int(PrivateKeyBin);
+    1 ->
+        16#60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393
+    end.
 
 %% client {Public, Private} keys
 -spec client_public(integer()) -> integer().

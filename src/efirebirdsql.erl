@@ -29,9 +29,9 @@ start_link() ->
         -> ok | {error, Reason :: binary}.
 connect(C, Host, Username, Password, Database, Ops) ->
     case gen_server:call(
-        C, {connect, Host, Username, Password, Database, Ops}, infinity) of
-        ok -> gen_server:call(C, {transaction, Ops}, infinity);
-        Error = {error, _} -> Error
+    C, {connect, Host, Username, Password, Database, Ops}, infinity) of
+    ok -> gen_server:call(C, {transaction, Ops}, infinity);
+    Error = {error, _} -> Error
     end.
 
 -spec connect(string(), string(), string(), string(), [connect_option()])
@@ -39,8 +39,8 @@ connect(C, Host, Username, Password, Database, Ops) ->
 connect(Host, Username, Password, Database, Ops) ->
     {ok, C} = start_link(),
     case connect(C, Host, Username, Password, Database, Ops) of
-        ok -> {ok, C};
-        Error = {error, _} -> Error
+    ok -> {ok, C};
+    Error = {error, _} -> Error
     end.
 
 -spec prepare(connection(), binary())
@@ -52,8 +52,8 @@ prepare(C, QueryString) ->
         -> ok | {error, Reason :: binary()}.
 execute(C, QueryString, Params) ->
     case R = prepare(C, QueryString) of
-        ok -> execute(C, Params);
-        {error, _} -> R
+    ok -> execute(C, Params);
+    {error, _} -> R
     end.
 
 -spec execute(connection(), binary() | list())

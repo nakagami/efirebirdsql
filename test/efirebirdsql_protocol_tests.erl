@@ -17,7 +17,7 @@ protocol_test() ->
         <<"SELECT * FROM RDB$RELATIONS WHERE RDB$SYSTEM_FLAG=?">>, S2),
     {ok, S4} = efirebirdsql_protocol:execute(S3, [1]),
     _Description = efirebirdsql_protocol:description(S4),
-    {ok, Row, S5} = efirebirdsql_protocol:fetchone(S4),
+    {ok, Rows, S5} = efirebirdsql_protocol:fetchall(S4),
 %    io:format("Rows=~p~n", Row),
 
     {ok, S6} = efirebirdsql_protocol:rollback(S5).

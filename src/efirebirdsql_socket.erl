@@ -7,15 +7,23 @@
 
 -include("efirebirdsql.hrl").
 
-send(State, Data) ->
+send(State, Data) when State#state.write_state =:= undefined ->
     gen_tcp:send(State#state.sock, Data),
-    State.
+    State;
+send(State, Message) ->
+    {NewWriteState, Encrypted} = crypto:stream_encrypt(State#state.write_state, Message),
+    gen_tcp:send(State#state.sock, Encrypted),
+    State#state{write_state=NewWriteState}.
 
 recv(State, Len) when Len =:= 0 ->
     {ok, [], State};
-recv(State, Len) ->
+recv(State, Len) when State#state.read_state =:= undefined ->
     {T, V} = gen_tcp:recv(State#state.sock, Len),
-    {T, V, State}.
+    {T, V, State};
+recv(State, Len) ->
+    {T, Encrypted} = gen_tcp:recv(State#state.sock, Len),
+    {NewReadState, Message} = crypto:stream_decrypt(State#state.read_state, Encrypted),
+    {T, Message, State#state{read_state=NewReadState}}.
 
 recv_align(State, Len) ->
     {T, V, S2} = recv(State, Len),
@@ -24,7 +32,7 @@ recv_align(State, Len) ->
         1 -> {_, _, S3} = recv(S2, 3), S3;
         2 -> {_, _, S3} = recv(S2, 2), S3;
         3 -> {_, _, S3} = recv(S2, 1), S3
-    end,
+        end,
     {T, V, S4}.
 
 recv_null_bitmap(State, BitLen) when BitLen =:= 0 ->
@@ -34,7 +42,7 @@ recv_null_bitmap(State, BitLen) ->
     Len = if
         BitLen rem 8 =:= 0 -> Div8;
         BitLen rem 8 =/= 0 -> Div8 + 1
-    end,
+        end,
     {ok, Buf, S2} = recv_align(State, Len),
     <<Bitmap:Len/little-unit:8>> = Buf,
     {Bitmap, S2}.
