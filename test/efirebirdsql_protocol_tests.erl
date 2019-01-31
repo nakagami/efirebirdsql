@@ -8,9 +8,12 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("efirebirdsql.hrl").
 
+tmp_dbname() ->
+    lists:flatten(io_lib:format("/tmp/~p.fdb", [erlang:system_time()])).
+
 protocol_test() ->
     {ok, S1} = efirebirdsql_protocol:connect(
-        "localhost", "sysdba", "masterkey", "/tmp/erlang_protocol_test.fdb",
+        "localhost", "sysdba", "masterkey", tmp_dbname(),
         [{createdb, true}, {auth_plugin, "Srp"}]),
     {ok, S2} = efirebirdsql_protocol:begin_transaction(true, S1),
     {ok, S3} = efirebirdsql_protocol:prepare_statement(

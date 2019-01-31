@@ -8,10 +8,13 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("efirebirdsql.hrl").
 
-create_testdb() ->
+tmp_dbname() ->
+    lists:flatten(io_lib:format("/tmp/~p.fdb", [erlang:system_time()])).
+
+create_testdb(DbName) ->
     %% crete new database
     {ok, C} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb",
+        "localhost", "sysdba", "masterkey", DbName,
         [{createdb, true}]),
     ok = efirebirdsql:execute(C, <<"
         CREATE TABLE foo (
@@ -89,7 +92,8 @@ result2() ->
      {<<"J">>,2.0}].
 
 basic_test() ->
-    create_testdb(),
+    DbName = tmp_dbname(),
+    create_testdb(DbName),
 
     %% connect to bad database
     {error, ErrMsg} = efirebirdsql:connect(
@@ -97,7 +101,7 @@ basic_test() ->
     ?assertEqual(ErrMsg, <<"I/O error during 'open' operation for file 'something_wrong_database'\nError while trying to open file\nNo such file or directory">>),
 
     {ok, C} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb", []),
+        "localhost", "sysdba", "masterkey", DbName, []),
 
     %% execute bad query
     {error, ErrMsg2} = efirebirdsql:prepare(C, <<"bad query statement">>),
@@ -132,7 +136,7 @@ basic_test() ->
 
     %% commit and rollback
     {ok, C2} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", "/tmp/erlang_test.fdb",
+        "localhost", "sysdba", "masterkey", DbName,
         [{auto_commit, false}]),
     ok = efirebirdsql:execute(C2, <<"update foo set c='C'">>),
     ok = efirebirdsql:execute(C2, <<"select * from foo where c='C'">>),
@@ -183,7 +187,7 @@ basic_test() ->
 
     %% Fetch null value issue #6
     {ok, C3} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", "/tmp/erlang_test_issue6.fdb",
+        "localhost", "sysdba", "masterkey", tmp_dbname(),
         [{createdb, true}]),
     ok = efirebirdsql:execute(C3, <<"create table TestTable (ID int, testvalue int)">>),
     ok = efirebirdsql:execute(C3, <<"insert into TestTable (ID, testvalue) values (2, null)">>),
@@ -192,10 +196,10 @@ basic_test() ->
     ?assertEqual(ResultHasNull,  [[{<<"ID">>,2}, {<<"TESTVALUE">>,null}]]).
 
 
-create_fb4_testdb() ->
+create_fb4_testdb(DbName) ->
     %% crete new database
     {ok, C} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", "/tmp/erlang_fb4_test.fdb",
+        "localhost", "sysdba", "masterkey", DbName,
         [{createdb, true}]),
     ok = efirebirdsql:execute(C, <<"
         CREATE TABLE dec_test (
@@ -212,9 +216,10 @@ create_fb4_testdb() ->
     efirebirdsql:close(C).
 
 fb4_fb4_test() ->
-    create_fb4_testdb(),
+    DbName = tmp_dbname(),
+    create_fb4_testdb(DbName),
     {ok, C} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", "/tmp/erlang_fb4_test.fdb", []),
+        "localhost", "sysdba", "masterkey", DbName, []),
 
     ok = efirebirdsql:execute(C, <<"select * from dec_test">>),
     {ok, ResultDecFloat} = efirebirdsql:fetchall(C),
