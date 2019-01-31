@@ -4,7 +4,7 @@
 -module(efirebirdsql_srp).
 -define(SRP_DEBUG, 0).
 
--export([get_verifier/3, client_proof/6, client_session/6, server_session/6, get_salt/0, get_private_key/0, client_public/1, server_seed/1, to_hex/1]).
+-export([get_verifier/3, client_proof/7, client_session/6, server_session/6, get_salt/0, get_private_key/0, client_public/1, server_seed/1, to_hex/1]).
 
 
 -spec int_to_bin(integer()) -> binary().
@@ -123,16 +123,16 @@ server_session(Username, Password, Salt, ClientPublic, ServerPublic, ServerPriva
     SessionSecret = crypto:mod_pow(AVU, ServerPrivate, get_prime()),
     crypto:hash(sha, SessionSecret).
 
--spec client_proof(list(), list(), binary(), integer(), integer(), integer()) -> {binary(), binary()}.
-client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate)
+-spec client_proof(list(), list(), binary(), integer(), integer(), integer(), atom()) -> {binary(), binary()}.
+client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate, Algo)
 ->
     User = list_to_binary(Username),
     K = client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate),
-    N1 = bin_to_int(crypto:hash(sha, int_to_bin(get_prime()))),
-    N2 = bin_to_int(crypto:hash(sha, int_to_bin(get_generator()))),
-    M = crypto:hash(sha, [
+    N1 = bin_to_int(crypto:hash(Algo, int_to_bin(get_prime()))),
+    N2 = bin_to_int(crypto:hash(Algo, int_to_bin(get_generator()))),
+    M = crypto:hash(Algo, [
         crypto:mod_pow(N1, N2, get_prime()),
-        crypto:hash(sha, User),
+        crypto:hash(Algo, User),
         Salt,
         int_to_bin(ClientPublic, get_key_size()),
         int_to_bin(ServerPublic, get_key_size()),
