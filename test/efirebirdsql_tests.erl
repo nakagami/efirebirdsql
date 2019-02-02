@@ -113,6 +113,13 @@ basic_test() ->
     {ok, ResultAll} = efirebirdsql:fetchall(C),
     ?assertEqual(ResultAll,  [result1(), result2()]),
 
+    %% prepare and multi execute
+    ok = efirebirdsql:prepare(C, <<"select * from foo order by a">>),
+    ok = efirebirdsql:execute(C, []),
+    {ok, ResultAll} = efirebirdsql:fetchall(C),
+    ok = efirebirdsql:execute(C, []),
+    {ok, ResultAll} = efirebirdsql:fetchall(C),
+
     %% fetch one by one
     ok = efirebirdsql:execute(C, <<"select * from foo order by a">>),
     {ok, ResultOne} = efirebirdsql:fetchone(C),
