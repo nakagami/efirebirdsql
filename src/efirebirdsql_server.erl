@@ -31,54 +31,61 @@ init([]) ->
     {ok, #state{}}.
 
 handle_call({connect, Host, Username, Password, Database, Options}, _From, State) ->
-    case efirebirdsql_protocol:connect(Host, Username, Password, Database, Options, State) of
-    {ok, State2} ->
-        {reply, ok, State2};
-    {error, Reason, State2} ->
-        {reply, {error, Reason}, State2}
+    case efirebirdsql_protocol:connect(Host, Username, Password, Database, Options) of
+    {ok, Conn} ->
+        {ok, C2, Stmt} = efirebirdsql_protocol:allocate_statement(Conn),
+        {reply, ok, State#state{connection=C2,statement=Stmt}};
+    {error, Reason, Conn} ->
+        {reply, {error, Reason}, State#state{connection=Conn}}
     end;
 handle_call({transaction, Options}, _From, State) ->
+    Conn = State#state.connection,
     AutoCommit = proplists:get_value(auto_commit, Options, true),
-    case efirebirdsql_protocol:begin_transaction(AutoCommit, State) of
-    {ok, S2} -> {reply, ok, S2};
-    {error, Reason, S2} -> {reply, Reason, S2}
+    case efirebirdsql_protocol:begin_transaction(AutoCommit, Conn) of
+    {ok, C2} -> {reply, ok, State#state{connection=C2}};
+    {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
     end;
 handle_call(commit, _From, State) ->
-    case efirebirdsql_protocol:commit(State) of
-    {ok, S2} -> {reply, ok, S2};
-    {error, Reason, S2} -> {reply, Reason, S2}
+    Conn = State#state.connection,
+    case efirebirdsql_protocol:commit(Conn) of
+    {ok, C2} -> {reply, ok, State#state{connection=C2}};
+    {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
     end;
 handle_call(rollback, _From, State) ->
-    case efirebirdsql_protocol:rollback(State) of
-    {ok, S2} -> {reply, ok, S2};
-    {error, Reason, S2} -> {reply, Reason, S2}
+    Conn = State#state.connection,
+    case efirebirdsql_protocol:rollback(Conn) of
+    {ok, C2} -> {reply, ok, State#state{connection=C2}};
+    {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
     end;
-
 handle_call(close, _From, State) ->
-    case efirebirdsql_protocol:close(State) of
-    {ok, S2} -> {reply, ok, S2};
-    {error, Reason, S2} -> {reply, Reason, S2}
+    Conn = State#state.connection,
+    case efirebirdsql_protocol:close(Conn) of
+    {ok, C2} -> {reply, ok, State#state{connection=C2}};
+    {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
     end;
 handle_call({prepare, Sql}, _From, State) ->
-    case efirebirdsql_protocol:prepare_statement(Sql, State) of
-    {ok, S2} -> {reply, ok, S2};
-    {error, Reason, S2} -> {reply, Reason, S2}
+    case efirebirdsql_protocol:prepare_statement(Sql,
+        State#state.connection, State#state.statement) of
+    {ok, C2, Stmt} -> {reply, ok, State#state{connection=C2, statement=Stmt}};
+    {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
     end;
 handle_call({execute, Params}, _From, State) ->
-    case efirebirdsql_protocol:execute(State, Params) of
-    {ok, S2} -> {reply, ok, S2};
-    {error, Reason, S2} -> {reply, Reason, S2}
+    case efirebirdsql_protocol:execute(State#state.connection, State#state.statement, Params) of
+    {ok, C2, Stmt} -> {reply, ok, State#state{connection=C2,statement=Stmt}};
+    {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
     end;
 handle_call(fetchone, _From, State) ->
-    {ok, ConvertedRow, S2} = efirebirdsql_protocol:fetchone(State),
-    {reply, {ok, ConvertedRow}, S2};
+    {ok, ConvertedRow, C2, Stmt} = efirebirdsql_protocol:fetchone(
+        State#state.connection, State#state.statement),
+    {reply, {ok, ConvertedRow}, State#state{connection=C2, statement=Stmt}};
 handle_call(fetchall, _From, State) ->
-    {ok, Rows, S2} = efirebirdsql_protocol:fetchall(State),
-    {reply, {ok, Rows}, S2};
+    {ok, Rows, C2} = efirebirdsql_protocol:fetchall(
+        State#state.connection, State#state.statement),
+    {reply, {ok, Rows}, State#state{connection=C2}};
 handle_call(description, _From, State) ->
-    case State#state.stmt_type of
+    case State#state.statement#stmt.stmt_type of
     isc_info_sql_stmt_select
-        -> {reply, efirebirdsql_protocol:description(State), State};
+        -> {reply, efirebirdsql_protocol:description(State#state.statement), State};
     _
         -> {reply, no_result, State}
     end;

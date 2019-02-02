@@ -7,42 +7,42 @@
 
 -include("efirebirdsql.hrl").
 
-send(State, Data) when State#state.write_state =:= undefined ->
-    gen_tcp:send(State#state.sock, Data),
-    State;
-send(State, Message) ->
-    {NewWriteState, Encrypted} = crypto:stream_encrypt(State#state.write_state, Message),
-    gen_tcp:send(State#state.sock, Encrypted),
-    State#state{write_state=NewWriteState}.
+send(Conn, Data) when Conn#conn.write_state =:= undefined ->
+    gen_tcp:send(Conn#conn.sock, Data),
+    Conn;
+send(Conn, Message) ->
+    {NewWriteState, Encrypted} = crypto:stream_encrypt(Conn#conn.write_state, Message),
+    gen_tcp:send(Conn#conn.sock, Encrypted),
+    Conn#conn{write_state=NewWriteState}.
 
-recv(State, Len) when Len =:= 0 ->
-    {ok, [], State};
-recv(State, Len) when State#state.read_state =:= undefined ->
-    {T, V} = gen_tcp:recv(State#state.sock, Len),
-    {T, V, State};
-recv(State, Len) ->
-    {T, Encrypted} = gen_tcp:recv(State#state.sock, Len),
-    {NewReadState, Message} = crypto:stream_decrypt(State#state.read_state, Encrypted),
-    {T, Message, State#state{read_state=NewReadState}}.
+recv(Conn, Len) when Len =:= 0 ->
+    {ok, [], Conn};
+recv(Conn, Len) when Conn#conn.read_state =:= undefined ->
+    {T, V} = gen_tcp:recv(Conn#conn.sock, Len),
+    {T, V, Conn};
+recv(Conn, Len) ->
+    {T, Encrypted} = gen_tcp:recv(Conn#conn.sock, Len),
+    {NewReadState, Message} = crypto:stream_decrypt(Conn#conn.read_state, Encrypted),
+    {T, Message, Conn#conn{read_state=NewReadState}}.
 
-recv_align(State, Len) ->
-    {T, V, S2} = recv(State, Len),
-    S4 = case Len rem 4 of
-        0 -> S2;
-        1 -> {_, _, S3} = recv(S2, 3), S3;
-        2 -> {_, _, S3} = recv(S2, 2), S3;
-        3 -> {_, _, S3} = recv(S2, 1), S3
+recv_align(Conn, Len) ->
+    {T, V, C2} = recv(Conn, Len),
+    C4 = case Len rem 4 of
+        0 -> C2;
+        1 -> {_, _, C3} = recv(C2, 3), C3;
+        2 -> {_, _, C3} = recv(C2, 2), C3;
+        3 -> {_, _, C3} = recv(C2, 1), C3
         end,
-    {T, V, S4}.
+    {T, V, C4}.
 
-recv_null_bitmap(State, BitLen) when BitLen =:= 0 ->
-    {[], State};
-recv_null_bitmap(State, BitLen) ->
+recv_null_bitmap(Conn, BitLen) when BitLen =:= 0 ->
+    {[], Conn};
+recv_null_bitmap(Conn, BitLen) ->
     Div8 = BitLen div 8,
     Len = if
         BitLen rem 8 =:= 0 -> Div8;
         BitLen rem 8 =/= 0 -> Div8 + 1
         end,
-    {ok, Buf, S2} = recv_align(State, Len),
+    {ok, Buf, C2} = recv_align(Conn, Len),
     <<Bitmap:Len/little-unit:8>> = Buf,
-    {Bitmap, S2}.
+    {Bitmap, C2}.

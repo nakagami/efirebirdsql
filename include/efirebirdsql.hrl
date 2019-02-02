@@ -10,7 +10,7 @@
     null_ind :: true | false
 }).
 
--record(state, {
+-record(conn, {
     sock,
     user,
     password,
@@ -23,11 +23,19 @@
     write_state,    % RC4 crypto stream state
     db_handle,
     trans_handle,
+    accept_version
+}).
+
+-record(stmt, {
     stmt_handle,
-    parameters = [],
     stmt_type,
     xsqlvars = [],
-    rows = [],
-    accept_version
+    rows = []
+}).
+
+-record(state, {
+    parameters = [],
+    connection,
+    statement
 }).
 
