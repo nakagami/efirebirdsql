@@ -18,7 +18,7 @@ random_test() ->
     ServerSession = efirebirdsql_srp:server_session(
         Username, Password, Salt, ClientPublic, ServerPublic, ServerPrivate),
     {_M, ClientSession} = efirebirdsql_srp:client_proof(
-        Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate),
+        Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate, sha),
     ?assertEqual(ServerSession, ClientSession).
 
 bin_hex_test() ->

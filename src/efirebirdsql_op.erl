@@ -483,7 +483,7 @@ get_connect_response(_, State) ->
                 ServerPublic = binary_to_integer(Bin, 16),
                 {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
                     S8#state.user, S8#state.password, Salt,
-                    S8#state.client_public, ServerPublic, S8#state.client_private);
+                    S8#state.client_public, ServerPublic, S8#state.client_private, sha);
             _ ->
                 AuthData = '',
                 SessionKey = ''
