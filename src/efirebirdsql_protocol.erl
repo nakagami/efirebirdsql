@@ -107,9 +107,9 @@ prepare_statement(Sql, State) ->
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
     efirebirdsql_op:get_prepare_statement_response(S2).
 
-free_statement(State) ->
+close_statement(State) ->
     S2 = efirebirdsql_socket:send(State,
-        efirebirdsql_op:op_free_statement(State#state.stmt_handle)),
+        efirebirdsql_op:op_free_statement(State#state.stmt_handle, close)),
     case efirebirdsql_op:get_response(S2) of
     {op_response,  {ok, _, _}, S3} -> {ok, S3};
     {op_response, {error, Msg}, S3} -> {error, Msg, S3}
@@ -145,7 +145,7 @@ execute(State, Params, isc_info_sql_stmt_select) ->
     {op_response, {ok, _, _}, S3} ->
         case fetchrows(S3) of
         {ok, Rows, S4} ->
-            {ok, S5} = free_statement(S4#state{rows=Rows}),
+            {ok, S5} = close_statement(S4#state{rows=Rows}),
             {ok, S5};
         {error, Msg, S4} ->
             {error, Msg, S4}

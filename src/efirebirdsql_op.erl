@@ -5,7 +5,7 @@
 -define(DEBUG_FORMAT(X,Y), ok).
 
 -export([op_connect/3, op_attach/2, op_detach/1, op_create/3, op_transaction/2,
-    op_allocate_statement/1, op_prepare_statement/3, op_free_statement/1,
+    op_allocate_statement/1, op_prepare_statement/3, op_free_statement/2,
     op_execute/2, op_execute2/2, op_fetch/2, op_commit_retaining/1,
     op_rollback_retaining/1, convert_row/3,
     get_response/1, get_connect_response/1, get_fetch_response/1,
@@ -235,14 +235,22 @@ op_prepare_statement(TransHandle, StmtHandle, Sql) ->
         efirebirdsql_conv:byte4(?BUFSIZE)]).
 
 %%% free statement
-op_free_statement(StmtHandle) ->
-    ?DEBUG_FORMAT("op_free_statement~n", []),
+op_free_statement(StmtHandle, close) ->
+    ?DEBUG_FORMAT("op_free_statement(close)~n", []),
     %% DSQL_close = 1
     %% DSQL_drop = 2
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_free_statement)),
         efirebirdsql_conv:byte4(StmtHandle),
-        efirebirdsql_conv:byte4(1)]).
+        efirebirdsql_conv:byte4(1)]);
+op_free_statement(StmtHandle, drop) ->
+    ?DEBUG_FORMAT("op_free_statement(drop)~n", []),
+    %% DSQL_close = 1
+    %% DSQL_drop = 2
+    list_to_binary([
+        efirebirdsql_conv:byte4(op_val(op_free_statement)),
+        efirebirdsql_conv:byte4(StmtHandle),
+        efirebirdsql_conv:byte4(2)]).
 
 op_execute(State, Params) ->
     ?DEBUG_FORMAT("op_execute~n", []),
