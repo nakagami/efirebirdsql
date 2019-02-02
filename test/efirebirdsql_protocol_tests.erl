@@ -13,7 +13,7 @@ tmp_dbname() ->
 
 protocol_test() ->
     {ok, C1} = efirebirdsql_protocol:connect(
-        "localhost", "sysdba", "masterkey", "/tmp/erlang_protocol_test.fdb",
+        "localhost", "sysdba", "masterkey", tmp_dbname(),
         [{createdb, true}, {auth_plugin, "Srp"}]),
     {ok, C2} = efirebirdsql_protocol:begin_transaction(true, C1),
     {ok, C3, Stmt} = efirebirdsql_protocol:allocate_statement(C2),
