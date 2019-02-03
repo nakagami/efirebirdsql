@@ -67,7 +67,6 @@ close(Conn) ->
         efirebirdsql_op:op_detach(C2#conn.db_handle)),
     case efirebirdsql_op:get_response(C3) of
     {op_response,  {ok, _, _}, C4} ->
-        {ok, C4},
         gen_tcp:close(C4#conn.sock),
         {ok, #conn{}};
     {op_response, {error, Msg}, C4} ->
@@ -195,7 +194,7 @@ fetchone(Conn, Stmt) ->
     {ConvertedRow, C2} = efirebirdsql_op:convert_row(Conn, Stmt#stmt.xsqlvars, R),
     {ok, ConvertedRow, C2, Stmt#stmt{rows=Rest}}.
 
-fetchall(Conn, Stmt, ConvertedRows, []) ->
+fetchall(Conn, _Stmt, ConvertedRows, []) ->
     {ok, lists:reverse(ConvertedRows), Conn};
 fetchall(Conn, Stmt, ConvertedRows, Rows) ->
     [R | Rest] = Rows,
