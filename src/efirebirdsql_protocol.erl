@@ -5,7 +5,7 @@
 -module(efirebirdsql_protocol).
 
 -export([connect/5, close/1, begin_transaction/2]).
--export([allocate_statement/1, prepare_statement/3]).
+-export([allocate_statement/1, prepare_statement/3, free_statement/3]).
 -export([execute/3, description/1]).
 -export([commit/1, rollback/1]).
 -export([fetchone/2, fetchall/2]).
