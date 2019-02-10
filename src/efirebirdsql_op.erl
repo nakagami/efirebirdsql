@@ -53,10 +53,11 @@ uid(Host, Conn) ->
     SpecificData = efirebirdsql_srp:to_hex(Conn#conn.client_public),
     Username = Conn#conn.user,
     WireCrypt = Conn#conn.wire_crypt,
+    AuthPlugin = Conn#conn.auth_plugin,
     Data = lists:flatten([
         pack_cnct_param(9, Username),                   %% CNCT_login
-        pack_cnct_param(8, "Srp"),                      %% CNCT_plugin_name
-        pack_cnct_param(10, "Srp"),                     %% CNCT_plugin_list
+        pack_cnct_param(8, AuthPlugin),                 %% CNCT_plugin_name
+        pack_cnct_param(10, "Srp256,Srp"),              %% CNCT_plugin_list
         pack_specific_data_cnct_param(7, SpecificData), %% CNCT_specific_data
         pack_cnct_param(11,
             [if WireCrypt=:=true -> 1; WireCrypt =/= true -> 0 end, 0, 0, 0]
@@ -484,6 +485,12 @@ get_connect_response(_, Conn) ->
                 {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
                     C8#conn.user, C8#conn.password, Salt,
                     C8#conn.client_public, ServerPublic, C8#conn.client_private, sha);
+            "Srp256" ->
+                <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = Data,
+                ServerPublic = binary_to_integer(Bin, 16),
+                {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
+                    C8#conn.user, C8#conn.password, Salt,
+                    C8#conn.client_public, ServerPublic, C8#conn.client_private, sha256);
             _ ->
                 AuthData = '',
                 SessionKey = ''
