@@ -14,9 +14,18 @@ int_to_bin(Int) ->
     Bits = Len1 * 4,
     <<Int:Bits>>.
 -spec int_to_bin(integer(), integer()) -> binary().
-int_to_bin(Int, Bytes) ->
-    Bits = Bytes * 8,
+int_to_bin(Int, BytesLen) ->
+    Bits = BytesLen * 8,
     <<Int:Bits>>.
+
+-spec trim_list(list()) -> list().
+trim_list(List) when is_list(List) ->
+    [R | Rest] = List,
+    if R =:= 0 -> trim_list(Rest); R =/= 0 -> List end.
+-spec pad(integer(), integer()) -> binary().
+pad(Int, MaxBytesLen) ->
+    List = trim_list(binary_to_list(int_to_bin(Int, MaxBytesLen))),
+    list_to_binary(List).
 
 -spec bin_to_int(binary()) -> integer().
 bin_to_int(Bin) ->
@@ -80,8 +89,10 @@ get_private_key() ->
         <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:strong_rand_bytes(get_key_size() div 8),
         bin_to_int(PrivateKeyBin);
     1 ->
-        16#60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393
+        % 16#60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393
+        123649895857416060090951768116563624200
     end.
+
 
 %% client {Public, Private} keys
 -spec client_public(integer()) -> integer().
@@ -102,7 +113,7 @@ server_seed(V) ->
 client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate) ->
     User = list_to_binary(Username),
     Pass = list_to_binary(Password),
-    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic, get_key_size()), int_to_bin(ServerPublic, get_key_size())])),
+    U = bin_to_int(crypto:hash(sha, [pad(ClientPublic, get_key_size()), pad(ServerPublic, get_key_size())])),
     X = get_user_hash(User, Pass, Salt),
     GX = bin_to_int(crypto:mod_pow(get_generator(), X, get_prime())),
     KGX = remainder(get_k() * GX, get_prime()),
