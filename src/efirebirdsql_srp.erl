@@ -145,8 +145,8 @@ client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate
         crypto:mod_pow(N1, N2, get_prime()),
         crypto:hash(Algo, User),
         Salt,
-        int_to_bin(ClientPublic, get_key_size()),
-        int_to_bin(ServerPublic, get_key_size()),
+        pad(ClientPublic, get_key_size()),
+        pad(ServerPublic, get_key_size()),
         K
     ]),
     {M, K}.
