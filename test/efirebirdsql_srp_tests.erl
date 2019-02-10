@@ -3,8 +3,6 @@
 
 -module(efirebirdsql_srp_tests).
 
--compile([export_all]).
-
 -include_lib("eunit/include/eunit.hrl").
 
 random_test() ->

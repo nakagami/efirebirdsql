@@ -28,11 +28,7 @@ start_link() ->
 -spec connect(connection(), string(), string(), string(), string(), [connect_option()])
         -> ok | {error, Reason :: binary}.
 connect(C, Host, Username, Password, Database, Ops) ->
-    case gen_server:call(
-    C, {connect, Host, Username, Password, Database, Ops}, infinity) of
-    ok -> gen_server:call(C, {transaction, Ops}, infinity);
-    Error = {error, _} -> Error
-    end.
+    gen_server:call(C, {connect, Host, Username, Password, Database, Ops}, infinity).
 
 -spec connect(string(), string(), string(), string(), [connect_option()])
         -> {ok, Connection :: connection()} | {error, Reason :: binary()}.

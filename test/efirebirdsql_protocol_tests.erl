@@ -3,8 +3,6 @@
 
 -module(efirebirdsql_protocol_tests).
 
--compile([export_all]).
-
 -include_lib("eunit/include/eunit.hrl").
 -include("efirebirdsql.hrl").
 
@@ -31,3 +29,18 @@ protocol_test() ->
     {ok, C7} = efirebirdsql_protocol:rollback(C6),
     {ok, _} = efirebirdsql_protocol:close(C7).
 
+connect_test(_DbName, 0) ->
+    ok;
+connect_test(DbName, Count) ->
+    {ok, C} = efirebirdsql_protocol:connect(
+        "localhost", "sysdba", "masterkey", DbName,
+        [{auth_plugin, "Srp"}]),
+    efirebirdsql_protocol:close(C),
+    connect_test(DbName, Count-1).
+connect_test() ->
+    DbName = tmp_dbname(),
+    {ok, C} = efirebirdsql_protocol:connect(
+        "localhost", "sysdba", "masterkey", DbName,
+        [{createdb, true}, {auth_plugin, "Srp"}]),
+    efirebirdsql_protocol:close(C),
+    connect_test(DbName, 100).

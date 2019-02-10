@@ -42,6 +42,7 @@ connect(Host, Username, Password, Database, Options) ->
     Port = proplists:get_value(port, Options, 3050),
     IsCreateDB = proplists:get_value(createdb, Options, false),
     PageSize = proplists:get_value(pagesize, Options, 4096),
+    AutoCommit = proplists:get_value(auto_commit, Options, true),
     Private = efirebirdsql_srp:get_private_key(),
     Public = efirebirdsql_srp:client_public(Private),
     case gen_tcp:connect(Host, Port, SockOptions) of
@@ -55,9 +56,14 @@ connect(Host, Username, Password, Database, Options) ->
             auth_plugin=proplists:get_value(auth_plugin, Options, "Srp"),
             wire_crypt=proplists:get_value(wire_crypt, Options, true)
         },
-        connect_database(Conn, Host, Database, IsCreateDB, PageSize);
+        case connect_database(Conn, Host, Database, IsCreateDB, PageSize) of
+        {ok, C2} ->
+            begin_transaction(AutoCommit, C2);
+        {error, Reason, C2} ->
+            {error, Reason, C2}
+        end;
     {error, Reason} ->
-        {error, Reason}
+        {error, Reason, #conn{}}
     end.
 
 close(Conn) ->
