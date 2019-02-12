@@ -5,7 +5,7 @@
 -module(efirebirdsql_protocol).
 
 -export([connect/5, close/1, begin_transaction/2]).
--export([allocate_statement/1, prepare_statement/3, free_statement/3, column_names/1]).
+-export([allocate_statement/1, prepare_statement/3, free_statement/3, columns/1, column_names/1]).
 -export([execute/3, description/1]).
 -export([commit/1, rollback/1]).
 -export([fetchone/2, fetchall/2]).
@@ -124,6 +124,14 @@ column_names(ColumnNames, XSQLVars) ->
     column_names([C#column.name | ColumnNames], Rest).
 column_names(Stmt) ->
     column_names([], Stmt#stmt.xsqlvars).
+
+columns(Columns, []) ->
+    lists:reverse(Columns);
+columns(Columns, XSQLVars) ->
+    [C | Rest] = XSQLVars,
+    columns([{C#column.name, C#column.type, C#column.scale, C#column.length, C#column.null_ind} | Columns], Rest).
+columns(Stmt) ->
+    columns([], Stmt#stmt.xsqlvars).
 
 %% Execute & Fetch
 fetchrows(Results, Conn, Stmt) ->
