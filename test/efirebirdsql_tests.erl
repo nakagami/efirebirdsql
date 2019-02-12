@@ -173,7 +173,7 @@ basic_test() ->
     %% fetch null value
     ok = efirebirdsql:execute(C2, <<"select a,c from foo where A=3">>),
     {ok, ResultNull} = efirebirdsql:fetchone(C2),
-    ?assertEqual(ResultNull,  [{<<"A">>,3}, {<<"C">>,null}]),
+    ?assertEqual(ResultNull,  [{<<"A">>,3}, {<<"C">>,nil}]),
 
     %% procedure call
     ok = efirebirdsql:execute(C2, <<"EXECUTE PROCEDURE foo_proc">>),
@@ -198,7 +198,7 @@ basic_test() ->
     ok = efirebirdsql:execute(C3, <<"insert into TestTable (ID, testvalue) values (2, null)">>),
     ok = efirebirdsql:execute(C3, <<"select * from TestTable">>),
     {ok, ResultHasNull} = efirebirdsql:fetchall(C3),
-    ?assertEqual(ResultHasNull,  [[{<<"ID">>,2}, {<<"TESTVALUE">>,null}]]).
+    ?assertEqual(ResultHasNull,  [[{<<"ID">>,2}, {<<"TESTVALUE">>,nil}]]).
 
 
 create_fb4_testdb(DbName) ->

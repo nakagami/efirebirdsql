@@ -642,8 +642,8 @@ get_blob_data(Conn, BlobId) ->
     R = list_to_binary(SegmentList),
     {ok, R, C6}.
 
-convert_raw_value(Conn, _XSqlVar, null) ->
-    {null, Conn};
+convert_raw_value(Conn, _XSqlVar, nil) ->
+    {nil, Conn};
 convert_raw_value(Conn, XSqlVar, RawValue) ->
     ?DEBUG_FORMAT("convert_raw_value() start~n", []),
     CookedValue = case XSqlVar#column.type of
@@ -746,7 +746,7 @@ get_raw_or_null_value(Conn, XSqlVar) ->
     {ok, NullFlag, C3} = efirebirdsql_socket:recv(C2, 4),
     case NullFlag of
     <<0,0,0,0>> -> {V, C3};
-    _ -> {null, C3}
+    _ -> {nil, C3}
     end.
 
 get_row(Conn, [], Columns, _NullBitmap, _Idx) ->
@@ -754,7 +754,7 @@ get_row(Conn, [], Columns, _NullBitmap, _Idx) ->
 get_row(Conn, XSqlVars, Columns, NullBitmap, Idx) ->
     [X | RestVars] = XSqlVars,
     if NullBitmap band (1 bsl Idx) =/= 0 ->
-            {V, C2} = {null, Conn};
+            {V, C2} = {nil, Conn};
         true ->
             {V, C2} = get_raw_value(Conn, X)
         end,
@@ -939,7 +939,7 @@ sql_type(32758) -> decimal_fixed;
 sql_type(32760) -> decimal64;
 sql_type(32762) -> decimal128;
 sql_type(32764) -> boolean;
-sql_type(32766) -> null.
+sql_type(32766) -> nil.
 
 isc_info_sql_name(Num) ->
     lists:nth(Num, [

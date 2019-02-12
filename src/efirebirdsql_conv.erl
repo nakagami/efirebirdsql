@@ -167,7 +167,7 @@ null_indicator_bits([], Ind) ->
     Ind;
 null_indicator_bits(Params, Ind) ->
     [X | RestParams] = Params,
-    Flag = if X =:= null -> 1; X =/= null -> 0 end,
+    Flag = if X =:= nil -> 1; X =/= nil -> 0 end,
     null_indicator_bits(RestParams, Ind * 2 + Flag).
 
 null_indicator_bits(Params) ->
@@ -192,14 +192,14 @@ params_to_blr(AcceptVersion, Params, Blr, Value) ->
     {NewBlr, NewValue} = if
         AcceptVersion >= 13 ->
             if
-            V =:= null -> {[], []};
-            V =/= null -> param_to_blr(V)
+            V =:= nil -> {[], []};
+            V =/= nil -> param_to_blr(V)
             end;
         AcceptVersion < 13 ->
             if
-            V =:= null ->
+            V =:= nil ->
                 {[14, 0, 0, 7, 0], [0, 0, 0, 0, 255, 255, 255, 255]};
-            V =/= null ->
+            V =/= nil ->
                 {B, V2} = param_to_blr(V),
                 {B, V2 ++ [0, 0, 0, 0]}
             end
