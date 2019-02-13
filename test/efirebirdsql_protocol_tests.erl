@@ -22,10 +22,11 @@ protocol_test() ->
     _Description = efirebirdsql_protocol:description(Stmt3),
     {ok, _Rows, C6} = efirebirdsql_protocol:fetchall(C5, Stmt3),
     ?assertEqual(
-        efirebirdsql_protocol:column_names(Stmt3),
-        [<<"RDB$RELATION_NAME">>, <<"RDB$OWNER_NAME">>]
-    ),
+        efirebirdsql_protocol:columns(Stmt3),
 
+        [{<<"RDB$RELATION_NAME">>,text,0,252,true},
+         {<<"RDB$OWNER_NAME">>,text,0,252,true}]
+    ),
     {ok, C7} = efirebirdsql_protocol:rollback(C6),
     {ok, _} = efirebirdsql_protocol:close(C7).
 
