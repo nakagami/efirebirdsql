@@ -39,7 +39,7 @@ load_timezone_data(Conn) ->
     {ok, C2, Stmt2} = prepare_statement(
         <<"select count(*) from rdb$relations where rdb$relation_name='RDB$TIME_ZONES' and rdb$system_flag=1">>, C1, Stmt),
     {ok, C4, Stmt3} = execute(C2, Stmt2),
-    {ok, [{_, Count}], C5, Stmt4} = fetchone(C4, Stmt3),
+    {[{_, Count}], C5, Stmt4} = fetchone(C4, Stmt3),
 
     TimeZoneData = case Count of
     0 ->
@@ -227,9 +227,15 @@ rollback(Conn) ->
     end.
 
 fetchone(Conn, Stmt) ->
-    [R | Rest] = Stmt#stmt.rows,
-    {ConvertedRow, C2} = efirebirdsql_op:convert_row(Conn, Stmt#stmt.xsqlvars, R),
-    {ok, ConvertedRow, C2, Stmt#stmt{rows=Rest}}.
+    Rows = Stmt#stmt.rows,
+    case length(Rows) of
+    0 ->
+        nil;
+    _ ->
+        [R | Rest] = Rows,
+        {ConvertedRow, C2} = efirebirdsql_op:convert_row(Conn, Stmt#stmt.xsqlvars, R),
+        {ConvertedRow, C2, Stmt#stmt{rows=Rest}}
+    end.
 
 fetchall(Conn, _Stmt, ConvertedRows, []) ->
     {ok, lists:reverse(ConvertedRows), Conn};
