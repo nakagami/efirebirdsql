@@ -612,7 +612,7 @@ get_prepare_statement_response(Conn, Stmt) ->
                 parse_select_columns(C2, Stmt2, [], DescVars);
             _ -> {C2, []}
             end,
-        {ok, C3, Stmt2#stmt{xsqlvars=XSqlVars}};
+        {ok, C3, Stmt2#stmt{xsqlvars=XSqlVars, rows=[]}};
     {error, _} -> {error, R, C2}
     end.
 
