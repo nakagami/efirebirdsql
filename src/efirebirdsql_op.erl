@@ -91,6 +91,8 @@ calc_blr_item(XSqlVar) ->
     decimal_fixed -> [26, convert_scale(XSqlVar#column.scale), 7, 0];
     decimal64 -> [24, 7, 0];
     decimal128 -> [25, 7, 0];
+    time_tz -> [28, 7, 0];
+    timestamp_tz -> [29, 7, 0];
     blob -> [9, 0, 7, 0];
     array -> [9, 0, 7, 0];
     boolean -> [23, 7, 0]
@@ -724,6 +726,8 @@ get_raw_value(Conn, XSqlVar) ->
                 date -> 4;
                 time -> 4;
                 timestamp -> 8;
+                time_tz -> 6;
+                timestamp_tz -> 10;
                 decimal_fixed -> 16;
                 decimal64 -> 8;
                 decimal128 ->  16;
@@ -935,6 +939,8 @@ sql_type(550) -> quad;
 sql_type(560) -> time;
 sql_type(570) -> date;
 sql_type(580) -> int64;
+sql_type(32754) -> timestamp_tz;
+sql_type(32756) -> time_tz;
 sql_type(32758) -> decimal_fixed;
 sql_type(32760) -> decimal64;
 sql_type(32762) -> decimal128;
