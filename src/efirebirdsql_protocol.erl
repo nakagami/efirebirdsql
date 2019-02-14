@@ -6,7 +6,7 @@
 
 -export([connect/5, close/1, begin_transaction/2]).
 -export([allocate_statement/1, prepare_statement/3, free_statement/3, columns/1]).
--export([execute/3, description/1]).
+-export([execute/2, execute/3, description/1]).
 -export([commit/1, rollback/1]).
 -export([fetchone/2, fetchall/2]).
 
@@ -34,6 +34,17 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
         {error, Reason, C3}
     end.
 
+load_timezone_data(Conn) ->
+    {ok, C1, Stmt} = allocate_statement(Conn),
+
+    {ok, C2, Stmt2} = prepare_statement(
+        <<"select count(*) from rdb$relations where rdb$relation_name='RDB$TIME_ZONES' and rdb$system_flag=1">>, C1, Stmt),
+    {ok, C4, Stmt3} = execute(C2, Stmt2),
+    {ok, Row, C5, Stmt4} = fetchone(C4, Stmt3),
+    % TODO: load timezone data
+    free_statement(C5, Stmt4, drop).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % public functions
 
@@ -58,7 +69,11 @@ connect(Host, Username, Password, Database, Options) ->
         },
         case connect_database(Conn, Host, Database, IsCreateDB, PageSize) of
         {ok, C2} ->
-            begin_transaction(AutoCommit, C2);
+            case begin_transaction(AutoCommit, C2) of
+            {ok, C3} ->
+                load_timezone_data(C3);
+            {error, Reason, C3} -> {error, Reason, C3}
+            end;
         {error, Reason, C2} ->
             {error, Reason, C2}
         end;
@@ -175,6 +190,8 @@ execute(Conn, Stmt, Params, _StmtType) ->
 execute(Conn, Stmt, Params) ->
     {ok, C2, Rows} = execute(Conn, Stmt, Params, Stmt#stmt.stmt_type),
     {ok, C2, Stmt#stmt{rows=Rows}}.
+
+execute(Conn, Stmt) -> execute(Conn, Stmt, []).
 
 %% Description
 description([], XSqlVar) ->
