@@ -36,13 +36,19 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
 
 load_timezone_data(Conn) ->
     {ok, C1, Stmt} = allocate_statement(Conn),
-
     {ok, C2, Stmt2} = prepare_statement(
         <<"select count(*) from rdb$relations where rdb$relation_name='RDB$TIME_ZONES' and rdb$system_flag=1">>, C1, Stmt),
     {ok, C4, Stmt3} = execute(C2, Stmt2),
-    {ok, Row, C5, Stmt4} = fetchone(C4, Stmt3),
-    % TODO: load timezone data
-    free_statement(C5, Stmt4, drop).
+    {ok, [{_, Count}], C5, Stmt4} = fetchone(C4, Stmt3),
+
+    TimeZone = case Count of
+    0 ->
+        maps:new();
+    _ ->
+        % TODO: load timezone data
+        maps:new()
+    end,
+    free_statement(C5#conn{timezone=TimeZone}, Stmt4, drop).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

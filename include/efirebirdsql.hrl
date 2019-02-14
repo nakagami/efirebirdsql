@@ -23,7 +23,8 @@
     write_state,    % RC4 crypto stream state
     db_handle,
     trans_handle,
-    accept_version
+    accept_version,
+    timezone
 }).
 
 -record(stmt, {
