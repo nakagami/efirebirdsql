@@ -218,9 +218,20 @@ create_fb4_testdb(DbName) ->
     ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (20.0, 20.0, 20.0, '20.0')">>),
     ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (-1.0, -1.0, -1.0, '-1.0')">>),
     ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (-20.0, -20.0, -20.0, '-20.0')">>),
+
+    ok = efirebirdsql:execute(C, <<"
+        CREATE TABLE tz_test (
+            id INTEGER NOT NULL,
+            t TIME WITH TIME ZONE DEFAULT '12:34:56',
+            ts TIMESTAMP WITH TIME ZONE DEFAULT '1967-08-11 23:45:01',
+            PRIMARY KEY (id)
+        )
+    ">>),
+    ok = efirebirdsql:execute(C, <<"insert into tz_test (id) values (1)">>),
+
     efirebirdsql:close(C).
 
-fb4_fb4_test() ->
+fb4_test() ->
     DbName = tmp_dbname(),
     create_fb4_testdb(DbName),
     {ok, C} = efirebirdsql:connect(
@@ -234,4 +245,7 @@ fb4_fb4_test() ->
         [{<<"D">>,"20.00"}, {<<"DF64">>,"20.0"}, {<<"DF128">>,"20.0"}, {<<"S">>, <<"20.0">>}],
         [{<<"D">>,"-1.00"}, {<<"DF64">>,"-1.0"}, {<<"DF128">>,"-1.0"}, {<<"S">>, <<"-1.0">>}],
         [{<<"D">>,"-20.00"}, {<<"DF64">>,"-20.0"}, {<<"DF128">>,"-20.0"}, {<<"S">>, <<"-20.0">>}]
-    ], ResultDecFloat).
+    ], ResultDecFloat),
+
+    ok = efirebirdsql:execute(C, <<"select * from tz_test">>).
+
