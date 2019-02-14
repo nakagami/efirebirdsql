@@ -4,7 +4,8 @@
 -module(efirebirdsql_conv).
 
 -export([byte2/1, byte4/2, byte4/1, pad4/1, list_to_xdr_string/1,
-    list_to_xdr_bytes/1, parse_date/1, parse_time/1, parse_timestamp/1,
+    list_to_xdr_bytes/1, parse_date/1,
+    parse_time/1, parse_timestamp/1, parse_time_tz/2, parse_timestamp_tz/2,
     parse_number/2, parse_number/3, params_to_blr/2]).
 
 %%% little endian 2byte
@@ -85,6 +86,17 @@ parse_time(RawValue) ->
 parse_timestamp(RawValue) ->
     <<YMD:4/binary, HMS:4/binary>> = RawValue,
     {parse_date(YMD), parse_time(HMS)}.
+
+parse_time_tz(RawValue, _TimeZoneData) ->
+    <<HMS:4/binary, _TimezoneID:16>> = RawValue,
+    % TODO: parse timezone id
+    parse_time(HMS).
+
+parse_timestamp_tz(RawValue, _TimeZoneData) ->
+    <<YMD:4/binary, HMS:4/binary, _TimeZoneID>> = RawValue,
+    % TODO: parse timezone id
+    {parse_date(YMD), parse_time(HMS)}.
+
 
 fill0(S, 0) -> S;
 fill0(S, N) -> fill0([48 | S], N-1).

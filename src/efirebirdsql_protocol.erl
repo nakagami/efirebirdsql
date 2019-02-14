@@ -41,14 +41,14 @@ load_timezone_data(Conn) ->
     {ok, C4, Stmt3} = execute(C2, Stmt2),
     {ok, [{_, Count}], C5, Stmt4} = fetchone(C4, Stmt3),
 
-    TimeZone = case Count of
+    TimeZoneData = case Count of
     0 ->
         maps:new();
     _ ->
         % TODO: load timezone data
         maps:new()
     end,
-    free_statement(C5#conn{timezone=TimeZone}, Stmt4, drop).
+    free_statement(C5#conn{timezone_data=TimeZoneData}, Stmt4, drop).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
