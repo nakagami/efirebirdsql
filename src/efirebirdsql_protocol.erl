@@ -34,6 +34,12 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
         {error, Reason, C3}
     end.
 
+puts_timezone_data(Map, nil) ->
+    Map;
+puts_timezone_data(Map, {[ID, Name], Conn, Stmt}) ->
+    M = maps:put(ID, Name, Map),
+    puts_timezone_data(M, fetchone(Conn, Stmt)).
+
 load_timezone_data(Conn) ->
     {ok, C1, Stmt} = allocate_statement(Conn),
     {ok, C2, Stmt2} = prepare_statement(
@@ -41,12 +47,14 @@ load_timezone_data(Conn) ->
     {ok, C4, Stmt3} = execute(C2, Stmt2),
     {[{_, Count}], C5, Stmt4} = fetchone(C4, Stmt3),
 
+    M = maps:new(),
     TimeZoneData = case Count of
-    0 ->
-        maps:new();
+    0 -> M;
     _ ->
-        % TODO: load timezone data
-        maps:new()
+        {ok, C6, Stmt5} = prepare_statement(
+            <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, C5, Stmt4),
+        {ok, C7, Stmt6} = execute(C6, Stmt5),
+        puts_timezone_data(M, fetchone(C7, Stmt6))
     end,
     free_statement(C5#conn{timezone_data=TimeZoneData}, Stmt4, drop).
 
