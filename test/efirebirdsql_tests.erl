@@ -247,5 +247,8 @@ fb4_test() ->
         [{<<"D">>,"-20.00"}, {<<"DF64">>,"-20.0"}, {<<"DF128">>,"-20.0"}, {<<"S">>, <<"-20.0">>}]
     ], ResultDecFloat),
 
-    ok = efirebirdsql:execute(C, <<"select * from tz_test">>).
+    ok = efirebirdsql:execute(C, <<"select * from tz_test">>),
+    {ok, ResultTimeZone} = efirebirdsql:fetchall(C),
+    ?assertEqual([
+    ], ResultTimeZone).
 

@@ -93,7 +93,7 @@ parse_time_tz(RawValue, _TimeZoneData) ->
     parse_time(HMS).
 
 parse_timestamp_tz(RawValue, _TimeZoneData) ->
-    <<YMD:4/binary, HMS:4/binary, _TimeZoneID>> = RawValue,
+    <<YMD:4/binary, HMS:4/binary, _TimeZoneID:16>> = RawValue,
     % TODO: parse timezone id
     {parse_date(YMD), parse_time(HMS)}.
 
