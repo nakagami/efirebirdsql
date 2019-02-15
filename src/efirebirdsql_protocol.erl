@@ -36,7 +36,7 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
 
 puts_timezone_data(Map, {nil, Conn, Stmt}) ->
     {Map, Conn, Stmt};
-puts_timezone_data(Map, {[ID, Name], Conn, Stmt}) ->
+puts_timezone_data(Map, {[{_, ID}, {_, Name}], Conn, Stmt}) ->
     M = maps:put(ID, Name, Map),
     puts_timezone_data(M, fetchone(Conn, Stmt)).
 
