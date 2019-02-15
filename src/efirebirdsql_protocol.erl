@@ -160,10 +160,11 @@ fetchrows(Results, Conn, Stmt) ->
     XSqlVars = Stmt#stmt.xsqlvars,
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
-    {op_fetch_response, NewResults, MoreData, C3} = efirebirdsql_op:get_fetch_response(C2, Stmt),
+    {op_fetch_response, NextResults, MoreData, C3} = efirebirdsql_op:get_fetch_response(C2, Stmt),
+    NewResults = Results ++ NextResults,
     case MoreData of
-    true -> fetchrows(lists:flatten([Results, NewResults]), C3, Stmt);
-    false -> {ok, Results ++ NewResults, C3}
+    true -> fetchrows(NewResults, C3, Stmt);
+    false -> {ok, NewResults, C3}
     end.
 fetchrows(Conn, Stmt) ->
     fetchrows([], Conn, Stmt).
