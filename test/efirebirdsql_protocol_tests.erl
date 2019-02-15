@@ -43,4 +43,4 @@ connect_test() ->
         "localhost", "sysdba", "masterkey", DbName,
         [{createdb, true}, {auth_plugin, "Srp"}]),
     efirebirdsql_protocol:close(C),
-    connect_test(DbName, 100).
+    connect_test(DbName, 10).

@@ -49,7 +49,7 @@ load_timezone_data(Conn) ->
 
     M = maps:new(),
     case Count of
-    0 -> M,
+    0 ->
         {ok, NewConn} = free_statement(C5, Stmt4, drop),
         Map = M;
     _ ->
