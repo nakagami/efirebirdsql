@@ -248,7 +248,9 @@ fb4_test() ->
     ], ResultDecFloat),
 
     ok = efirebirdsql:execute(C, <<"select * from tz_test">>),
-    {ok, ResultTimeZone} = efirebirdsql:fetchall(C),
-    ?assertEqual([
-    ], ResultTimeZone).
+%    {ok, ResultTimeZone} = efirebirdsql:fetchall(C),
+%    ?assertEqual([
+%        [{<<"ID">>,1}, {<<"T">>,{{3,34,56,0},<<"GMT">>}}, {<<"TS">>,{{1967,8,11},{23,45,1,0}, <<"GMT">>}}]
+%    ], ResultTimeZone).
+    {ok, ResultTimeZone} = efirebirdsql:fetchall(C).
 
