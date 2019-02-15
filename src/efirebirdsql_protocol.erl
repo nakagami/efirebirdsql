@@ -54,7 +54,7 @@ load_timezone_data(Conn) ->
         Map = M;
     _ ->
         {ok, C6, Stmt5} = prepare_statement(
-            <<"select rdb$time_zone_id, trim(rdb$time_zone_name) from rdb$time_zones">>, C5, Stmt4),
+            <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, C5, Stmt4),
         {ok, C7, Stmt6} = execute(C6, Stmt5),
         {Map, C8, Stmt7} = puts_timezone_data(M, fetchone(C7, Stmt6)),
         {ok, NewConn} = free_statement(C8, Stmt7, drop)

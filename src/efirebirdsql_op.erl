@@ -697,6 +697,9 @@ convert_raw_value(Conn, XSqlVar, RawValue) ->
         boolean ->
             C2 = Conn,
             if RawValue =/= <<0,0,0,0>> -> true; true -> false end;
+        text ->
+            C2 = Conn,
+            list_to_binary(lists:reverse(lists:dropwhile(fun(32) -> true; (_) -> false end, lists:reverse(binary_to_list(RawValue)))));
         _ ->
             C2 = Conn,
             RawValue
