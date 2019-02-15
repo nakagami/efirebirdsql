@@ -34,8 +34,8 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
         {error, Reason, C3}
     end.
 
-puts_timezone_data(Map, nil) ->
-    Map;
+puts_timezone_data(Map, {nil, Conn, Stmt}) ->
+    {Map, Conn, Stmt};
 puts_timezone_data(Map, {[ID, Name], Conn, Stmt}) ->
     M = maps:put(ID, Name, Map),
     puts_timezone_data(M, fetchone(Conn, Stmt)).
@@ -48,15 +48,18 @@ load_timezone_data(Conn) ->
     {[{_, Count}], C5, Stmt4} = fetchone(C4, Stmt3),
 
     M = maps:new(),
-    TimeZoneData = case Count of
-    0 -> M;
+    case Count of
+    0 -> M,
+        {ok, NewConn} = free_statement(C5, Stmt4, drop),
+        Map = M;
     _ ->
         {ok, C6, Stmt5} = prepare_statement(
             <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, C5, Stmt4),
         {ok, C7, Stmt6} = execute(C6, Stmt5),
-        puts_timezone_data(M, fetchone(C7, Stmt6))
+        {Map, C8, Stmt7} = puts_timezone_data(M, fetchone(C7, Stmt6)),
+        {ok, NewConn} = free_statement(C8, Stmt7, drop)
     end,
-    free_statement(C5#conn{timezone_data=TimeZoneData}, Stmt4, drop).
+    {ok, NewConn#conn{timezone_data=Map}}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -84,8 +87,7 @@ connect(Host, Username, Password, Database, Options) ->
         case connect_database(Conn, Host, Database, IsCreateDB, PageSize) of
         {ok, C2} ->
             case begin_transaction(AutoCommit, C2) of
-            {ok, C3} ->
-                load_timezone_data(C3);
+            {ok, C3} -> load_timezone_data(C3);
             {error, Reason, C3} -> {error, Reason, C3}
             end;
         {error, Reason, C2} ->
@@ -239,7 +241,7 @@ fetchone(Conn, Stmt) ->
     Rows = Stmt#stmt.rows,
     case length(Rows) of
     0 ->
-        nil;
+        {nil, Conn, Stmt};
     _ ->
         [R | Rest] = Rows,
         {ConvertedRow, C2} = efirebirdsql_op:convert_row(Conn, Stmt#stmt.xsqlvars, R),
