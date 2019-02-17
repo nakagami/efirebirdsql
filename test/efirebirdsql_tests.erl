@@ -235,7 +235,7 @@ fb4_test() ->
     DbName = tmp_dbname(),
     create_fb4_testdb(DbName),
     {ok, C} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", DbName, []),
+        "localhost", "sysdba", "masterkey", DbName, [{timezone, "GMT"}]),
 
     ok = efirebirdsql:execute(C, <<"select * from dec_test">>),
     {ok, ResultDecFloat} = efirebirdsql:fetchall(C),

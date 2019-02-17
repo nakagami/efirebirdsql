@@ -159,11 +159,20 @@ op_attach(Conn, Database) ->
                 29, length(Password), Password  %% isc_dpb_password = 29
             ])
         end,
+    Dpb2 = case Conn#conn.timezone of
+    nil ->
+        Dpb;
+    TimeZone ->
+        lists:flatten([Dpb,
+            91, length(TimeZone), TimeZone  %% isc_dpb_session_time_zone = 91
+        ])
+    end,
+
     list_to_binary(lists:flatten([
         efirebirdsql_conv:byte4(op_val(op_attach)),
         efirebirdsql_conv:byte4(0),
         efirebirdsql_conv:list_to_xdr_string(Database),
-        efirebirdsql_conv:list_to_xdr_bytes(Dpb)])).
+        efirebirdsql_conv:list_to_xdr_bytes(Dpb2)])).
 
 op_detach(DbHandle) ->
     ?DEBUG_FORMAT("op_detatch~n", []),
@@ -203,11 +212,19 @@ op_create(Conn, Database, PageSize) ->
                 4, 4, efirebirdsql_conv:byte4(PageSize, little)   %% isc_dpb_page_size = 4
             ])
         end,
+    Dpb2 = case Conn#conn.timezone of
+    nil ->
+        Dpb;
+    TimeZone ->
+        lists:flatten([Dpb,
+            91, length(TimeZone), TimeZone  %% isc_dpb_session_time_zone = 91
+        ])
+    end,
     list_to_binary(lists:flatten([
         efirebirdsql_conv:byte4(op_val(op_create)),
         efirebirdsql_conv:byte4(0),
         efirebirdsql_conv:list_to_xdr_string(Database),
-        efirebirdsql_conv:list_to_xdr_bytes(Dpb)])).
+        efirebirdsql_conv:list_to_xdr_bytes(Dpb2)])).
 
 %%% begin transaction
 op_transaction(DbHandle, Tpb) ->
