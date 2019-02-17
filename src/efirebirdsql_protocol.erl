@@ -207,11 +207,7 @@ execute(Conn, Stmt, Params, _StmtType) ->
     end.
 
 execute(Conn, Stmt, Params) ->
-    {ok, C2, S2} = case Stmt#stmt.closed of
-    true -> {ok, Conn, Stmt};
-    false -> free_statement(Conn, Stmt, close)
-    end,
-    execute(C2, S2, Params, S2#stmt.stmt_type).
+    execute(Conn, Stmt, Params, Stmt#stmt.stmt_type).
 execute(Conn, Stmt) ->
     execute(Conn, Stmt, []).
 
