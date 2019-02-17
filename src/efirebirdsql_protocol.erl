@@ -82,7 +82,8 @@ connect(Host, Username, Password, Database, Options) ->
             client_private=Private,
             client_public=Public,
             auth_plugin=proplists:get_value(auth_plugin, Options, "Srp"),
-            wire_crypt=proplists:get_value(wire_crypt, Options, true)
+            wire_crypt=proplists:get_value(wire_crypt, Options, true),
+            timezone=proplists:get_value(timezone, Options, nil)
         },
         case connect_database(Conn, Host, Database, IsCreateDB, PageSize) of
         {ok, C2} ->

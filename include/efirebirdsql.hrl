@@ -24,6 +24,7 @@
     db_handle,
     trans_handle,
     accept_version,
+    timezone,
     timezone_data
 }).
 
