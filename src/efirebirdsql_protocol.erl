@@ -151,11 +151,16 @@ allocate_statement(Conn) ->
     end.
 
 prepare_statement(Sql, Conn, Stmt) ->
-    TransHandle = Conn#conn.trans_handle,
-    StmtHandle = Stmt#stmt.stmt_handle,
-    C2 = efirebirdsql_socket:send(Conn,
+    {ok, C2, S2} = case Stmt#stmt.closed of
+    true -> {ok, Conn, Stmt};
+    false -> free_statement(Conn, Stmt, close)
+    end,
+
+    TransHandle = C2#conn.trans_handle,
+    StmtHandle = S2#stmt.stmt_handle,
+    C3 = efirebirdsql_socket:send(C2,
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
-    efirebirdsql_op:get_prepare_statement_response(C2, Stmt).
+    efirebirdsql_op:get_prepare_statement_response(C3, S2).
 
 free_statement(Conn, Stmt, Type) ->
     C2 = efirebirdsql_socket:send(Conn,
@@ -202,7 +207,11 @@ execute(Conn, Stmt, Params, _StmtType) ->
     end.
 
 execute(Conn, Stmt, Params) ->
-    execute(Conn, Stmt, Params, Stmt#stmt.stmt_type).
+    {ok, C2, S2} = case Stmt#stmt.closed of
+    true -> {ok, Conn, Stmt};
+    false -> free_statement(Conn, Stmt, close)
+    end,
+    execute(C2, S2, Params, S2#stmt.stmt_type).
 execute(Conn, Stmt) ->
     execute(Conn, Stmt, []).
 
