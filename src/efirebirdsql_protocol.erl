@@ -34,6 +34,20 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
         {error, Reason, C3}
     end.
 
+fetchrows(Results, Conn, Stmt) ->
+    StmtHandle = Stmt#stmt.stmt_handle,
+    XSqlVars = Stmt#stmt.xsqlvars,
+    C2 = efirebirdsql_socket:send(Conn,
+        efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
+    {op_fetch_response, NextResults, MoreData, C3} = efirebirdsql_op:get_fetch_response(C2, Stmt),
+    NewResults = Results ++ NextResults,
+    case MoreData of
+    true -> fetchrows(NewResults, C3, Stmt);
+    false -> {ok, NewResults, C3}
+    end.
+fetchrows(Conn, Stmt) ->
+    fetchrows([], Conn, Stmt).
+
 puts_timezone_data(Map, {nil, Conn, Stmt}) ->
     {Map, Conn, Stmt};
 puts_timezone_data(Map, {[{_, ID}, {_, Name}], Conn, Stmt}) ->
@@ -157,20 +171,8 @@ columns(Columns, XSQLVars) ->
 columns(Stmt) ->
     columns([], Stmt#stmt.xsqlvars).
 
+
 %% Execute & Fetch
-fetchrows(Results, Conn, Stmt) ->
-    StmtHandle = Stmt#stmt.stmt_handle,
-    XSqlVars = Stmt#stmt.xsqlvars,
-    C2 = efirebirdsql_socket:send(Conn,
-        efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
-    {op_fetch_response, NextResults, MoreData, C3} = efirebirdsql_op:get_fetch_response(C2, Stmt),
-    NewResults = Results ++ NextResults,
-    case MoreData of
-    true -> fetchrows(NewResults, C3, Stmt);
-    false -> {ok, NewResults, C3}
-    end.
-fetchrows(Conn, Stmt) ->
-    fetchrows([], Conn, Stmt).
 
 execute(Conn, Stmt, Params, isc_info_sql_stmt_exec_procedure) ->
     C2 = efirebirdsql_socket:send(Conn,
@@ -211,6 +213,24 @@ execute(Conn, Stmt, Params) ->
 
 execute(Conn, Stmt) -> execute(Conn, Stmt, []).
 
+fetchone(Conn, Stmt) ->
+    Rows = Stmt#stmt.rows,
+    case length(Rows) of
+    0 ->
+        {nil, Conn, Stmt};
+    _ ->
+        [R | Rest] = Rows,
+        {ConvertedRow, C2} = efirebirdsql_op:convert_row(Conn, Stmt#stmt.xsqlvars, R),
+        {ConvertedRow, C2, Stmt#stmt{rows=Rest}}
+    end.
+
+fetchall(Rows, {nil, Conn, _Stmt}) ->
+    {ok, lists:reverse(Rows), Conn};
+fetchall(Rows, {Row, Conn, Stmt}) ->
+    fetchall([Row | Rows], fetchone(Conn, Stmt));
+fetchall(Conn, Stmt) ->
+    fetchall([], fetchone(Conn, Stmt)).
+
 %% Description
 description([], XSqlVar) ->
     lists:reverse(XSqlVar);
@@ -237,21 +257,3 @@ rollback(Conn) ->
     {op_response,  {ok, _, _}, C3} -> {ok, C3};
     {op_response, {error, Msg}, C3} -> {{error, Msg}, C3}
     end.
-
-fetchone(Conn, Stmt) ->
-    Rows = Stmt#stmt.rows,
-    case length(Rows) of
-    0 ->
-        {nil, Conn, Stmt};
-    _ ->
-        [R | Rest] = Rows,
-        {ConvertedRow, C2} = efirebirdsql_op:convert_row(Conn, Stmt#stmt.xsqlvars, R),
-        {ConvertedRow, C2, Stmt#stmt{rows=Rest}}
-    end.
-
-fetchall(Rows, {nil, Conn, _Stmt}) ->
-    {ok, lists:reverse(Rows), Conn};
-fetchall(Rows, {Row, Conn, Stmt}) ->
-    fetchall([Row | Rows], fetchone(Conn, Stmt));
-fetchall(Conn, Stmt) ->
-    fetchall([], fetchone(Conn, Stmt)).
