@@ -41,12 +41,12 @@ ready_fetch_segment(Conn, Stmt) when Stmt#stmt.rows =:= [], Stmt#stmt.more_data 
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
     {op_fetch_response, Rows, MoreData, C3} = efirebirdsql_op:get_fetch_response(C2, Stmt),
     Stmt2 = Stmt#stmt{rows=Rows, more_data=MoreData},
-    {ok, C4} = if MoreData =:= true ->
-        {ok, C3};
+    {ok, C4, Stmt3} = if MoreData =:= true ->
+        {ok, C3, Stmt2};
     MoreData =:= false ->
         free_statement(C3, Stmt2, close)
     end,
-    {C4, Stmt2};
+    {C4, Stmt3};
 ready_fetch_segment(Conn, Stmt) ->
     {Conn, Stmt}.
 
@@ -66,14 +66,14 @@ load_timezone_data(Conn) ->
     M = maps:new(),
     case Count of
     0 ->
-        {ok, NewConn} = free_statement(C5, Stmt4, drop),
+        {ok, NewConn, _} = free_statement(C5, Stmt4, drop),
         Map = M;
     _ ->
         {ok, C6, Stmt5} = prepare_statement(
             <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, C5, Stmt4),
         {ok, C7, Stmt6} = execute(C6, Stmt5),
         {Map, C8, Stmt7} = puts_timezone_data(M, fetchone(C7, Stmt6)),
-        {ok, NewConn} = free_statement(C8, Stmt7, drop)
+        {ok, NewConn, _} = free_statement(C8, Stmt7, drop)
     end,
     {ok, NewConn#conn{timezone_data=Map}}.
 
@@ -161,7 +161,7 @@ free_statement(Conn, Stmt, Type) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_free_statement(Stmt#stmt.stmt_handle, Type)),
     case efirebirdsql_op:get_response(C2) of
-    {op_response,  {ok, _, _}, C3} -> {ok, C3};
+    {op_response,  {ok, _, _}, C3} -> {ok, C3, Stmt#stmt{closed=true}};
     {op_response, {error, Msg}, C3} -> {error, Msg, C3}
     end.
 
