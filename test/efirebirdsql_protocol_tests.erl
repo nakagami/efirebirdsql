@@ -19,15 +19,21 @@ protocol_test() ->
         <<"SELECT rdb$relation_name, rdb$owner_name FROM rdb$relations WHERE rdb$system_flag=?">>, C2, Stmt),
     {ok, C4, Stmt3} = efirebirdsql_protocol:execute(C3, Stmt2, [1]),
     _Description = efirebirdsql_protocol:description(Stmt3),
-    {ok, _Rows, C5} = efirebirdsql_protocol:fetchall(C4, Stmt3),
+
+    {ok, C5, Stmt4} = efirebirdsql_protocol:prepare_statement(
+        <<"SELECT rdb$relation_name, rdb$owner_name FROM rdb$relations WHERE rdb$system_flag=?">>, C4, Stmt3),
+    {ok, C6, Stmt5} = efirebirdsql_protocol:execute(C5, Stmt4, [1]),
+
+    {ok, _Rows, C7} = efirebirdsql_protocol:fetchall(C6, Stmt5),
     ?assertEqual(
-        efirebirdsql_protocol:columns(Stmt3),
+        efirebirdsql_protocol:columns(Stmt5),
 
         [{<<"RDB$RELATION_NAME">>,text,0,252,true},
          {<<"RDB$OWNER_NAME">>,text,0,252,true}]
     ),
-    {ok, C6} = efirebirdsql_protocol:rollback(C5),
-    {ok, _} = efirebirdsql_protocol:close(C6).
+
+    {ok, C8} = efirebirdsql_protocol:rollback(C7),
+    {ok, _} = efirebirdsql_protocol:close(C8).
 
 connect_test(_DbName, 0) ->
     ok;
