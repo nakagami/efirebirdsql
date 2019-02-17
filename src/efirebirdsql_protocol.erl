@@ -223,8 +223,8 @@ fetchone(Conn, Stmt) ->
         {ConvertedRow, C3, S2#stmt{rows=Rest}}
     end.
 
-fetchall(Rows, {nil, Conn, _Stmt}) ->
-    {ok, lists:reverse(Rows), Conn};
+fetchall(Rows, {nil, Conn, Stmt}) ->
+    {ok, lists:reverse(Rows), Conn, Stmt};
 fetchall(Rows, {Row, Conn, Stmt}) ->
     fetchall([Row | Rows], fetchone(Conn, Stmt));
 fetchall(Conn, Stmt) ->
