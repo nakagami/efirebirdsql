@@ -249,13 +249,9 @@ fetchone(Conn, Stmt) ->
         {ConvertedRow, C2, Stmt#stmt{rows=Rest}}
     end.
 
-fetchall(Conn, _Stmt, ConvertedRows, []) ->
-    {ok, lists:reverse(ConvertedRows), Conn};
-fetchall(Conn, Stmt, ConvertedRows, Rows) ->
-    [R | Rest] = Rows,
-    {ConvertedRow, C2} = efirebirdsql_op:convert_row(
-        Conn, Stmt#stmt.xsqlvars, R
-    ),
-    fetchall(C2, Stmt, [ConvertedRow | ConvertedRows], Rest).
+fetchall(Rows, {nil, Conn, _Stmt}) ->
+    {ok, lists:reverse(Rows), Conn};
+fetchall(Rows, {Row, Conn, Stmt}) ->
+    fetchall([Row | Rows], fetchone(Conn, Stmt));
 fetchall(Conn, Stmt) ->
-    fetchall(Conn, Stmt, [], Stmt#stmt.rows).
+    fetchall([], fetchone(Conn, Stmt)).
