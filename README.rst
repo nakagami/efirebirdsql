@@ -39,7 +39,7 @@ Commit and rollback transaction::
 
 See also test/efirebirdsql_tests.erl
 
-Available option parameters
+Available connect option parameters
 -----------------------------------
 
 .. csv-table::
