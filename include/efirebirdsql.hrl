@@ -32,7 +32,8 @@
     stmt_handle,
     stmt_type,
     xsqlvars = [],
-    rows = []
+    rows = [],      %% segment rows values
+    more_data = false   %% has more rows
 }).
 
 -record(state, {

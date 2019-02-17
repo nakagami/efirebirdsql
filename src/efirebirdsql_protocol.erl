@@ -34,6 +34,12 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
         {error, Reason, C3}
     end.
 
+ready_fetch_segment(Conn, Stmt) when Stmt#stmt.rows == [], Stmt#stmt.more_data ->
+    %% TODO:
+    {Conn, Stmt};
+ready_fetch_segment(Conn, Stmt) ->
+    {Conn, Stmt}.
+
 fetchrows(Results, Conn, Stmt) ->
     StmtHandle = Stmt#stmt.stmt_handle,
     XSqlVars = Stmt#stmt.xsqlvars,
@@ -214,9 +220,10 @@ execute(Conn, Stmt, Params) ->
 execute(Conn, Stmt) -> execute(Conn, Stmt, []).
 
 fetchone(Conn, Stmt) ->
-    Rows = Stmt#stmt.rows,
-    case length(Rows) of
-    0 ->
+    {Conn2, Stmt2} = ready_fetch_segment(Conn, Stmt),
+    Rows = Stmt2#stmt.rows,
+    case Rows of
+    [] ->
         {nil, Conn, Stmt};
     _ ->
         [R | Rest] = Rows,
