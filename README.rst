@@ -47,5 +47,5 @@ Available option parameters
 
    port, Port number, 3050
    auto_commit, Autocommit flag, true
-   auth_plugin, Authentication plugin name, "Srp", Firebird 3.0+
+   auth_plugin, Authentication plugin name, \"Srp\", Firebird 3.0+
    wire_crypt, Wire encryptio flag, true, Firebird 3.0+
