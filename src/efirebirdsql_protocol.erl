@@ -34,25 +34,21 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
         {error, Reason, C3}
     end.
 
-ready_fetch_segment(Conn, Stmt) when Stmt#stmt.rows == [], Stmt#stmt.more_data ->
-    %% TODO:
-    {Conn, Stmt};
-ready_fetch_segment(Conn, Stmt) ->
-    {Conn, Stmt}.
-
-fetchrows(Results, Conn, Stmt) ->
+ready_fetch_segment(Conn, Stmt) when Stmt#stmt.rows =:= [], Stmt#stmt.more_data =:= true ->
     StmtHandle = Stmt#stmt.stmt_handle,
     XSqlVars = Stmt#stmt.xsqlvars,
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
-    {op_fetch_response, NextResults, MoreData, C3} = efirebirdsql_op:get_fetch_response(C2, Stmt),
-    NewResults = Results ++ NextResults,
-    case MoreData of
-    true -> fetchrows(NewResults, C3, Stmt);
-    false -> {ok, NewResults, C3}
-    end.
-fetchrows(Conn, Stmt) ->
-    fetchrows([], Conn, Stmt).
+    {op_fetch_response, Rows, MoreData, C3} = efirebirdsql_op:get_fetch_response(C2, Stmt),
+    Stmt2 = Stmt#stmt{rows=Rows, more_data=MoreData},
+    {ok, C4} = if MoreData =:= true ->
+        {ok, C3};
+    MoreData =:= false ->
+        free_statement(C3, Stmt2, close)
+    end,
+    {C4, Stmt2};
+ready_fetch_segment(Conn, Stmt) ->
+    {Conn, Stmt}.
 
 puts_timezone_data(Map, {nil, Conn, Stmt}) ->
     {Map, Conn, Stmt};
@@ -185,50 +181,39 @@ execute(Conn, Stmt, Params, isc_info_sql_stmt_exec_procedure) ->
         efirebirdsql_op:op_execute2(Conn, Stmt, Params)),
     {Row, C3} = efirebirdsql_op:get_sql_response(C2, Stmt),
     case efirebirdsql_op:get_response(C3) of
-    {op_response,  {ok, _, _}, C4} -> {ok, C4, [Row]};
+    {op_response,  {ok, _, _}, C4} -> {ok, C4, Stmt#stmt{rows=[Row], more_data=false}};
     {op_response, {error, Msg}, C4} -> {error, Msg, C4}
-    end
-;
+    end;
 execute(Conn, Stmt, Params, isc_info_sql_stmt_select) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_execute(Conn, Stmt, Params)),
     case efirebirdsql_op:get_response(C2) of
-    {op_response, {ok, _, _}, C3} ->
-        case fetchrows(C3, Stmt) of
-        {ok, Rows, C4} ->
-            {ok, C5} = free_statement(C4, Stmt, close),
-            {ok, C5, Rows};
-        {error, Msg, C4} ->
-            {error, Msg, C4}
-        end;
-    {op_response, {error, Msg}, C3} ->
-        {error, Msg, C3}
-    end
-;
+    {op_response, {ok, _, _}, C3} -> {ok, C3, Stmt#stmt{rows=[], more_data=true}};
+    {op_response, {error, Msg}, C3} -> {error, Msg, C3}
+    end;
 execute(Conn, Stmt, Params, _StmtType) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_execute(Conn, Stmt, Params)),
     case efirebirdsql_op:get_response(C2) of
-    {op_response,  {ok, _, _}, C3} -> {ok, C3, []};
+    {op_response,  {ok, _, _}, C3} -> {ok, C3, Stmt#stmt{rows=[], more_data=false}};
     {op_response, {error, Msg}, C3} -> {error, Msg, C3}
     end.
 
 execute(Conn, Stmt, Params) ->
-    {ok, C2, Rows} = execute(Conn, Stmt, Params, Stmt#stmt.stmt_type),
-    {ok, C2, Stmt#stmt{rows=Rows}}.
-
-execute(Conn, Stmt) -> execute(Conn, Stmt, []).
+    execute(Conn, Stmt, Params, Stmt#stmt.stmt_type).
+execute(Conn, Stmt) ->
+    execute(Conn, Stmt, []).
 
 fetchone(Conn, Stmt) ->
-    {Conn2, Stmt2} = ready_fetch_segment(Conn, Stmt),
-    Rows = Stmt2#stmt.rows,
+    {C2, S2} = ready_fetch_segment(Conn, Stmt),
+    Rows = S2#stmt.rows,
     case Rows of
     [] ->
-        {nil, Conn, Stmt};
+        {nil, C2, S2};
     _ ->
         [R | Rest] = Rows,
-        {ConvertedRow, C2} = efirebirdsql_op:convert_row(Conn, Stmt#stmt.xsqlvars, R),
-        {ConvertedRow, C2, Stmt#stmt{rows=Rest}}
+        {ConvertedRow, C3} = efirebirdsql_op:convert_row(C2, S2#stmt.xsqlvars, R),
+        {ConvertedRow, C3, S2#stmt{rows=Rest}}
     end.
 
 fetchall(Rows, {nil, Conn, _Stmt}) ->
