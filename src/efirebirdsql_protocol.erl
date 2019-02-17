@@ -188,8 +188,10 @@ execute(Conn, Stmt, Params, isc_info_sql_stmt_select) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_execute(Conn, Stmt, Params)),
     case efirebirdsql_op:get_response(C2) of
-    {op_response, {ok, _, _}, C3} -> {ok, C3, Stmt#stmt{rows=[], more_data=true}};
-    {op_response, {error, Msg}, C3} -> {error, Msg, C3}
+    {op_response, {ok, _, _}, C3} ->
+        {ok, C3, Stmt#stmt{rows=[], more_data=true, closed=false}};
+    {op_response, {error, Msg}, C3} ->
+        {error, Msg, C3}
     end;
 execute(Conn, Stmt, Params, _StmtType) ->
     C2 = efirebirdsql_socket:send(Conn,
