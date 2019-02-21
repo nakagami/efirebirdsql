@@ -695,10 +695,10 @@ convert_raw_value(Conn, XSqlVar, RawValue) ->
             efirebirdsql_conv:parse_timestamp(RawValue);
         time_tz ->
             C2 = Conn,
-            efirebirdsql_conv:parse_time_tz(RawValue, Conn#conn.timezone_data);
+            efirebirdsql_conv:parse_time_tz(RawValue, Conn#conn.timezone_name_by_id);
         timestamp_tz ->
             C2 = Conn,
-            efirebirdsql_conv:parse_timestamp_tz(RawValue, Conn#conn.timezone_data);
+            efirebirdsql_conv:parse_timestamp_tz(RawValue, Conn#conn.timezone_name_by_id);
         decimal_fixed ->
             C2 = Conn,
             efirebirdsql_decfloat:decimal_fixed_to_decimal(RawValue, XSqlVar#column.scale);

@@ -50,11 +50,12 @@ ready_fetch_segment(Conn, Stmt) when Stmt#stmt.rows =:= [], Stmt#stmt.more_data 
 ready_fetch_segment(Conn, Stmt) ->
     {Conn, Stmt}.
 
-puts_timezone_data(Map, {nil, Conn, Stmt}) ->
-    {Map, Conn, Stmt};
-puts_timezone_data(Map, {[{_, ID}, {_, Name}], Conn, Stmt}) ->
-    M = maps:put(ID, Name, Map),
-    puts_timezone_data(M, fetchone(Conn, Stmt)).
+puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, {nil, Conn, Stmt}) ->
+    {TimeZoneNameById, TimeZoneIdByName, Conn, Stmt};
+puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, {[{_, ID}, {_, Name}], Conn, Stmt}) ->
+    TimeZoneNameById2 = maps:put(ID, Name, TimeZoneNameById),
+    TimeZoneIdByName2 = maps:put(Name, ID, TimeZoneIdByName),
+    puts_timezone_data(TimeZoneNameById2, TimeZoneIdByName2, fetchone(Conn, Stmt)).
 
 load_timezone_data(Conn) ->
     {ok, C1, Stmt} = allocate_statement(Conn),
@@ -63,19 +64,21 @@ load_timezone_data(Conn) ->
     {ok, C4, Stmt3} = execute(C2, Stmt2),
     {[{_, Count}], C5, Stmt4} = fetchone(C4, Stmt3),
 
-    M = maps:new(),
+    TimeZoneNameById = maps:new(),
+    TimeZoneIdByName = maps:new(),
     case Count of
     0 ->
         {ok, NewConn, _} = free_statement(C5, Stmt4, drop),
-        Map = M;
+        TimeZoneNameById2 = TimeZoneNameById,
+        TimeZoneIdByName2 = TimeZoneIdByName;
     _ ->
         {ok, C6, Stmt5} = prepare_statement(
             <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, C5, Stmt4),
         {ok, C7, Stmt6} = execute(C6, Stmt5),
-        {Map, C8, Stmt7} = puts_timezone_data(M, fetchone(C7, Stmt6)),
+        {TimeZoneNameById2, TimeZoneIdByName2, C8, Stmt7} = puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, fetchone(C7, Stmt6)),
         {ok, NewConn, _} = free_statement(C8, Stmt7, drop)
     end,
-    {ok, NewConn#conn{timezone_data=Map}}.
+    {ok, NewConn#conn{timezone_name_by_id=TimeZoneNameById2, timezone_id_by_name=TimeZoneIdByName2}}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

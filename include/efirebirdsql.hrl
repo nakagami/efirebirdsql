@@ -25,7 +25,8 @@
     trans_handle,
     accept_version,
     timezone,
-    timezone_data
+    timezone_name_by_id,
+    timezone_id_by_name
 }).
 
 -record(stmt, {
