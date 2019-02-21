@@ -162,7 +162,8 @@ op_attach(Conn, Database) ->
     Dpb2 = case Conn#conn.timezone of
     nil ->
         Dpb;
-    TimeZone ->
+    TimeZoneBin ->
+        TimeZone = binary_to_list(TimeZoneBin),
         lists:flatten([Dpb,
             91, length(TimeZone), TimeZone  %% isc_dpb_session_time_zone = 91
         ])
@@ -215,7 +216,8 @@ op_create(Conn, Database, PageSize) ->
     Dpb2 = case Conn#conn.timezone of
     nil ->
         Dpb;
-    TimeZone ->
+    TimeZoneBin ->
+        TimeZone = binary_to_list(TimeZoneBin),
         lists:flatten([Dpb,
             91, length(TimeZone), TimeZone  %% isc_dpb_session_time_zone = 91
         ])
