@@ -6,7 +6,7 @@
 -export([byte2/1, byte4/2, byte4/1, pad4/1, list_to_xdr_string/1,
     list_to_xdr_bytes/1, parse_date/1,
     parse_time/1, parse_timestamp/1, parse_time_tz/2, parse_timestamp_tz/2,
-    parse_number/2, parse_number/3, params_to_blr/2]).
+    parse_number/2, parse_number/3, params_to_blr/3]).
 
 %%% little endian 2byte
 byte2(N) ->
@@ -87,14 +87,14 @@ parse_timestamp(RawValue) ->
     <<YMD:4/binary, HMS:4/binary>> = RawValue,
     {parse_date(YMD), parse_time(HMS)}.
 
-parse_time_tz(RawValue, TimeZoneData) ->
+parse_time_tz(RawValue, TimeZoneNameById) ->
     <<HMS:4/binary, TimeZoneID:16>> = RawValue,
-    TimeZoneName = maps:get(TimeZoneID, TimeZoneData),
+    TimeZoneName = maps:get(TimeZoneID, TimeZoneNameById),
     {parse_time(HMS), TimeZoneName}.
 
-parse_timestamp_tz(RawValue, TimeZoneData) ->
+parse_timestamp_tz(RawValue, TimeZoneNameById) ->
     <<YMD:4/binary, HMS:4/binary, TimeZoneID:16>> = RawValue,
-    TimeZoneName = maps:get(TimeZoneID, TimeZoneData),
+    TimeZoneName = maps:get(TimeZoneID, TimeZoneNameById),
     {parse_date(YMD), parse_time(HMS), TimeZoneName}.
 
 fill0(S, 0) -> S;
@@ -142,44 +142,47 @@ param_to_date(Year, Month, Day) ->
     C = JY div 100,
     JY2 = JY - 100 * C,
     J = (146097 * C) div 4 + (1461 * JY2) div 4 + (153 * JM + 2) div 5 + Day - 678882,
-    efirebirdsql_conv:byte4(J).
+    byte4(J).
 
 param_to_time(Hour, Minute, Second, Microsecond) ->
-    efirebirdsql_conv:byte4((Hour*3600 + Minute*60 + Second) * 10000 + Microsecond div 100).
+    byte4((Hour*3600 + Minute*60 + Second) * 10000 + Microsecond div 100).
 
-param_to_blr(V) when is_integer(V) ->
-    {[8, 0, 7, 0], efirebirdsql_conv:byte4(V)};
-param_to_blr(V) when is_binary(V) ->
+param_to_blr(V, _) when is_integer(V) ->
+    {[8, 0, 7, 0], byte4(V)};
+param_to_blr(V, _) when is_binary(V) ->
     B = binary_to_list(V),
-    {lists:flatten([14, efirebirdsql_conv:byte2(length(B)), 7, 0]),
-        lists:flatten([B, efirebirdsql_conv:pad4(B)])};
-param_to_blr(V) when is_list(V) ->
+    {lists:flatten([14, byte2(length(B)), 7, 0]),
+        lists:flatten([B, pad4(B)])};
+param_to_blr(V, TimeZoneIdByName) when is_list(V) ->
     %% decimal
-    param_to_blr(list_to_binary(V));
-param_to_blr(V) when is_float(V) ->
+    param_to_blr(list_to_binary(V), TimeZoneIdByName);
+param_to_blr(V, TimeZoneIdByName) when is_float(V) ->
     %% float
-    param_to_blr(float_to_binary(V));
-param_to_blr({Year, Month, Day}) ->
+    param_to_blr(float_to_binary(V), TimeZoneIdByName);
+param_to_blr({{Hour, Minute, Second, Microsecond}, TimeZone}, TimeZoneIdByName) ->
+    %% time with timezone
+    TimeZoneId = maps:get(TimeZone, TimeZoneIdByName),
+    {[28, 7, 0], lists:flatten(
+        [param_to_time(Hour, Minute, Second, Microsecond), byte4(TimeZoneId, big)]
+    )};
+param_to_blr({{Year, Month, Day}, {Hour, Minute, Second, Microsecond}, TimeZone}, TimeZoneIdByName) ->
+    %% timestamp with timezone
+    TimeZoneId = maps:get(TimeZone, TimeZoneIdByName),
+    {[29, 7, 0], lists:flatten([param_to_date(Year, Month, Day),
+        param_to_time(Hour, Minute, Second, Microsecond), byte4(TimeZoneId, big)])};
+param_to_blr({Year, Month, Day}, _) ->
     %% date
     {[12, 7, 0], lists:flatten(param_to_date(Year, Month, Day))};
-param_to_blr({Hour, Minute, Second, Microsecond}) ->
+param_to_blr({Hour, Minute, Second, Microsecond}, _) ->
     %% time
     {[13, 7, 0], lists:flatten(param_to_time(Hour, Minute, Second, Microsecond))};
-param_to_blr({{Year, Month, Day}, {Hour, Minute, Second, Microsecond}}) ->
+param_to_blr({{Year, Month, Day}, {Hour, Minute, Second, Microsecond}}, _) ->
     %% timestamp
     {[35, 7, 0], lists:flatten([param_to_date(Year, Month, Day),
         param_to_time(Hour, Minute, Second, Microsecond)])};
-param_to_blr({{Hour, Minute, Second, Microsecond}, TimeZone}) ->
-    %% time with timezone
-    %% TODO
-    {[], []};
-param_to_blr({{Year, Month, Day}, {Hour, Minute, Second, Microsecond}, TimeZone}) ->
-    %% timestamp with timezone
-    %% TODO
-    {[], []};
-param_to_blr(true) ->
+param_to_blr(true, _) ->
     {[23, 7, 0], [1, 0, 0, 0]};
-param_to_blr(false) ->
+param_to_blr(false, _) ->
     {[23, 7, 0], [0, 0, 0, 0]}.
 
 null_indicator_bits([], Ind) ->
@@ -203,33 +206,33 @@ null_bitmap(Params) ->
     L = binary_to_list(<<Bitmap:Len/little-unit:8>>),
     L ++ pad4(L).
 
-params_to_blr(_AcceptVersion, [], Blr, Value) ->
+params_to_blr(_AcceptVersion, _TimeZoneIdByName, [], Blr, Value) ->
     {Blr, Value};
-params_to_blr(AcceptVersion, Params, Blr, Value) ->
+params_to_blr(AcceptVersion, TimeZoneIdByName, Params, Blr, Value) ->
     [V | RestParams] = Params,
 
     {NewBlr, NewValue} = if
         AcceptVersion >= 13 ->
             if
             V =:= nil -> {[], []};
-            V =/= nil -> param_to_blr(V)
+            V =/= nil -> param_to_blr(V, TimeZoneIdByName)
             end;
         AcceptVersion < 13 ->
             if
             V =:= nil ->
                 {[14, 0, 0, 7, 0], [0, 0, 0, 0, 255, 255, 255, 255]};
             V =/= nil ->
-                {B, V2} = param_to_blr(V),
+                {B, V2} = param_to_blr(V, TimeZoneIdByName),
                 {B, V2 ++ [0, 0, 0, 0]}
             end
         end,
 
-    params_to_blr(AcceptVersion, RestParams, [NewBlr | Blr], [NewValue | Value]).
+    params_to_blr(AcceptVersion, TimeZoneIdByName, RestParams, [NewBlr | Blr], [NewValue | Value]).
 
-params_to_blr(AcceptVersion, Params) ->
-    {BlrBody, Value} = params_to_blr(AcceptVersion, Params, [], []),
+params_to_blr(AcceptVersion, TimeZoneIdByName, Params) ->
+    {BlrBody, Value} = params_to_blr(AcceptVersion, TimeZoneIdByName, Params, [], []),
     L = length(Params) * 2,
-    Blr = lists:flatten([[5, 2, 4, 0], efirebirdsql_conv:byte2(L), BlrBody, [255, 76]]),
+    Blr = lists:flatten([[5, 2, 4, 0], byte2(L), BlrBody, [255, 76]]),
     NullBitmap = if
         AcceptVersion >= 13 -> null_bitmap(Params);
         AcceptVersion < 13 -> []

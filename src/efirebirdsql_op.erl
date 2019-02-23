@@ -289,7 +289,8 @@ op_execute(Conn, Stmt, Params) ->
             efirebirdsql_conv:byte4(0),
             efirebirdsql_conv:byte4(0)]);
     length(Params) > 0 ->
-        {Blr, Value} = efirebirdsql_conv:params_to_blr(Conn#conn.accept_version, Params),
+        {Blr, Value} = efirebirdsql_conv:params_to_blr(
+            Conn#conn.accept_version, Conn#conn.timezone_id_by_name, Params),
         list_to_binary([
             efirebirdsql_conv:byte4(op_val(op_execute)),
             efirebirdsql_conv:byte4(StmtHandle),
