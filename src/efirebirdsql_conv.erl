@@ -207,7 +207,7 @@ null_bitmap(Params) ->
     L ++ pad4(L).
 
 params_to_blr(_AcceptVersion, _TimeZoneIdByName, [], Blr, Value) ->
-    {Blr, Value};
+    {lists:reverse(Blr), lists:reverse(Value)};
 params_to_blr(AcceptVersion, TimeZoneIdByName, Params, Blr, Value) ->
     [V | RestParams] = Params,
 
