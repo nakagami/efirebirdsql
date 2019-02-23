@@ -6,9 +6,10 @@
 
 -export([connect/5, close/1, begin_transaction/2]).
 -export([allocate_statement/1, prepare_statement/3, free_statement/3, columns/1]).
--export([execute/2, execute/3, description/1]).
+-export([execute/2, execute/3]).
+-export([fetchone/2, fetchall/2, fetchsegment/2]).
+-export([description/1]).
 -export([commit/1, rollback/1]).
--export([fetchone/2, fetchall/2]).
 
 -include("efirebirdsql.hrl").
 
@@ -238,6 +239,14 @@ fetchall(Rows, {Row, Conn, Stmt}) ->
     fetchall([Row | Rows], fetchone(Conn, Stmt));
 fetchall(Conn, Stmt) ->
     fetchall([], fetchone(Conn, Stmt)).
+
+fetchsegment(Rows, {nil, Conn, Stmt}) ->
+    {ok, lists:reverse(Rows), Conn, Stmt};
+fetchsegment(Rows, {Row, Conn, Stmt}) ->
+    fetchsegment([Row | Rows], fetchrow(Conn, Stmt));
+fetchsegment(Conn, Stmt) ->
+    {C2, S2} = ready_fetch_segment(Conn, Stmt),
+    fetchsegment([], fetchrow(C2, S2)).
 
 %% Description
 description([], XSqlVar) ->
