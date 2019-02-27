@@ -73,7 +73,7 @@ segments_bits(DpdBits, NumSegments, Segments) ->
     NextSegment = DpdBits band 2#1111111111,
     segments_bits(DpdBits bsr 10, NumSegments - 1, [NextSegment | Segments]).
 
--spec calc_significand(integer(), binary(), integer()) -> integer().
+-spec calc_significand(non_neg_integer(), non_neg_integer(), integer()) -> non_neg_integer().
 calc_significand(Prefix, DpdBits, NumBits) ->
     %% https://en.wikipedia.org/wiki/Decimal128_floating-point_format#Densely_packed_decimal_significand_field
     NumSegments = NumBits div 10,
