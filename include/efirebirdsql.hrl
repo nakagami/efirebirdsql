@@ -47,7 +47,8 @@
 -record(state, {
     parameters = [],
     connection,
-    statement
+    statement,
+    error_message
 }).
 
 -type state() :: #state{}.

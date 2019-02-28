@@ -33,23 +33,25 @@ init([]) ->
 handle_call({connect, Host, Username, Password, Database, Options}, _From, State) ->
     case efirebirdsql_protocol:connect(Host, Username, Password, Database, Options) of
     {ok, Conn} ->
-        {ok, C2, Stmt} = efirebirdsql_protocol:allocate_statement(Conn),
-        {reply, ok, State#state{connection=C2,statement=Stmt}};
+        case efirebirdsql_protocol:allocate_statement(Conn) of
+        {ok, C2, Stmt} -> {reply, ok, State#state{connection=C2, statement=Stmt}};
+        {error, Reason, C2} -> {reply, {error, allocate_statement}, State#state{connection=C2, error_message=Reason}}
+        end;
     {error, Reason, Conn} ->
-        {reply, {error, Reason}, State#state{connection=Conn}}
+        {reply, {error, connect}, State#state{connection=Conn, error_message=Reason}}
     end;
 handle_call({transaction, Options}, _From, State) ->
     Conn = State#state.connection,
     AutoCommit = proplists:get_value(auto_commit, Options, true),
     case efirebirdsql_protocol:begin_transaction(AutoCommit, Conn) of
     {ok, C2} -> {reply, ok, State#state{connection=C2}};
-    {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
+    {error, Reason, C2} -> {reply, {error, begin_transaction}, State#state{connection=C2, error_message=Reason}}
     end;
 handle_call(commit, _From, State) ->
     Conn = State#state.connection,
     case efirebirdsql_protocol:commit(Conn) of
     {ok, C2} -> {reply, ok, State#state{connection=C2}};
-    {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
+    {error, Reason, C2} -> {reply, commit, State#state{connection=C2, error_message=Reason}}
     end;
 handle_call(rollback, _From, State) ->
     Conn = State#state.connection,
@@ -75,12 +77,8 @@ handle_call({execute, Params}, _From, State) ->
     {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
     end;
 handle_call(fetchone, _From, State) ->
-    case efirebirdsql_protocol:fetchone(State#state.connection, State#state.statement) of
-    {ConvertedRow, C2, Stmt} ->
-        {reply, {ok, ConvertedRow}, State#state{connection=C2, statement=Stmt}};
-    nil ->
-        {reply, {ok, nil}, State}
-    end;
+    {ConvertedRow, C2, Stmt} = efirebirdsql_protocol:fetchone(State#state.connection, State#state.statement),
+    {reply, {ok, ConvertedRow}, State#state{connection=C2, statement=Stmt}};
 handle_call(fetchall, _From, State) ->
     {ok, Rows, C2, S2} = efirebirdsql_protocol:fetchall(
         State#state.connection, State#state.statement),

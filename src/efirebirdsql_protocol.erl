@@ -16,7 +16,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Utility functions in module
 
--spec connect_database(conn(), list(), list(), boolean(), integer()) -> {ok, conn()} | {error, binary(), conn()}.
+-spec connect_database(conn(), list(), list(), boolean(), integer()) -> {ok, conn()} | {error, atom(), conn()}.
 connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_connect(Conn, Host, Database)),
@@ -124,7 +124,8 @@ connect(Host, Username, Password, Database, Options) ->
         case connect_database(Conn, Host, Database, IsCreateDB, PageSize) of
         {ok, C2} ->
             case begin_transaction(AutoCommit, C2) of
-            {ok, C3} -> load_timezone_data(C3);
+            {ok, C3} -> {ok, C4} = load_timezone_data(C3),
+            {ok, C4};
             {error, Reason, C3} -> {error, Reason, C3}
             end;
         {error, Reason, C2} ->
@@ -275,20 +276,20 @@ description(Stmt) ->
     description(Stmt#stmt.xsqlvars, []).
 
 %% Commit and rollback
--spec commit(conn()) -> {ok, conn()} | {{error, binary()}, conn()}.
+-spec commit(conn()) -> {ok, conn()} | {error, binary(), conn()}.
 commit(Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(C2) of
     {op_response,  {ok, _, _}, C3} -> {ok, C3};
-    {op_response, {error, Msg}, C3} -> {{error, Msg}, C3}
+    {op_response, {error, Msg}, C3} -> {error, Msg, C3}
     end.
 
--spec rollback(conn()) -> {ok, conn()} | {{error, binary()}, conn()}.
+-spec rollback(conn()) -> {ok, conn()} | {error, binary(), conn()}.
 rollback(Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_rollback_retaining(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(C2) of
     {op_response,  {ok, _, _}, C3} -> {ok, C3};
-    {op_response, {error, Msg}, C3} -> {{error, Msg}, C3}
+    {op_response, {error, Msg}, C3} -> {error, Msg, C3}
     end.
