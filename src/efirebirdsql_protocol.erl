@@ -1,6 +1,6 @@
 %%% The MIT License (MIT)
 
-%%% Copyright (c) 2016-2018 Hajime Nakagami<nakagami@gmail.com>
+%%% Copyright (c) 2016-2019 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_protocol).
 
@@ -36,6 +36,7 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
         {error, Reason, C3}
     end.
 
+-spec ready_fetch_segment(conn(), stmt()) -> {conn(), stmt()}.
 ready_fetch_segment(Conn, Stmt) when Stmt#stmt.rows =:= [], Stmt#stmt.more_data =:= true ->
     StmtHandle = Stmt#stmt.stmt_handle,
     XSqlVars = Stmt#stmt.xsqlvars,
@@ -133,6 +134,7 @@ connect(Host, Username, Password, Database, Options) ->
         {error, Reason, #conn{}}
     end.
 
+-spec close(conn()) -> {ok, conn()} | {error, binary(), conn()}.
 close(Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
@@ -147,6 +149,7 @@ close(Conn) ->
     end.
 
 %% Transaction
+-spec begin_transaction(boolean(), conn()) -> {ok, conn()} | {error, binary(), conn()}.
 begin_transaction(AutoCommit, Conn) ->
     %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_no_rec_version
     Tpb = if
@@ -161,6 +164,7 @@ begin_transaction(AutoCommit, Conn) ->
     end.
 
 %% allocate, prepare and free statement
+-spec allocate_statement(conn()) -> {ok, conn()} | {error, binary(), conn()}.
 allocate_statement(Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_allocate_statement(Conn#conn.db_handle)),
@@ -169,6 +173,7 @@ allocate_statement(Conn) ->
     {op_response, {error, Msg}, C3} ->{error, Msg, C3}
     end.
 
+-spec prepare_statement(binary(), conn(), stmt()) -> {ok, conn(), stmt()} | {error, binary(), conn()}.
 prepare_statement(Sql, Conn, Stmt) ->
     {ok, C2, S2} = case Stmt#stmt.closed of
     true -> {ok, Conn, Stmt};
@@ -181,6 +186,7 @@ prepare_statement(Sql, Conn, Stmt) ->
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
     efirebirdsql_op:get_prepare_statement_response(C3, S2).
 
+-spec free_statement(conn(), stmt(), atom()) -> {ok, conn(), stmt()} | {error, binary(), conn()}.
 free_statement(Conn, Stmt, Type) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_free_statement(Stmt#stmt.stmt_handle, Type)),
@@ -189,6 +195,7 @@ free_statement(Conn, Stmt, Type) ->
     {op_response, {error, Msg}, C3} -> {error, Msg, C3}
     end.
 
+-spec columns(stmt()) -> list().
 columns(Columns, []) ->
     lists:reverse(Columns);
 columns(Columns, XSQLVars) ->
@@ -225,6 +232,7 @@ execute(Conn, Stmt, Params, _StmtType) ->
     {op_response, {error, Msg}, C3} -> {error, Msg, C3}
     end.
 
+-spec execute(conn(), stmt(), list()) -> {ok, conn(), stmt()} | {error, binary(), conn()}.
 execute(Conn, Stmt, Params) ->
     execute(Conn, Stmt, Params, Stmt#stmt.stmt_type).
 execute(Conn, Stmt) ->
@@ -233,10 +241,12 @@ execute(Conn, Stmt) ->
 
 %% Fetch
 
+-spec fetchone(conn(), stmt()) -> {list() | nil, conn(), stmt()}.
 fetchone(Conn, Stmt) ->
     {C2, S2} = ready_fetch_segment(Conn, Stmt),
     fetchrow(C2, S2).
 
+-spec fetchall(conn(), stmt()) -> {list() | nil, conn(), stmt()}.
 fetchall(Rows, {nil, Conn, Stmt}) ->
     {ok, lists:reverse(Rows), Conn, Stmt};
 fetchall(Rows, {Row, Conn, Stmt}) ->
@@ -244,6 +254,7 @@ fetchall(Rows, {Row, Conn, Stmt}) ->
 fetchall(Conn, Stmt) ->
     fetchall([], fetchone(Conn, Stmt)).
 
+-spec fetchsegment(conn(), stmt()) -> {list() | nil, conn(), stmt()}.
 fetchsegment(Rows, {nil, Conn, Stmt}) ->
     {ok, lists:reverse(Rows), Conn, Stmt};
 fetchsegment(Rows, {Row, Conn, Stmt}) ->
@@ -253,6 +264,7 @@ fetchsegment(Conn, Stmt) ->
     fetchsegment([], fetchrow(C2, S2)).
 
 %% Description
+-spec description(stmt()) -> list().
 description([], XSqlVar) ->
     lists:reverse(XSqlVar);
 description(InXSqlVars, XSqlVar) ->
@@ -263,6 +275,7 @@ description(Stmt) ->
     description(Stmt#stmt.xsqlvars, []).
 
 %% Commit and rollback
+-spec commit(conn()) -> {ok, conn()} | {{error, binary()}, conn()}.
 commit(Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
@@ -271,6 +284,7 @@ commit(Conn) ->
     {op_response, {error, Msg}, C3} -> {{error, Msg}, C3}
     end.
 
+-spec rollback(conn()) -> {ok, conn()} | {{error, binary()}, conn()}.
 rollback(Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_rollback_retaining(Conn#conn.trans_handle)),
