@@ -62,6 +62,7 @@ fetchrow(Conn, Stmt) ->
         {ConvertedRow, C2, Stmt#stmt{rows=Rest}}
     end.
 
+-spec puts_timezone_data(binary(), binary(), tuple()) -> tuple().
 puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, {nil, Conn, Stmt}) ->
     {TimeZoneNameById, TimeZoneIdByName, Conn, Stmt};
 puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, {[{_, ID}, {_, Name}], Conn, Stmt}) ->
@@ -69,6 +70,7 @@ puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, {[{_, ID}, {_, Name}], Co
     TimeZoneIdByName2 = maps:put(Name, ID, TimeZoneIdByName),
     puts_timezone_data(TimeZoneNameById2, TimeZoneIdByName2, fetchone(Conn, Stmt)).
 
+-spec load_timezone_data(conn()) -> {ok, conn()}.
 load_timezone_data(Conn) ->
     {ok, C1, Stmt} = allocate_statement(Conn),
     {ok, C2, Stmt2} = prepare_statement(

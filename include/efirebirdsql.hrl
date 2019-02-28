@@ -10,6 +10,8 @@
     null_ind :: true | false
 }).
 
+-type column() :: #column{}.
+
 -record(conn, {
     sock,
     user,
@@ -29,6 +31,8 @@
     timezone_id_by_name
 }).
 
+-type conn() :: #conn{}.
+
 -record(stmt, {
     stmt_handle,
     stmt_type,
@@ -38,9 +42,12 @@
     closed = true
 }).
 
+-type stmt() :: #stmt{}.
+
 -record(state, {
     parameters = [],
     connection,
     statement
 }).
 
+-type state() :: #state{}.
