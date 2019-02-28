@@ -16,7 +16,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Utility functions in module
 
--spec connect_database(conn(), list(), list(), boolean(), integer()) -> {ok, conn()} | {error, atom(), conn()}.
+-spec connect_database(conn(), list(), list(), boolean(), integer()) -> {ok, conn()} | {error, binary(), conn()}.
 connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_connect(Conn, Host, Database)),
