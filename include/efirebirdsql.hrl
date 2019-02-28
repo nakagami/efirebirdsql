@@ -2,12 +2,12 @@
 %%% Copyright (c) 2016 Hajime Nakagami<nakagami@gmail.com>
 
 -record(column, {
-    name :: binary(),
-    seq :: pos_integer(),
-    type :: atom(),
-    scale :: -1 | pos_integer(),
-    length :: -1 | pos_integer(),
-    null_ind :: true | false
+    name :: binary() | undefined,
+    seq :: pos_integer() | undefined,
+    type :: atom() | undefined,
+    scale :: -1 | pos_integer() | undefined,
+    length :: -1 | pos_integer() | undefined,
+    null_ind :: true | false |undefined
 }).
 
 -type column() :: #column{}.

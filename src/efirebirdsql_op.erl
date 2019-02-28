@@ -112,6 +112,7 @@ calc_blr(XSqlVars) ->
         [255, 76]]).
 
 %%% create op_connect binary
+-spec op_connect(conn(), list(), list()) -> binary().
 op_connect(Conn, Host, Database) ->
     ?DEBUG_FORMAT("op_connect~n", []),
     %% PROTOCOL_VERSION,ArchType(Generic)=1,MinAcceptType=0,MaxAcceptType=4,Weight

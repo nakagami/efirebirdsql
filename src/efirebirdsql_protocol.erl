@@ -16,6 +16,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Utility functions in module
 
+-spec connect_database(conn(), list(), list(), boolean(), integer()) -> {ok, conn()} | {error, binary(), conn()}.
 connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_connect(Conn, Host, Database)),
@@ -98,6 +99,7 @@ load_timezone_data(Conn) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % public functions
 
+-spec connect(list(), list(), list(), list(), list()) -> {ok, conn()} | {error, binary(), conn()}.
 connect(Host, Username, Password, Database, Options) ->
     SockOptions = [{active, false}, {packet, raw}, binary],
     Port = proplists:get_value(port, Options, 3050),
