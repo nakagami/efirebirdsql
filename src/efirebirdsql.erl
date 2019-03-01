@@ -45,10 +45,10 @@ connect(Host, Username, Password, Database, Ops) ->
     -> ok | {error, Reason :: binary()}.
 prepare(C, QueryString) ->
     case gen_server:call(C, {prepare, QueryString}, infinity) of
-    ok -> {ok, C};
     {error, _} ->
         {ok, Msg} = gen_server:call(C, get_last_error, infinity),
-        {error, Msg}
+        {error, Msg};
+    R -> R
     end.
 
 -spec execute(connection(), binary(), list())
@@ -65,7 +65,7 @@ execute(C, QueryString) when is_binary(QueryString) ->
     execute(C, QueryString, []);
 execute(C, Params) when is_list(Params) ->
     case gen_server:call(C, {execute, Params}, infinity) of
-    ok -> {ok, C};
+    ok -> ok;
     {error, _} ->
         {ok, Msg} = gen_server:call(C, get_last_error, infinity),
         {error, Msg}
@@ -85,20 +85,20 @@ description(C) ->
         -> {ok, list()} | {error, Reason :: binary()}.
 fetchone(C) ->
     case gen_server:call(C, fetchone, infinity) of
-    ok -> {ok, C};
     {error, _} ->
         {ok, Msg} = gen_server:call(C, get_last_error, infinity),
-        {error, Msg}
+        {error, Msg};
+    R -> R
     end.
 
 -spec fetchall(connection())
         -> {ok, list()} | {error, Reason :: binary()}.
 fetchall(C) ->
     case gen_server:call(C, fetchall, infinity) of
-    ok -> {ok, C};
     {error, _} ->
         {ok, Msg} = gen_server:call(C, get_last_error, infinity),
-        {error, Msg}
+        {error, Msg};
+    R -> R
     end.
 
 -spec commit(connection())
@@ -109,12 +109,7 @@ commit(C) ->
 -spec rollback(connection())
     -> ok | {error, Reason :: binary()}.
 rollback(C) ->
-    case gen_server:call(C, rollback, infinity) of
-    ok -> {ok, C};
-    {error, _} ->
-        {ok, Msg} = gen_server:call(C, get_last_error, infinity),
-        {error, Msg}
-    end.
+    gen_server:call(C, rollback, infinity).
 
 -spec close(efirebirdsql:connection())
     -> ok | {error, Reason :: binary()}.
