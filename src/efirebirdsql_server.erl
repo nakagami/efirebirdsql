@@ -95,7 +95,9 @@ handle_call({get_parameter, Name}, _From, State) ->
         {value, {Name, Value}} -> Value;
         false                  -> undefined
         end,
-    {reply, {ok, Value1}, State}.
+    {reply, {ok, Value1}, State};
+handle_call(get_last_error, _From, State) ->
+    {reply, {ok, State#state.error_message}, State}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
