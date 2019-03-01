@@ -19,7 +19,7 @@
 -spec connect_database(conn(), list(), list(), boolean(), integer()) -> {ok, conn()} | {error, binary(), conn()}.
 connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
     C2 = efirebirdsql_socket:send(Conn,
-        efirebirdsql_op:op_connect(Conn, Host, Database)),
+        efirebirdsql_op:op_connect(Host, Conn#conn.user, Conn#conn.client_public, Conn#conn.auth_plugin, Conn#conn.wire_crypt, Database)),
     case efirebirdsql_op:get_connect_response(C2) of
     {ok, C3} ->
         C4 = case IsCreateDB of

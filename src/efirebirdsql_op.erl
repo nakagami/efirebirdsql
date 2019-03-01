@@ -4,7 +4,7 @@
 -module(efirebirdsql_op).
 -define(DEBUG_FORMAT(X,Y), ok).
 
--export([op_connect/3, op_attach/2, op_detach/1, op_create/3, op_transaction/2,
+-export([op_connect/6, op_attach/2, op_detach/1, op_create/3, op_transaction/2,
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/2,
     op_execute/3, op_execute2/3, op_fetch/2, op_commit_retaining/1,
     op_rollback_retaining/1, convert_row/3,
@@ -49,20 +49,17 @@ pack_specific_data_cnct_param(Acc, Idx, K, V) ->
 pack_specific_data_cnct_param(K, V) ->
     pack_specific_data_cnct_param([], 0, K, V).
 
-uid(Host, Conn) ->
-    SpecificData = efirebirdsql_srp:to_hex(Conn#conn.client_public),
-    Username = Conn#conn.user,
-    WireCrypt = Conn#conn.wire_crypt,
-    AuthPlugin = Conn#conn.auth_plugin,
+uid(Host, User, SpecificData, AuthPlugin, WireCrypt) ->
     Data = lists:flatten([
-        pack_cnct_param(9, Username),                   %% CNCT_login
+        pack_cnct_param(9, User),                   %% CNCT_login
         pack_cnct_param(8, AuthPlugin),                 %% CNCT_plugin_name
         pack_cnct_param(10, "Srp256,Srp"),              %% CNCT_plugin_list
-        pack_specific_data_cnct_param(7, SpecificData), %% CNCT_specific_data
+        pack_specific_data_cnct_param(7,
+            efirebirdsql_srp:to_hex(SpecificData)), %% CNCT_specific_data
         pack_cnct_param(11,
             [if WireCrypt=:=true -> 1; WireCrypt =/= true -> 0 end, 0, 0, 0]
         ),  %% CNCT_client_crypt
-        pack_cnct_param(1, Username),                   %% CNCT_user
+        pack_cnct_param(1, User),                   %% CNCT_user
         pack_cnct_param(4, Host),                       %% CNCT_host
         pack_cnct_param(6, "")                          %% CNCT_user_verification
     ]),
@@ -112,11 +109,11 @@ calc_blr(XSqlVars) ->
         [255, 76]]).
 
 %%% create op_connect binary
--spec op_connect(conn(), list(), list()) -> binary().
-op_connect(Conn, Host, Database) ->
+-spec op_connect(list(), list(), list(), list(), boolean(), list()) -> binary().
+op_connect(Host, User, ClientPublic, AuthPlugin, WireCrypt, Database) ->
     ?DEBUG_FORMAT("op_connect~n", []),
     %% PROTOCOL_VERSION,ArchType(Generic)=1,MinAcceptType=0,MaxAcceptType=4,Weight
-    Protocols = if Conn#conn.auth_plugin == "Legacy_Auth" -> [
+    Protocols = if AuthPlugin == "Legacy_Auth" -> [
         [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
         [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
         [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6]
@@ -135,7 +132,7 @@ op_connect(Conn, Host, Database) ->
         efirebirdsql_conv:byte4(1),  %% arch_generic,
         efirebirdsql_conv:list_to_xdr_string(Database),
         efirebirdsql_conv:byte4(length(Protocols)),
-        uid(Host, Conn)],
+        uid(Host, User, ClientPublic, AuthPlugin, WireCrypt)],
     list_to_binary([Buf, lists:flatten(Protocols)]).
 
 %%% create op_attach binary
