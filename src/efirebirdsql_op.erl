@@ -49,6 +49,7 @@ pack_specific_data_cnct_param(Acc, Idx, K, V) ->
 pack_specific_data_cnct_param(K, V) ->
     pack_specific_data_cnct_param([], 0, K, V).
 
+-spec uid(string(), string(), string(), string(), boolean()) -> list().
 uid(Host, User, SpecificData, AuthPlugin, WireCrypt) ->
     Data = lists:flatten([
         pack_cnct_param(9, User),                   %% CNCT_login
@@ -898,6 +899,7 @@ op_name(96) -> op_crypt;
 op_name(97) -> op_crypt_key_callback;
 op_name(98) -> op_cond_accept.
 
+-spec op_val(atom()) -> integer().
 op_val(op_connect) -> 1;
 op_val(op_exit) -> 2;
 op_val(op_accept) -> 3;

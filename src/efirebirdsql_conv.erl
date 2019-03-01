@@ -9,6 +9,7 @@
     parse_number/2, parse_number/3, params_to_blr/3]).
 
 %%% little endian 2byte
+-spec byte2(integer()) -> list().
 byte2(N) ->
     LB = binary:encode_unsigned(N, little),
     LB2 = case size(LB) of
@@ -18,6 +19,7 @@ byte2(N) ->
     binary_to_list(LB2).
 
 %%% big endian number list fill 4 byte alignment
+-spec byte4(integer(), atom()) -> list().
 byte4(N, big) ->
     LB = binary:encode_unsigned(N, big),
     LB4 = case size(LB) of
@@ -41,6 +43,7 @@ byte4(N) ->
     byte4(N, big).
 
 %%% 4 byte padding
+-spec pad4(list()) -> list().
 pad4(L) ->
     case length(lists:flatten(L)) rem 4 of
         0 -> [];
@@ -49,6 +52,7 @@ pad4(L) ->
         3 -> [0]
     end.
 
+-spec list_to_xdr_string(list()) -> list().
 list_to_xdr_string(L) ->
     lists:flatten([byte4(length(L)), L, pad4(L)]).
 

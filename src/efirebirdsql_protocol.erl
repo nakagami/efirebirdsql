@@ -16,7 +16,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Utility functions in module
 
--spec connect_database(conn(), list(), list(), boolean(), integer()) -> {ok, conn()} | {error, binary(), conn()}.
+-spec connect_database(conn(), list(), list(), list(), list()) -> {ok, conn()} | {error, binary(), conn()}.
 connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_connect(Host, Conn#conn.user, Conn#conn.client_public, Conn#conn.auth_plugin, Conn#conn.wire_crypt, Database)),
@@ -30,6 +30,8 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
         end,
         case efirebirdsql_op:get_response(C4) of
         {op_response, Handle, _, C5} -> {ok, C5#conn{db_handle=Handle}};
+        {op_fetch_response, _, _, C5} -> {error, <<"Unknown op_fetch_response">>, C5};
+        {op_sql_response, _, C5} -> {error, <<"Unknown op_sql_response">>, C5};
         {error, Msg, C5} -> {error, Msg, C5}
         end;
     {error, Reason, C3} ->
@@ -100,7 +102,7 @@ load_timezone_data(Conn) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % public functions
 
--spec connect(string(), string(), string(), string(), list()) -> {ok, conn()} | {error, binary(), conn()}.
+-spec connect(list(), list(), list(), list(), list()) -> {ok, conn()} | {error, binary(), conn()}.
 connect(Host, Username, Password, Database, Options) ->
     SockOptions = [{active, false}, {packet, raw}, binary],
     Port = proplists:get_value(port, Options, 3050),
@@ -124,8 +126,7 @@ connect(Host, Username, Password, Database, Options) ->
         case connect_database(Conn, Host, Database, IsCreateDB, PageSize) of
         {ok, C2} ->
             case begin_transaction(AutoCommit, C2) of
-            {ok, C3} -> {ok, C4} = load_timezone_data(C3),
-            {ok, C4};
+            {ok, C3} -> load_timezone_data(C3);
             {error, Reason, C3} -> {error, Reason, C3}
             end;
         {error, Reason, C2} ->

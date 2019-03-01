@@ -19,13 +19,13 @@
     {createdb, IsCreateDB :: boolean()} |
     {auto_commit, AutoCommit :: boolean()} |
     {pagesize, PageSize :: integer()} |
-    {auth_plugin, AuthPlugin :: string()}.
+    {auth_plugin, AuthPlugin :: list()}.
 
 -spec start_link() -> {ok, pid()}.
 start_link() ->
     efirebirdsql_server:start_link().
 
--spec connect(connection(), string(), string(), string(), string(), [connect_option()])
+-spec connect(connection(), list(), list(), list(), list(), [connect_option()])
         -> ok | {error, Reason :: binary}.
 connect(C, Host, Username, Password, Database, Ops) ->
     case gen_server:call(C, {connect, Host, Username, Password, Database, Ops}, infinity) of
@@ -35,7 +35,7 @@ connect(C, Host, Username, Password, Database, Ops) ->
         {error, Msg}
     end.
 
--spec connect(string(), string(), string(), string(), [connect_option()])
+-spec connect(list(), list(), list(), list(), [connect_option()])
         -> {ok, Connection :: connection()} | {error, Reason :: binary()}.
 connect(Host, Username, Password, Database, Ops) ->
     {ok, C} = start_link(),
