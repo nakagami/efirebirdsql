@@ -529,23 +529,24 @@ get_connect_response(_, Conn) ->
         end,
     {ok, NewConn}.
 
+-spec get_connect_response(conn()) -> {ok, conn()} | {error, binary(), conn()}.
 get_connect_response(Conn) ->
     ?DEBUG_FORMAT("get_connect_response()~n", []),
-    {ok, <<OpCode:32>>, S2} = efirebirdsql_socket:recv(Conn, 4),
+    {ok, <<OpCode:32>>, C2} = efirebirdsql_socket:recv(Conn, 4),
     Op = op_name(OpCode),
     if
         (Op == op_accept) or (Op == op_cond_accept) or (Op == op_accept_data) ->
-            get_connect_response(Op, S2);
+            get_connect_response(Op, C2);
         Op == op_dummy ->
-            get_connect_response(S2);
+            get_connect_response(C2);
         Op == op_response ->
-            {ok, <<_Handle:32, _ObjectID:64, _Len:32>>, S3} = efirebirdsql_socket:recv(S2, 16),
-            {Msg, S4} = get_error_message(S3),
-            {error, Msg, S4};
+            {ok, <<_Handle:32, _ObjectID:64, _Len:32>>, C3} = efirebirdsql_socket:recv(C2, 16),
+            {Msg, C4} = get_error_message(C3),
+            {error, Msg, C4};
         Op == op_reject ->
-            {error, "connectoin rejected", S2};
+            {error, <<"Connect rejected">>, C2};
         true ->
-            {error, Op, S2}
+            {error, <<"Unknow connect error">>, C2}
     end.
 
 %% parse select items.
