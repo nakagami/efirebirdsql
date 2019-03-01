@@ -6,7 +6,7 @@
 -export([start_link/0]).
 -export([connect/5, connect/6, prepare/2, execute/1, execute/2, execute/3,
         description/1, fetchone/1, fetchall/1, commit/1, rollback/1,
-        close/1, cancel/1, sync/1]).
+        close/1, get_last_error/1, cancel/1, sync/1]).
 
 -export_type([connection/0, connect_option/0]).
 
