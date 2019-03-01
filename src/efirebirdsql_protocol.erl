@@ -255,22 +255,24 @@ fetchone(Conn, Stmt) ->
     {C2, S2} = ready_fetch_segment(Conn, Stmt),
     fetchrow(C2, S2).
 
--spec fetchall(conn(), stmt()) -> {list() | nil, conn(), stmt()}.
-fetchall(Rows, {nil, Conn, Stmt}) ->
+fetch_all(Rows, {nil, Conn, Stmt}) ->
     {ok, lists:reverse(Rows), Conn, Stmt};
-fetchall(Rows, {Row, Conn, Stmt}) ->
-    fetchall([Row | Rows], fetchone(Conn, Stmt));
-fetchall(Conn, Stmt) ->
-    fetchall([], fetchone(Conn, Stmt)).
+fetch_all(Rows, {Row, Conn, Stmt}) ->
+    fetch_all([Row | Rows], fetchone(Conn, Stmt)).
 
--spec fetchsegment(conn(), stmt()) -> {list() | nil, conn(), stmt()}.
-fetchsegment(Rows, {nil, Conn, Stmt}) ->
+-spec fetchall(conn(), stmt()) -> {ok, list(), conn(), stmt()}.
+fetchall(Conn, Stmt) ->
+    fetch_all([], fetchone(Conn, Stmt)).
+
+fetch_segment(Rows, {nil, Conn, Stmt}) ->
     {ok, lists:reverse(Rows), Conn, Stmt};
-fetchsegment(Rows, {Row, Conn, Stmt}) ->
-    fetchsegment([Row | Rows], fetchrow(Conn, Stmt));
+fetch_segment(Rows, {Row, Conn, Stmt}) ->
+    fetch_segment([Row | Rows], fetchrow(Conn, Stmt)).
+
+-spec fetchsegment(conn(), stmt()) -> {ok, list(), conn(), stmt()}.
 fetchsegment(Conn, Stmt) ->
     {C2, S2} = ready_fetch_segment(Conn, Stmt),
-    fetchsegment([], fetchrow(C2, S2)).
+    fetch_segment([], fetchrow(C2, S2)).
 
 %% Description
 -spec description(stmt()) -> list().
