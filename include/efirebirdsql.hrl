@@ -14,13 +14,13 @@
 
 -record(conn, {
     sock,
-    user,
-    password,
-    client_private,
-    client_public,
-    auth_data,
-    auth_plugin,
-    wire_crypt,
+    user :: string(),
+    password :: string(),
+    client_private :: integer(),
+    client_public :: integer(),
+    auth_data :: string() | undefined,
+    auth_plugin :: string(),
+    wire_crypt :: boolean(),
     read_state,     % RC4 crypto stream state
     write_state,    % RC4 crypto stream state
     db_handle,

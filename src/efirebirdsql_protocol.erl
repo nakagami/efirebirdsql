@@ -100,7 +100,7 @@ load_timezone_data(Conn) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % public functions
 
--spec connect(list(), list(), list(), list(), list()) -> {ok, conn()} | {error, binary(), conn()}.
+-spec connect(string(), string(), string(), string(), list()) -> {ok, conn()} | {error, binary(), conn()}.
 connect(Host, Username, Password, Database, Options) ->
     SockOptions = [{active, false}, {packet, raw}, binary],
     Port = proplists:get_value(port, Options, 3050),
@@ -132,7 +132,15 @@ connect(Host, Username, Password, Database, Options) ->
             {error, Reason, C2}
         end;
     {error, Reason} ->
-        {error, Reason, #conn{}}
+        {error, Reason, #conn{
+            user=string:to_upper(Username),
+            password=Password,
+            client_private=Private,
+            client_public=Public,
+            auth_plugin=proplists:get_value(auth_plugin, Options, "Srp"),
+            wire_crypt=proplists:get_value(wire_crypt, Options, true),
+            timezone=proplists:get_value(timezone, Options, nil)
+        }}
     end.
 
 -spec close(conn()) -> {ok, conn()} | {error, binary(), conn()}.
@@ -144,7 +152,7 @@ close(Conn) ->
     case efirebirdsql_op:get_response(C3) of
     {op_response, _, _, C4} ->
         gen_tcp:close(C4#conn.sock),
-        {ok, #conn{}};
+        {ok, C4#conn{sock=undefined}};
     {error, Msg, C4} ->
         {error, Msg, C4}
     end.

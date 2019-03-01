@@ -109,7 +109,7 @@ calc_blr(XSqlVars) ->
         [255, 76]]).
 
 %%% create op_connect binary
--spec op_connect(list(), list(), list(), list(), boolean(), list()) -> binary().
+-spec op_connect(string(), string(), string(), string(), boolean(), string()) -> binary().
 op_connect(Host, User, ClientPublic, AuthPlugin, WireCrypt, Database) ->
     ?DEBUG_FORMAT("op_connect~n", []),
     %% PROTOCOL_VERSION,ArchType(Generic)=1,MinAcceptType=0,MaxAcceptType=4,Weight
