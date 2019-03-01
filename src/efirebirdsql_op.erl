@@ -444,6 +444,11 @@ get_error_message(Conn) ->
     {iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(Msg)), lists:reverse(Arg))), S2}.
 
 %% recieve and parse response
+-spec get_response(conn()) ->
+    {op_response, integer(), binary(), conn()} |
+    {op_fetch_response, integer(), integer(), conn()} |
+    {op_sql_response, integer(), conn()} |
+    {error, binary(), conn()}.
 get_response(Conn) ->
     ?DEBUG_FORMAT("get_response()~n", []),
     {ok, <<OpCode:32>>, C2} = efirebirdsql_socket:recv(Conn, 4),
@@ -457,33 +462,33 @@ get_response(Conn) ->
                 RecvBuf;
             true -> C4 = C3, <<>>
             end,
-        {S, C5} = get_error_message(C4),
-        case S of
-        <<>> -> {Op, {ok, Handle, Buf}, C5};
-        _ -> {Op, {error, S}, C5}
+        {Msg, C5} = get_error_message(C4),
+        case Msg of
+        <<>> -> {Op, Handle, Buf, C5};
+        _ -> {error, Msg, C5}
         end;
     op_fetch_response ->
         {ok, <<Status:32, Count:32>>, C3} = efirebirdsql_socket:recv(C2, 8),
-        {Op, {Status, Count}, C3};
+        {Op, Status, Count, C3};
     op_sql_response ->
         {ok, <<Count:32>>, C3} = efirebirdsql_socket:recv(C2, 4),
         {Op, Count, C3};
     op_dummy ->
         get_response(C2);
     _ ->
-        {error, Op, C2}
+        {error, <<"Unknown response">>, C2}
     end.
 
 wire_crypt(Conn, SessionKey) ->
     C2 = efirebirdsql_socket:send(Conn,
         op_cont_auth(Conn#conn.auth_data, Conn#conn.auth_plugin)),
-    {op_response, {ok, _, _}, C3} = get_response(C2),
+    {op_response, _, _, C3} = get_response(C2),
     C3 = efirebirdsql_socket:send(C2, op_crypt()),
     C4 = C3#conn{
         read_state=crypto:stream_init(rc4, SessionKey),
         write_state=crypto:stream_init(rc4, SessionKey)
     },
-    {op_response, {ok, _, _}, C5} = get_response(C4),
+    {op_response,  _, _, C5} = get_response(C4),
     C5.
 
 %% recieve and parse connect() response
@@ -555,7 +560,7 @@ more_select_describe_vars(Conn, Stmt, Start) ->
     V = lists:flatten([20, 2, Start rem 256, Start div 256, ?INFO_SQL_SELECT_DESCRIBE_VARS]),
     S2 = efirebirdsql_socket:send(Conn,
         op_info_sql(Stmt#stmt.stmt_handle, V)),
-    {op_response, {ok, _, Buf},S3} = get_response(S2),
+    {op_response, _, Buf, S3} = get_response(S2),
     <<_:8/binary, DescVars/binary>> = Buf,
     {S3, DescVars}.
 
@@ -621,10 +626,10 @@ parse_select_columns(Conn, Stmt, XSqlVars, DescVars) ->
         {C2, lists:reverse(XSqlVars)}
     end.
 
+-spec get_prepare_statement_response(conn(), stmt()) -> {ok, conn(), stmt()} | {error, binary(), conn()}.
 get_prepare_statement_response(Conn, Stmt) ->
-    {op_response, R, C2} = get_response(Conn),
-    case R of
-    {ok, _, Buf} ->
+    case get_response(Conn) of
+    {op_response, _, Buf, C2} ->
         << _21:8, _Len:16, StmtType:32/little, Rest/binary>> = Buf,
         StmtName = isc_info_sql_stmt_name(StmtType),
         Stmt2 = Stmt#stmt{stmt_type=StmtName},
@@ -638,7 +643,7 @@ get_prepare_statement_response(Conn, Stmt) ->
             _ -> {C2, []}
             end,
         {ok, C3, Stmt2#stmt{xsqlvars=XSqlVars, rows=[]}};
-    {error, _} -> {error, R, C2}
+    {error, Msg, C2} -> {error, Msg, C2}
     end.
 
 get_blob_segment_list(<<>>, SegmentList) ->
@@ -650,7 +655,7 @@ get_blob_segment_list(Buf, SegmentList) ->
 get_blob_segment(Conn, BlobHandle, SegmentList) ->
     S2 = efirebirdsql_socket:send(Conn,
         op_get_segment(BlobHandle)),
-    {op_response,  {ok, F, Buf}, S3} = get_response(S2),
+    {op_response, F, Buf, S3} = get_response(S2),
     NewList = lists:flatten([SegmentList, get_blob_segment_list(Buf, [])]),
     case F of
     2 -> {NewList, S3};
@@ -660,10 +665,10 @@ get_blob_segment(Conn, BlobHandle, SegmentList) ->
 get_blob_data(Conn, BlobId) ->
     C2 = efirebirdsql_socket:send(Conn,
         op_open_blob(BlobId, Conn#conn.trans_handle)),
-    {op_response,  {ok, BlobHandle, _}, C3} = get_response(C2),
+    {op_response, BlobHandle, _, C3} = get_response(C2),
     {SegmentList, C4} = get_blob_segment(C3, BlobHandle, []),
     C5 = efirebirdsql_socket:send(C4, op_close_blob(BlobHandle)),
-    {op_response,  {ok, 0, _}, C6} = get_response(C5),
+    {op_response, 0, _, C6} = get_response(C5),
     R = list_to_binary(SegmentList),
     {ok, R, C6}.
 
@@ -818,14 +823,11 @@ get_fetch_response(Conn, Stmt, _Status, _Count, XSqlVars, Results) ->
     {ok, <<_:32, NewStatus:32, NewCount:32>>, C4} = efirebirdsql_socket:recv(S3, 12),
     get_fetch_response(C4, Stmt, NewStatus, NewCount, XSqlVars, NewResults).
 
+-spec get_fetch_response(conn(), stmt()) -> {ok, list(), boolean(), conn()}.
 get_fetch_response(Conn, Stmt) ->
-    case get_response(Conn) of
-    {op_response, R, C2} ->
-        {op_response, R, C2};
-    {op_fetch_response, {Status, Count}, C2} ->
-        {Results, MoreData, C3} = get_fetch_response(C2, Stmt, Status, Count, Stmt#stmt.xsqlvars, []),
-        {op_fetch_response, Results, MoreData, C3}
-    end.
+    {op_fetch_response, Status, Count, C2} = get_response(Conn),
+    {Results, MoreData, C3} = get_fetch_response(C2, Stmt, Status, Count, Stmt#stmt.xsqlvars, []),
+    {ok, Results, MoreData, C3}.
 
 get_sql_response(Conn, Stmt) ->
     {op_sql_response, Count, C2} = get_response(Conn),
