@@ -51,30 +51,30 @@ handle_call(commit, _From, State) ->
     Conn = State#state.connection,
     case efirebirdsql_protocol:commit(Conn) of
     {ok, C2} -> {reply, ok, State#state{connection=C2}};
-    {error, Reason, C2} -> {reply, commit, State#state{connection=C2, error_message=Reason}}
+    {error, Reason, C2} -> {reply, {error, commit}, State#state{connection=C2, error_message=Reason}}
     end;
 handle_call(rollback, _From, State) ->
     Conn = State#state.connection,
     case efirebirdsql_protocol:rollback(Conn) of
     {ok, C2} -> {reply, ok, State#state{connection=C2}};
-    {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
+    {error, Reason, C2} -> {reply, {error, rollback}, State#state{connection=C2, error_message=Reason}}
     end;
 handle_call(close, _From, State) ->
     Conn = State#state.connection,
     case efirebirdsql_protocol:close(Conn) of
     {ok, C2} -> {reply, ok, State#state{connection=C2}};
-    {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
+    {error, Reason, C2} -> {reply, {error, close}, State#state{connection=C2, error_message=Reason}}
     end;
 handle_call({prepare, Sql}, _From, State) ->
     case efirebirdsql_protocol:prepare_statement(Sql,
         State#state.connection, State#state.statement) of
     {ok, C2, Stmt} -> {reply, ok, State#state{connection=C2, statement=Stmt}};
-    {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
+    {error, Reason, C2} -> {reply, {error, prepare}, State#state{connection=C2, error_message=Reason}}
     end;
 handle_call({execute, Params}, _From, State) ->
     case efirebirdsql_protocol:execute(State#state.connection, State#state.statement, Params) of
     {ok, C2, Stmt} -> {reply, ok, State#state{connection=C2,statement=Stmt}};
-    {error, Reason, C2} -> {reply, Reason, State#state{connection=C2}}
+    {error, Reason, C2} -> {reply, {error, execute}, State#state{connection=C2, error_message=Reason}}
     end;
 handle_call(fetchone, _From, State) ->
     {ConvertedRow, C2, Stmt} = efirebirdsql_protocol:fetchone(State#state.connection, State#state.statement),
@@ -88,7 +88,7 @@ handle_call(description, _From, State) ->
     isc_info_sql_stmt_select
         -> {reply, efirebirdsql_protocol:description(State#state.statement), State};
     _
-        -> {reply, no_result, State}
+        -> {reply, nil, State}
     end;
 handle_call({get_parameter, Name}, _From, State) ->
     Value1 = case lists:keysearch(Name, 1, State#state.parameters) of

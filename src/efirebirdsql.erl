@@ -76,8 +76,7 @@ execute(C, Params) when is_list(Params) ->
 execute(C) ->
     execute(C, []).
 
--spec description(connection())
-        -> list().
+-spec description(connection()) -> list() | nil.
 description(C) ->
     gen_server:call(C, description, infinity).
 
