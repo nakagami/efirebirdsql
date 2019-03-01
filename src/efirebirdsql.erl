@@ -117,6 +117,11 @@ close(C) ->
     catch gen_server:cast(C, stop),
     ok.
 
+-spec get_last_error(connection()) -> binary().
+get_last_error(C) ->
+    {ok, Msg} = gen_server:call(C, get_last_error, infinity),
+    Msg.
+
 cancel(C) ->
     gen_server:cast(C, cancel).
 
