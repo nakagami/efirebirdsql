@@ -503,33 +503,33 @@ get_connect_response(_, Conn) ->
     {ok, PluginName,C6} = efirebirdsql_socket:recv_align(C5, Len2),
     {ok, <<IsAuthenticated:32>>, C7} = efirebirdsql_socket:recv(C6, 4),
     {ok, <<_:32>>, C8} = efirebirdsql_socket:recv(C7, 4),
-    NewConn = if
-        IsAuthenticated == 0 ->
-            case binary_to_list(PluginName) of
-            "Srp" ->
-                <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = Data,
-                ServerPublic = binary_to_integer(Bin, 16),
-                {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
-                    C8#conn.user, C8#conn.password, Salt,
-                    C8#conn.client_public, ServerPublic, C8#conn.client_private, sha);
-            "Srp256" ->
-                <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = Data,
-                ServerPublic = binary_to_integer(Bin, 16),
-                {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
-                    C8#conn.user, C8#conn.password, Salt,
-                    C8#conn.client_public, ServerPublic, C8#conn.client_private, sha256);
-            _ ->
-                AuthData = '',
-                SessionKey = ''
-            end,
-            C9 = C8#conn{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)},
-            case C9#conn.wire_crypt of 
-            true -> wire_crypt(C9, SessionKey);
-            false -> C9
-            end;
-        true ->
-            C8
-        end,
+    if IsAuthenticated == 0 ->
+        case binary_to_list(PluginName) of
+        "Srp" ->
+            <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = Data,
+            ServerPublic = binary_to_integer(Bin, 16),
+            {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
+                C8#conn.user, C8#conn.password, Salt,
+                C8#conn.client_public, ServerPublic, C8#conn.client_private, sha);
+        "Srp256" ->
+            <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = Data,
+            ServerPublic = binary_to_integer(Bin, 16),
+            {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
+                C8#conn.user, C8#conn.password, Salt,
+                C8#conn.client_public, ServerPublic, C8#conn.client_private, sha256);
+        _ ->
+            AuthData = '',
+            SessionKey = ''
+        end;
+    true ->
+        AuthData = '',
+        SessionKey = ''
+    end,
+    C9 = C8#conn{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)},
+    NewConn = case C9#conn.wire_crypt of
+    true -> wire_crypt(C9, SessionKey);
+    false -> C9
+    end,
     {ok, NewConn}.
 
 -spec get_connect_response(conn()) -> {ok, conn()} | {error, binary(), conn()}.
