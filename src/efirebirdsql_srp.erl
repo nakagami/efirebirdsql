@@ -2,10 +2,19 @@
 %%% Copyright (c) 2016-2019 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_srp).
--define(SRP_DEBUG, 0).
 
--export([get_verifier/3, client_proof/7, client_session/6, server_session/6, get_salt/0, get_private_key/0, client_public/1, server_seed/1, to_hex/1]).
+-export([get_debug_private_key/0, get_debug_salt/0,
+    get_verifier/3, client_proof/7, client_session/6, server_session/6, get_salt/0,
+    get_private_key/0, client_public/1, server_seed/1, to_hex/1]).
 
+
+-spec get_debug_private_key() -> integer().
+get_debug_private_key() ->
+    16#60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393.
+
+-spec get_debug_salt() -> binary().
+get_debug_salt() ->
+    int_to_bin(16#02E268803000000079A478A700000002D1A6979000000026E1601C000000054F, 32).
 
 -spec int_to_bin(integer()) -> binary().
 int_to_bin(Int) ->
@@ -71,28 +80,16 @@ get_verifier(Username, Password, Salt) ->
 -spec get_salt() -> binary().
 get_salt() ->
     Bytes = 32,
-    case ?SRP_DEBUG of
-    0 ->
-        Bits = Bytes * 8,
-        <<Result:Bits/bits, _/bits>> = crypto:strong_rand_bytes(Bytes),
-        Result;
-    1 ->
-        int_to_bin(16#02E268803000000079A478A700000002D1A6979000000026E1601C000000054F, Bytes)
-    end.
+    Bits = Bytes * 8,
+    <<Result:Bits/bits, _/bits>> = crypto:strong_rand_bytes(Bytes),
+    Result.
 
 %% get private key
 -spec get_private_key() -> integer().
 get_private_key() ->
-    case ?SRP_DEBUG of
-    0 ->
-        Bits = get_key_size(),
-        <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:strong_rand_bytes(get_key_size() div 8),
-        bin_to_int(PrivateKeyBin);
-    1 ->
-        % 16#60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393
-        123649895857416060090951768116563624200
-    end.
-
+    Bits = get_key_size(),
+    <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:strong_rand_bytes(get_key_size() div 8),
+    bin_to_int(PrivateKeyBin).
 
 %% client {Public, Private} keys
 -spec client_public(integer()) -> integer().
