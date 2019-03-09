@@ -55,3 +55,20 @@ srp_sha1_test() ->
     ?assertEqual(ServerSession, ClientSession),
     ?assertEqual(efirebirdsql_srp:to_hex(M), "8C12324BB6E9E683A3EE62E13905B95D69F028A9").
 
+srp_sha256_test() ->
+    Username = "SYSDBA",
+    Password = "masterkey",
+    Salt = efirebirdsql_srp:get_debug_salt(),
+    ClientPrivate = efirebirdsql_srp:get_debug_private_key(),
+    ClientPublic = efirebirdsql_srp:client_public(ClientPrivate),
+    V = efirebirdsql_srp:get_verifier(Username, Password, Salt),
+
+    ServerPrivate = efirebirdsql_srp:get_debug_private_key(),
+    ServerPublic = efirebirdsql_srp:server_public(V, ServerPrivate),
+    ServerSession = efirebirdsql_srp:server_session(
+        Username, Password, Salt, ClientPublic, ServerPublic, ServerPrivate),
+    {M, ClientSession} = efirebirdsql_srp:client_proof(
+        Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate, sha256),
+    ?assertEqual(ServerSession, ClientSession),
+    ?assertEqual(efirebirdsql_srp:to_hex(M), "8C12324BB6E9E683A3EE62E13905B95D69F028A9").
+
