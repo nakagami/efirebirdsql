@@ -1,5 +1,5 @@
 %%% The MIT License (MIT)
-%%% Copyright (c) 2015 Hajime Nakagami<nakagami@gmail.com>
+%%% Copyright (c) 2015,2019 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_srp_tests).
 
