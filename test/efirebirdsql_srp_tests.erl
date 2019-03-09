@@ -12,7 +12,9 @@ random_test() ->
     ClientPrivate = efirebirdsql_srp:get_private_key(),
     ClientPublic = efirebirdsql_srp:client_public(ClientPrivate),
     V = efirebirdsql_srp:get_verifier(Username, Password, Salt),
-    {ServerPublic, ServerPrivate} = efirebirdsql_srp:server_seed(V),
+
+    ServerPrivate = efirebirdsql_srp:get_private_key(),
+    ServerPublic = efirebirdsql_srp:server_public(V, ServerPrivate),
     ServerSession = efirebirdsql_srp:server_session(
         Username, Password, Salt, ClientPublic, ServerPublic, ServerPrivate),
     {_M, ClientSession} = efirebirdsql_srp:client_proof(

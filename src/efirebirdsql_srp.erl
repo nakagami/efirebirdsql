@@ -5,7 +5,7 @@
 
 -export([get_debug_private_key/0, get_debug_salt/0,
     get_verifier/3, client_proof/7, client_session/6, server_session/6, get_salt/0,
-    get_private_key/0, client_public/1, server_seed/1, to_hex/1]).
+    get_private_key/0, client_public/1, server_public/2, to_hex/1]).
 
 
 -spec get_debug_private_key() -> integer().
@@ -91,19 +91,17 @@ get_private_key() ->
     <<PrivateKeyBin:Bits/bits, _/bits>> = crypto:strong_rand_bytes(get_key_size() div 8),
     bin_to_int(PrivateKeyBin).
 
-%% client {Public, Private} keys
+%% client public key
 -spec client_public(integer()) -> integer().
 client_public(PrivateKey) ->
     bin_to_int(crypto:mod_pow(get_generator(), PrivateKey, get_prime())).
 
-%% server {Public, Private} keys
--spec server_seed(integer()) -> {PublicKey:: integer(), PrivateKey::integer()}.
-server_seed(V) ->
-    PrivateKey = get_private_key(),
+%% Server public key
+-spec server_public(integer(), integer()) -> integer().
+server_public(V, PrivateKey) ->
     GB = bin_to_int(crypto:mod_pow(get_generator(), PrivateKey, get_prime())),
     KV = remainder(get_k() * V, get_prime()),
-    PublicKey = remainder(KV + GB, get_prime()),
-    {PublicKey, PrivateKey}.
+    remainder(KV + GB, get_prime()).
 
 %% client session key
 -spec client_session(list(), list(), binary(), integer(), integer(), integer()) -> binary().
