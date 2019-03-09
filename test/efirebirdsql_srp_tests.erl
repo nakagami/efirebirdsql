@@ -70,5 +70,4 @@ srp_sha256_test() ->
     {M, ClientSession} = efirebirdsql_srp:client_proof(
         Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate, sha256),
     ?assertEqual(ServerSession, ClientSession),
-    ?assertEqual(efirebirdsql_srp:to_hex(M), "8C12324BB6E9E683A3EE62E13905B95D69F028A9").
-
+    ?assertEqual(efirebirdsql_srp:to_hex(M), "4675c18056c04b00cc2b991662324c22c6f08bb90beb3677416b03469a770308").

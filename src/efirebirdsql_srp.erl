@@ -134,11 +134,13 @@ client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate
 ->
     User = list_to_binary(Username),
     K = client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate),
-    N1 = bin_to_int(crypto:hash(Algo, int_to_bin(get_prime()))),
-    N2 = bin_to_int(crypto:hash(Algo, int_to_bin(get_generator()))),
+
+    N1 = bin_to_int(crypto:hash(sha, int_to_bin(get_prime()))),
+    N2 = bin_to_int(crypto:hash(sha, int_to_bin(get_generator()))),
+
     M = crypto:hash(Algo, [
         crypto:mod_pow(N1, N2, get_prime()),
-        crypto:hash(Algo, User),
+        crypto:hash(sha, User),
         Salt,
         pad(ClientPublic, get_key_size()),
         pad(ServerPublic, get_key_size()),
