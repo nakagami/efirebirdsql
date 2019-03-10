@@ -388,14 +388,14 @@ op_close_blob(BlobHandle) ->
         efirebirdsql_conv:byte4(op_val(op_close_blob)),
         efirebirdsql_conv:byte4(BlobHandle)]).
 
-op_cont_auth(AuthData, PluginName) ->
+op_cont_auth(AuthData, PluginName, PluginNameList, Keys) ->
     ?DEBUG_FORMAT("op_cont_auth~n", []),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_cont_auth)),
         efirebirdsql_conv:list_to_xdr_string(AuthData),
         efirebirdsql_conv:list_to_xdr_string(PluginName),
-        efirebirdsql_conv:list_to_xdr_string(PluginName),
-        efirebirdsql_conv:list_to_xdr_string("")]).
+        efirebirdsql_conv:list_to_xdr_string(PluginNameList),
+        efirebirdsql_conv:list_to_xdr_string(Keys)]).
 
 op_crypt() ->
     ?DEBUG_FORMAT("op_crypt~n", []),
@@ -479,7 +479,7 @@ get_response(Conn) ->
 
 wire_crypt(Conn, SessionKey) ->
     C2 = efirebirdsql_socket:send(Conn,
-        op_cont_auth(Conn#conn.auth_data, Conn#conn.auth_plugin)),
+        op_cont_auth(Conn#conn.auth_data, Conn#conn.auth_plugin, Conn#conn.auth_plugin, "")),
     {op_response, _, _, C3} = get_response(C2),
     C3 = efirebirdsql_socket:send(C2, op_crypt()),
     C4 = C3#conn{
