@@ -478,23 +478,26 @@ get_response(Conn) ->
     end.
 
 wire_crypt(Conn, SessionKey) ->
-    C2 = efirebirdsql_socket:send(Conn,
-        op_cont_auth(Conn#conn.auth_data, Conn#conn.auth_plugin, Conn#conn.auth_plugin, "")),
-    {op_response, _, _, C3} = get_response(C2),
-    C3 = efirebirdsql_socket:send(C2, op_crypt()),
-    C4 = C3#conn{
+    C2 = efirebirdsql_socket:send(Conn, op_crypt()),
+    C3 = C2#conn{
         read_state=crypto:stream_init(rc4, SessionKey),
         write_state=crypto:stream_init(rc4, SessionKey)
     },
-    {op_response,  _, _, C5} = get_response(C4),
-    C5.
+    {op_response,  _, _, C4} = get_response(C3),
+    C4.
+
+get_auth_data([], Conn) ->
+    %% TODO: op_cont_auth
+    {[], Conn};
+get_auth_data(Data, Conn) ->
+    {Data, Conn}.
 
 %% recieve and parse connect() response
 get_connect_response(op_accept, Conn) ->
     {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
             _AcceptArchtecture:32, _AcceptType:32>>, C2} = efirebirdsql_socket:recv(Conn, 12),
     {ok, C2#conn{accept_version=AcceptVersion}};
-get_connect_response(_, Conn) ->
+get_connect_response(Op, Conn) ->
     {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
             _AcceptArchtecture:32, _AcceptType:32>>,C2} = efirebirdsql_socket:recv(Conn, 12),
     {ok, <<Len1:32>>,C3} = efirebirdsql_socket:recv(C2, 4),
@@ -504,31 +507,42 @@ get_connect_response(_, Conn) ->
     {ok, <<IsAuthenticated:32>>, C7} = efirebirdsql_socket:recv(C6, 4),
     {ok, <<_:32>>, C8} = efirebirdsql_socket:recv(C7, 4),
     if IsAuthenticated == 0 ->
+        {ServerAuthData, C9} = get_auth_data(Data, C8),
+        
         case binary_to_list(PluginName) of
         "Srp" ->
-            <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = Data,
+            <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = ServerAuthData,
             ServerPublic = binary_to_integer(Bin, 16),
             {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
-                C8#conn.user, C8#conn.password, Salt,
-                C8#conn.client_public, ServerPublic, C8#conn.client_private, sha);
+                C9#conn.user, C8#conn.password, Salt,
+                C9#conn.client_public, ServerPublic, C9#conn.client_private, sha);
         "Srp256" ->
-            <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = Data,
+            <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = ServerAuthData,
             ServerPublic = binary_to_integer(Bin, 16),
             {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
-                C8#conn.user, C8#conn.password, Salt,
-                C8#conn.client_public, ServerPublic, C8#conn.client_private, sha256);
+                C9#conn.user, C9#conn.password, Salt,
+                C9#conn.client_public, ServerPublic, C9#conn.client_private, sha256);
         _ ->
             AuthData = '',
             SessionKey = ''
         end;
     true ->
         AuthData = '',
-        SessionKey = ''
+        SessionKey = '',
+        C9 = C8
     end,
-    C9 = C8#conn{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)},
-    NewConn = case C9#conn.wire_crypt of
-    true -> wire_crypt(C9, SessionKey);
-    false -> C9
+    C10 = C9#conn{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)},
+    C13 = case Op of
+    op_cond_accept ->
+        C11 = efirebirdsql_socket:send(C10,
+            op_cont_auth(C10#conn.auth_data, C10#conn.auth_plugin, C10#conn.auth_plugin, "")),
+        {op_response, _, _, C12} = get_response(C11),
+        C12;
+    true -> C10
+    end,
+    NewConn = case C13#conn.wire_crypt of
+    true -> wire_crypt(C13, SessionKey);
+    false -> C13
     end,
     {ok, NewConn}.
 
