@@ -538,7 +538,7 @@ get_connect_response(Op, Conn) ->
             op_cont_auth(C10#conn.auth_data, C10#conn.auth_plugin, C10#conn.auth_plugin, "")),
         {op_response, _, _, C12} = get_response(C11),
         C12;
-    true -> C10
+    _ -> C10
     end,
     NewConn = case C13#conn.wire_crypt of
     true -> wire_crypt(C13, SessionKey);
