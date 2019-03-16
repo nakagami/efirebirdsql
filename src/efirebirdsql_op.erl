@@ -414,39 +414,39 @@ parse_status_vector_string(Conn) ->
     {ok, Bin, C3} = efirebirdsql_socket:recv_align(C2, Len),
     {binary_to_list(Bin), C3}.
 
-parse_status_vector_args(Conn, Template, Args) ->
+parse_status_vector_args(Conn, ErrNo, Template, Args) ->
     {ok, <<IscArg:32>>, S2} = efirebirdsql_socket:recv(Conn, 4),
     case IscArg of
     0 ->    %% isc_arg_end
-        {S2, Template, Args};
+        {S2, ErrNo, Template, Args};
     1 ->    %% isc_arg_gds
         {N, S3} = parse_status_vector_integer(S2),
         Msg = efirebirdsql_errmsgs:get_error_msg(N),
-        parse_status_vector_args(S3, [Msg | Template], Args);
+        parse_status_vector_args(S3, N, [Msg | Template], Args);
     2 ->    %% isc_arg_string
         {V, S3} = parse_status_vector_string(S2),
-        parse_status_vector_args(S3, Template, [V | Args]);
+        parse_status_vector_args(S3, ErrNo, Template, [V | Args]);
     4 ->    %% isc_arg_number
         {V, S3} = parse_status_vector_integer(S2),
-        parse_status_vector_args(S3, Template, [integer_to_list(V) | Args]);
+        parse_status_vector_args(S3, ErrNo, Template, [integer_to_list(V) | Args]);
     5 ->    %% isc_arg_interpreted
         {V, S3} = parse_status_vector_string(S2),
-        parse_status_vector_args(S3, [V | Template], Args);
+        parse_status_vector_args(S3, ErrNo, [V | Template], Args);
     19 ->   %% isc_arg_sql_state
         {_V, S3} = parse_status_vector_string(S2),
-        parse_status_vector_args(S3, Template, Args)
+        parse_status_vector_args(S3, ErrNo, Template, Args)
     end.
 
 get_error_message(Conn) ->
-    {S2, Msg, Arg} = parse_status_vector_args(Conn, [], []),
-    {iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(Msg)), lists:reverse(Arg))), S2}.
+    {S2, ErrNo, Msg, Arg} = parse_status_vector_args(Conn, 0, [], []),
+    {ErrNo, iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(Msg)), lists:reverse(Arg))), S2}.
 
 %% recieve and parse response
 -spec get_response(conn()) ->
     {op_response, integer(), binary(), conn()} |
     {op_fetch_response, integer(), integer(), conn()} |
     {op_sql_response, integer(), conn()} |
-    {error, binary(), conn()}.
+    {error, integer(), binary(), conn()}.
 get_response(Conn) ->
     ?DEBUG_FORMAT("get_response()~n", []),
     {ok, <<OpCode:32>>, C2} = efirebirdsql_socket:recv(Conn, 4),
@@ -460,10 +460,10 @@ get_response(Conn) ->
                 RecvBuf;
             true -> C4 = C3, <<>>
             end,
-        {Msg, C5} = get_error_message(C4),
+        {ErrNo, Msg, C5} = get_error_message(C4),
         case Msg of
         <<>> -> {Op, Handle, Buf, C5};
-        _ -> {error, Msg, C5}
+        _ -> {error, ErrNo, Msg, C5}
         end;
     op_fetch_response ->
         {ok, <<Status:32, Count:32>>, C3} = efirebirdsql_socket:recv(C2, 8),
@@ -558,8 +558,8 @@ get_connect_response(Conn) ->
             get_connect_response(C2);
         Op == op_response ->
             {ok, <<_Handle:32, _ObjectID:64, _Len:32>>, C3} = efirebirdsql_socket:recv(C2, 16),
-            {Msg, C4} = get_error_message(C3),
-            {error, Msg, C4};
+            {ErrNo, Msg, C4} = get_error_message(C3),
+            {error, ErrNo, Msg, C4};
         Op == op_reject ->
             {error, <<"Connect rejected">>, C2};
         true ->
@@ -655,7 +655,7 @@ get_prepare_statement_response(Conn, Stmt) ->
             _ -> {C2, []}
             end,
         {ok, C3, Stmt2#stmt{xsqlvars=XSqlVars, rows=[]}};
-    {error, Msg, C2} -> {error, Msg, C2}
+    {error, ErrNo, Msg, C2} -> {error, ErrNo, Msg, C2}
     end.
 
 get_blob_segment_list(<<>>, SegmentList) ->

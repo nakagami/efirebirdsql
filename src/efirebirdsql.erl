@@ -31,12 +31,12 @@ connect(C, Host, Username, Password, Database, Ops) ->
     case gen_server:call(C, {connect, Host, Username, Password, Database, Ops}, infinity) of
     ok -> {ok, C};
     {error, _} ->
-        {ok, Msg} = gen_server:call(C, get_last_error, infinity),
+        {ok, _ErrNo, Msg} = gen_server:call(C, get_last_error, infinity),
         {error, Msg}
     end.
 
 -spec connect(list(), list(), list(), list(), [connect_option()])
-        -> {ok, Connection :: connection()} | {error, Reason :: binary()}.
+        -> {ok, Connection :: connection()} | {error, integer(), Reason :: binary()}.
 connect(Host, Username, Password, Database, Ops) ->
     {ok, C} = start_link(),
     connect(C, Host, Username, Password, Database, Ops).
@@ -46,7 +46,7 @@ connect(Host, Username, Password, Database, Ops) ->
 prepare(C, QueryString) ->
     case gen_server:call(C, {prepare, QueryString}, infinity) of
     {error, _} ->
-        {ok, Msg} = gen_server:call(C, get_last_error, infinity),
+        {ok, _ErrNo, Msg} = gen_server:call(C, get_last_error, infinity),
         {error, Msg};
     R -> R
     end.
@@ -67,7 +67,7 @@ execute(C, Params) when is_list(Params) ->
     case gen_server:call(C, {execute, Params}, infinity) of
     ok -> ok;
     {error, _} ->
-        {ok, Msg} = gen_server:call(C, get_last_error, infinity),
+        {ok, _ErrNo, Msg} = gen_server:call(C, get_last_error, infinity),
         {error, Msg}
     end.
 
@@ -85,7 +85,7 @@ description(C) ->
 fetchone(C) ->
     case gen_server:call(C, fetchone, infinity) of
     {error, _} ->
-        {ok, Msg} = gen_server:call(C, get_last_error, infinity),
+        {ok, _ErrNo, Msg} = gen_server:call(C, get_last_error, infinity),
         {error, Msg};
     R -> R
     end.
@@ -95,7 +95,7 @@ fetchone(C) ->
 fetchall(C) ->
     case gen_server:call(C, fetchall, infinity) of
     {error, _} ->
-        {ok, Msg} = gen_server:call(C, get_last_error, infinity),
+        {ok, _ErrNo, Msg} = gen_server:call(C, get_last_error, infinity),
         {error, Msg};
     R -> R
     end.
@@ -117,10 +117,10 @@ close(C) ->
     catch gen_server:cast(C, stop),
     ok.
 
--spec get_last_error(connection()) -> binary().
+-spec get_last_error(connection()) -> {integer(), binary()}.
 get_last_error(C) ->
-    {ok, Msg} = gen_server:call(C, get_last_error, infinity),
-    Msg.
+    {ok, ErrNo, Msg} = gen_server:call(C, get_last_error, infinity),
+    {ErrNo, Msg}.
 
 cancel(C) ->
     gen_server:cast(C, cancel).

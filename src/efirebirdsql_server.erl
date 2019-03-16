@@ -33,7 +33,7 @@ init([]) ->
 allocate_statement(Conn, State) ->
     case efirebirdsql_protocol:allocate_statement(Conn) of
     {ok, C2, Stmt} -> {ok, State#state{connection=C2, statement=Stmt}};
-    {error, Reason, C2} -> {error, State#state{connection=C2, error_message=Reason}}
+    {error, ErrNo, Reason, C2} -> {error, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
     end.
 
 handle_call({connect, Host, Username, Password, Database, Options}, _From, State) ->
@@ -43,44 +43,44 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
         {ok, NewState} -> {reply, ok, NewState};
         {error, NewState} -> {reply, {error, allocate_statement}, NewState}
         end;
-    {error, Reason, Conn} ->
-        {reply, {error, connect}, State#state{connection=Conn, error_message=Reason}}
+    {error, ErrNo, Reason, Conn} ->
+        {reply, {error, connect}, State#state{connection=Conn, error_no=ErrNo, error_message=Reason}}
     end;
 handle_call({transaction, Options}, _From, State) ->
     Conn = State#state.connection,
     AutoCommit = proplists:get_value(auto_commit, Options, true),
     case efirebirdsql_protocol:begin_transaction(AutoCommit, Conn) of
     {ok, C2} -> {reply, ok, State#state{connection=C2}};
-    {error, Reason, C2} -> {reply, {error, begin_transaction}, State#state{connection=C2, error_message=Reason}}
+    {error, ErrNo, Reason, C2} -> {reply, {error, begin_transaction}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
     end;
 handle_call(commit, _From, State) ->
     Conn = State#state.connection,
     case efirebirdsql_protocol:commit(Conn) of
     {ok, C2} -> {reply, ok, State#state{connection=C2}};
-    {error, Reason, C2} -> {reply, {error, commit}, State#state{connection=C2, error_message=Reason}}
+    {error, ErrNo, Reason, C2} -> {reply, {error, commit}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
     end;
 handle_call(rollback, _From, State) ->
     Conn = State#state.connection,
     case efirebirdsql_protocol:rollback(Conn) of
     {ok, C2} -> {reply, ok, State#state{connection=C2}};
-    {error, Reason, C2} -> {reply, {error, rollback}, State#state{connection=C2, error_message=Reason}}
+    {error, ErrNo, Reason, C2} -> {reply, {error, rollback}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
     end;
 handle_call(close, _From, State) ->
     Conn = State#state.connection,
     case efirebirdsql_protocol:close(Conn) of
     {ok, C2} -> {reply, ok, State#state{connection=C2}};
-    {error, Reason, C2} -> {reply, {error, close}, State#state{connection=C2, error_message=Reason}}
+    {error, ErrNo, Reason, C2} -> {reply, {error, close}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
     end;
 handle_call({prepare, Sql}, _From, State) ->
     case efirebirdsql_protocol:prepare_statement(Sql,
         State#state.connection, State#state.statement) of
     {ok, C2, Stmt} -> {reply, ok, State#state{connection=C2, statement=Stmt}};
-    {error, Reason, C2} -> {reply, {error, prepare}, State#state{connection=C2, error_message=Reason}}
+    {error, ErrNo, Reason, C2} -> {reply, {error, prepare}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
     end;
 handle_call({execute, Params}, _From, State) ->
     case efirebirdsql_protocol:execute(State#state.connection, State#state.statement, Params) of
     {ok, C2, Stmt} -> {reply, ok, State#state{connection=C2,statement=Stmt}};
-    {error, Reason, C2} -> {reply, {error, execute}, State#state{connection=C2, error_message=Reason}}
+    {error, ErrNo, Reason, C2} -> {reply, {error, execute}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
     end;
 handle_call(fetchone, _From, State) ->
     {ConvertedRow, C2, Stmt} = efirebirdsql_protocol:fetchone(State#state.connection, State#state.statement),
@@ -103,7 +103,7 @@ handle_call({get_parameter, Name}, _From, State) ->
         end,
     {reply, {ok, Value1}, State};
 handle_call(get_last_error, _From, State) ->
-    {reply, {ok, State#state.error_message}, State}.
+    {reply, {ok, State#state.error_no, State#state.error_message}, State}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
