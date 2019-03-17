@@ -474,7 +474,7 @@ get_response(Conn) ->
     op_dummy ->
         get_response(C2);
     _ ->
-        {error, <<"Unknown response">>, C2}
+        {error, 0, <<"Unknown response">>, C2}
     end.
 
 wire_crypt(Conn, SessionKey) ->

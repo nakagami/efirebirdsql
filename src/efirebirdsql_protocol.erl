@@ -133,7 +133,7 @@ connect(Host, Username, Password, Database, Options) ->
             {error, ErrNo, Reason, C2}
         end;
     {error, Reason} ->
-        {error, Reason, #conn{
+        {error, 0, atom_to_binary(Reason, latin1), #conn{
             user=string:to_upper(Username),
             password=Password,
             client_private=Private,
@@ -159,7 +159,7 @@ close(Conn) ->
     end.
 
 %% Transaction
--spec begin_transaction(boolean(), conn()) -> {ok, conn()} | {error, binary(), conn()}.
+-spec begin_transaction(boolean(), conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 begin_transaction(AutoCommit, Conn) ->
     %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_no_rec_version
     Tpb = if
