@@ -508,7 +508,6 @@ get_connect_response(Op, Conn) ->
     {ok, <<_:32>>, C8} = efirebirdsql_socket:recv(C7, 4),
     if IsAuthenticated == 0 ->
         {ServerAuthData, C9} = get_auth_data(Data, C8),
-        
         case binary_to_list(PluginName) of
         "Srp" ->
             <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = ServerAuthData,
