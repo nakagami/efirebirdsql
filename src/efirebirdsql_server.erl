@@ -30,6 +30,7 @@ get_parameter(C, Name) when is_list(Name) ->
 init([]) ->
     {ok, #state{}}.
 
+-spec allocate_statement(conn(), state()) -> {ok, state()} | {error, state()}.
 allocate_statement(Conn, State) ->
     case efirebirdsql_protocol:allocate_statement(Conn) of
     {ok, C2, Stmt} -> {ok, State#state{connection=C2, statement=Stmt}};

@@ -16,7 +16,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Utility functions in module
 
--spec connect_database(conn(), list(), list(), list(), list()) -> {ok, conn()} | {error, binary(), conn()}.
+-spec connect_database(conn(), list(), list(), boolean(), integer()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_connect(Host, Conn#conn.user, Conn#conn.client_public, Conn#conn.auth_plugin, Conn#conn.wire_crypt, Database)),
@@ -102,7 +102,7 @@ load_timezone_data(Conn) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % public functions
 
--spec connect(list(), list(), list(), list(), list()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
+-spec connect(string(), string(), string(), string(), list()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 connect(Host, Username, Password, Database, Options) ->
     SockOptions = [{active, false}, {packet, raw}, binary],
     Port = proplists:get_value(port, Options, 3050),
@@ -144,7 +144,7 @@ connect(Host, Username, Password, Database, Options) ->
         }}
     end.
 
--spec close(conn()) -> {ok, conn()} | {error, binary(), conn()}.
+-spec close(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 close(Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
@@ -174,7 +174,7 @@ begin_transaction(AutoCommit, Conn) ->
     end.
 
 %% allocate, prepare and free statement
--spec allocate_statement(conn()) -> {ok, conn()} | {error, binary(), conn()}.
+-spec allocate_statement(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 allocate_statement(Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_allocate_statement(Conn#conn.db_handle)),
@@ -183,7 +183,7 @@ allocate_statement(Conn) ->
     {error, ErrNo, Msg, C3} -> {error, ErrNo, Msg, C3}
     end.
 
--spec prepare_statement(binary(), conn(), stmt()) -> {ok, conn(), stmt()} | {error, binary(), conn()}.
+-spec prepare_statement(binary(), conn(), stmt()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
 prepare_statement(Sql, Conn, Stmt) ->
     {ok, C2, S2} = case Stmt#stmt.closed of
     true -> {ok, Conn, Stmt};
@@ -196,7 +196,7 @@ prepare_statement(Sql, Conn, Stmt) ->
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
     efirebirdsql_op:get_prepare_statement_response(C3, S2).
 
--spec free_statement(conn(), stmt(), atom()) -> {ok, conn(), stmt()} | {error, binary(), conn()}.
+-spec free_statement(conn(), stmt(), atom()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
 free_statement(Conn, Stmt, Type) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_free_statement(Stmt#stmt.stmt_handle, Type)),
@@ -242,7 +242,7 @@ execute(Conn, Stmt, Params, _StmtType) ->
     {error, ErrNo, Msg, C3} -> {error, ErrNo, Msg, C3}
     end.
 
--spec execute(conn(), stmt(), list()) -> {ok, conn(), stmt()} | {error, binary(), conn()}.
+-spec execute(conn(), stmt(), list()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
 execute(Conn, Stmt, Params) ->
     execute(Conn, Stmt, Params, Stmt#stmt.stmt_type).
 execute(Conn, Stmt) ->
@@ -287,7 +287,7 @@ description(Stmt) ->
     description(Stmt#stmt.xsqlvars, []).
 
 %% Commit and rollback
--spec commit(conn()) -> {ok, conn()} | {error, binary(), conn()}.
+-spec commit(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 commit(Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
@@ -296,7 +296,7 @@ commit(Conn) ->
     {error, ErrNo, Msg, C3} -> {error, ErrNo, Msg, C3}
     end.
 
--spec rollback(conn()) -> {ok, conn()} | {error, binary(), conn()}.
+-spec rollback(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 rollback(Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_rollback_retaining(Conn#conn.trans_handle)),
