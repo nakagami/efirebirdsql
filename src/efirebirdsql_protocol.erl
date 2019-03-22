@@ -162,10 +162,11 @@ close(Conn) ->
 %% Transaction
 -spec begin_transaction(boolean(), conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 begin_transaction(AutoCommit, Conn) ->
-    %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_no_rec_version
+    %% ISOLATION_LEVEL_READ_COMMITED
+    %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_rec_version
     Tpb = if
-        AutoCommit =:= true -> [3, 9, 6, 15, 18, 16];
-        AutoCommit =:= false -> [3, 9, 6, 15, 18]
+        AutoCommit =:= true -> [3, 9, 6, 15, 17, 16];
+        AutoCommit =:= false -> [3, 9, 6, 15, 17]
         end,
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_transaction(Conn#conn.db_handle, Tpb)),
