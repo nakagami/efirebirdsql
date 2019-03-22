@@ -13,6 +13,8 @@ protocol_test() ->
     {ok, C1} = efirebirdsql_protocol:connect(
         "localhost", "sysdba", "masterkey", tmp_dbname(),
         [{createdb, true}, {auth_plugin, "Srp"}]),
+    ?assertEqual(C1#conn.auto_commit, true),
+
     {ok, C2, Stmt} = efirebirdsql_protocol:allocate_statement(C1),
 
     {ok, C3, Stmt2} = efirebirdsql_protocol:prepare_statement(
@@ -51,6 +53,7 @@ connect_test() ->
     efirebirdsql_protocol:close(C),
     connect_test(DbName, 10).
 
-connect_error() ->
-    {error, Reason, _Conn} = efirebirdsql_protocol:connect("localhost", "sysdba", "masterkey", "something_wrong_database", []),
+connect_error_test() ->
+    {error, ErrNo, Reason, _Conn} = efirebirdsql_protocol:connect("localhost", "sysdba", "masterkey", "something_wrong_database", []),
+    ?assertEqual(ErrNo, 335544734),
     ?assertEqual(Reason, <<"I/O error during 'open' operation for file 'something_wrong_database'\nError while trying to open file\nNo such file or directory">>).

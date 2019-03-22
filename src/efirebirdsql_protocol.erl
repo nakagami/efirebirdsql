@@ -117,6 +117,7 @@ connect(Host, Username, Password, Database, Options) ->
             sock=Sock,
             user=string:to_upper(Username),
             password=Password,
+            auto_commit=AutoCommit,
             client_private=Private,
             client_public=Public,
             auth_plugin=proplists:get_value(auth_plugin, Options, "Srp"),

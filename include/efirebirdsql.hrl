@@ -16,6 +16,7 @@
     sock,
     user :: string(),
     password :: string(),
+    auto_commit :: boolean(),
     client_private :: integer(),
     client_public :: integer(),
     auth_data :: string() | undefined,
