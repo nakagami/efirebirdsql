@@ -6,7 +6,7 @@
 
 -export([connect/5, close/1, begin_transaction/2]).
 -export([allocate_statement/1, prepare_statement/3, free_statement/3, columns/1]).
--export([execute/2, execute/3]).
+-export([execute/2, execute/3, exec_immediate/2]).
 -export([fetchone/2, fetchall/2, fetchsegment/2]).
 -export([description/1]).
 -export([commit/1, rollback/1]).
@@ -250,6 +250,14 @@ execute(Conn, Stmt, Params) ->
 execute(Conn, Stmt) ->
     execute(Conn, Stmt, []).
 
+-spec exec_immediate(binary(), conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
+exec_immediate(Sql, Conn) ->
+    C2 = efirebirdsql_socket:send(Conn,
+        efirebirdsql_op:op_exec_immediate(Conn, Sql)),
+    case efirebirdsql_op:get_response(C2) of
+    {op_response, _, _, C3} -> {ok, C3};
+    {error, ErrNo, Msg, C3} -> {error, ErrNo, Msg, C3}
+    end.
 
 %% Fetch
 

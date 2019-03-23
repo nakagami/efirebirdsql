@@ -6,8 +6,8 @@
 
 -export([op_connect/6, op_attach/2, op_detach/1, op_create/3, op_transaction/2,
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/2,
-    op_execute/3, op_execute2/3, op_fetch/2, op_commit_retaining/1,
-    op_rollback_retaining/1, convert_row/3,
+    op_execute/3, op_execute2/3, op_exec_immediate/2, op_fetch/2,
+    op_commit_retaining/1, op_rollback_retaining/1, convert_row/3,
     get_response/1, get_connect_response/1, get_fetch_response/2,
     get_sql_response/2, get_prepare_statement_response/2]).
 
@@ -332,6 +332,19 @@ op_execute2(Conn, Stmt, Params) ->
             OutputBlr,
             efirebirdsql_conv:byte4(0)])
     end.
+
+op_exec_immediate(Conn, Sql) ->
+    ?DEBUG_FORMAT("op_exec_immediate~n", []),
+    DbHandle = Conn#conn.db_handle,
+    TransHandle = Conn#conn.trans_handle,
+
+    list_to_binary([
+        efirebirdsql_conv:byte4(op_val(op_exec_immediate)),
+        efirebirdsql_conv:byte4(TransHandle),
+        efirebirdsql_conv:byte4(DbHandle),
+        efirebirdsql_conv:byte4(3),     % dialect = 3
+        efirebirdsql_conv:list_to_xdr_string(binary_to_list(Sql)),
+        efirebirdsql_conv:list_to_xdr_bytes([])]).
 
 op_info_sql(StmtHandle, V) ->
     ?DEBUG_FORMAT("op_info_sql(~p,~p)~n", [StmtHandle, V]),

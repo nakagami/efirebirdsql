@@ -34,8 +34,25 @@ protocol_test() ->
          {<<"RDB$OWNER_NAME">>,text,0,252,true}]
     ),
 
-    {ok, C8} = efirebirdsql_protocol:rollback(C7),
-    {ok, _} = efirebirdsql_protocol:close(C8).
+    {ok, C8} = efirebirdsql_protocol:exec_immediate(<<"
+        CREATE TABLE foo (
+            a INTEGER NOT NULL,
+            b VARCHAR(30) NOT NULL UNIQUE,
+            c VARCHAR(1024),
+            d DECIMAL(16,3) DEFAULT -0.123,
+            e DATE DEFAULT '1967-08-11',
+            f TIMESTAMP DEFAULT '1967-08-11 23:45:01',
+            g TIME DEFAULT '23:45:01',
+            h BLOB SUB_TYPE 1,
+            i DOUBLE PRECISION DEFAULT 1.0,
+            j FLOAT DEFAULT 2.0,
+            PRIMARY KEY (a),
+            CONSTRAINT CHECK_A CHECK (a <> 0)
+        )">>, C7),
+
+    {ok, C9} = efirebirdsql_protocol:rollback(C8),
+    {ok, _} = efirebirdsql_protocol:close(C9).
+
 
 connect_test(_DbName, 0) ->
     ok;
