@@ -344,7 +344,8 @@ op_exec_immediate(Conn, Sql) ->
         efirebirdsql_conv:byte4(DbHandle),
         efirebirdsql_conv:byte4(3),     % dialect = 3
         efirebirdsql_conv:list_to_xdr_string(binary_to_list(Sql)),
-        efirebirdsql_conv:list_to_xdr_bytes([])]).
+        efirebirdsql_conv:list_to_xdr_bytes([]),
+        efirebirdsql_conv:byte4(?BUFSIZE)]).
 
 op_info_sql(StmtHandle, V) ->
     ?DEBUG_FORMAT("op_info_sql(~p,~p)~n", [StmtHandle, V]),
