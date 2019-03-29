@@ -51,11 +51,17 @@ protocol_test() ->
         )">>, C7),
 
     {ok, C9, Stmt7} = efirebirdsql_protocol:prepare_statement(
-        <<"insert into foo(a, b) values(?, ?)">>, C8, Stmt6),
-    {ok, C10, _Stmt8} = efirebirdsql_protocol:execute(C9, Stmt7, [1, "b"]),
+        <<"INSERT INTO foo(a, b) VALUES(?, ?)">>, C8, Stmt6),
+    {ok, C10, Stmt8} = efirebirdsql_protocol:execute(C9, Stmt7, [1, "b"]),
 
-    {ok, C11} = efirebirdsql_protocol:rollback(C10),
-    {ok, _} = efirebirdsql_protocol:close(C11).
+    {ok, C11, Stmt9} = efirebirdsql_protocol:prepare_statement(
+        <<"SELECT count(*) FROM foo WHERE f = ?">>, C10, Stmt8),
+    {ok, C12, Stmt10} = efirebirdsql_protocol:execute(C11, Stmt9, [{1967, 8, 11}, {23, 45, 1, 0}]),
+    {ok, Rows, C13, Stmt11} = efirebirdsql_protocol:fetchall(C12, Stmt10),
+    ?assertEqual(length(Rows),  1),
+
+    {ok, C14} = efirebirdsql_protocol:rollback(C13),
+    {ok, _} = efirebirdsql_protocol:close(C14).
 
 
 connect_test(_DbName, 0) ->
