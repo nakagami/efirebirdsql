@@ -56,8 +56,8 @@ protocol_test() ->
 
     {ok, C11, Stmt9} = efirebirdsql_protocol:prepare_statement(
         <<"SELECT count(*) FROM foo WHERE f = ?">>, C10, Stmt8),
-    {ok, C12, Stmt10} = efirebirdsql_protocol:execute(C11, Stmt9, [{1967, 8, 11}, {23, 45, 1, 0}]),
-    {ok, Rows, C13, Stmt11} = efirebirdsql_protocol:fetchall(C12, Stmt10),
+    {ok, C12, Stmt10} = efirebirdsql_protocol:execute(C11, Stmt9, [{{1967, 8, 11}, {23, 45, 1, 0}}]),
+    {ok, Rows, C13, _Stmt11} = efirebirdsql_protocol:fetchall(C12, Stmt10),
     ?assertEqual(length(Rows),  1),
 
     {ok, C14} = efirebirdsql_protocol:rollback(C13),
