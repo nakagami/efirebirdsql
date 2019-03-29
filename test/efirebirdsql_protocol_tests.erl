@@ -50,8 +50,12 @@ protocol_test() ->
             CONSTRAINT CHECK_A CHECK (a <> 0)
         )">>, C7),
 
-    {ok, C9} = efirebirdsql_protocol:rollback(C8),
-    {ok, _} = efirebirdsql_protocol:close(C9).
+    {ok, C9, Stmt7} = efirebirdsql_protocol:prepare_statement(
+        <<"insert into foo(a, b) values(?, ?)">>, C8, Stmt6),
+    {ok, C10, _Stmt8} = efirebirdsql_protocol:execute(C9, Stmt7, [1, "b"]),
+
+    {ok, C11} = efirebirdsql_protocol:rollback(C10),
+    {ok, _} = efirebirdsql_protocol:close(C11).
 
 
 connect_test(_DbName, 0) ->
