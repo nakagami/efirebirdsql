@@ -251,6 +251,8 @@ execute(Conn, Stmt) ->
     execute(Conn, Stmt, []).
 
 -spec rowcount(conn(), stmt()) -> {ok, conn(), integer()} | {error, integer(), binary(), conn()}.
+rowcount(Conn, Stmt) when Stmt#stmt.stmt_type =:= isc_info_sql_stmt_ddl ->
+    {ok, Conn, 0};
 rowcount(Conn, Stmt) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_info_sql(Stmt#stmt.stmt_handle, [23])), % 23:isc_info_sql_records
