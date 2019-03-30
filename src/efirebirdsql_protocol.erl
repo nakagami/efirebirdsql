@@ -6,7 +6,7 @@
 
 -export([connect/5, close/1, begin_transaction/2]).
 -export([allocate_statement/1, prepare_statement/3, free_statement/3, columns/1]).
--export([execute/2, execute/3, exec_immediate/2]).
+-export([execute/2, execute/3, rowcount/2, exec_immediate/2]).
 -export([fetchone/2, fetchall/2, fetchsegment/2]).
 -export([description/1]).
 -export([commit/1, rollback/1]).
@@ -249,6 +249,18 @@ execute(Conn, Stmt, Params) ->
     execute(Conn, Stmt, Params, Stmt#stmt.stmt_type).
 execute(Conn, Stmt) ->
     execute(Conn, Stmt, []).
+
+-spec rowcount(conn(), stmt()) -> {ok, conn(), integer()} | {error, integer(), binary(), conn()}.
+rowcount(Conn, Stmt) ->
+    C2 = efirebirdsql_socket:send(Conn,
+        efirebirdsql_op:op_info_sql(Stmt#stmt.stmt_handle, [23])), % 23:isc_info_sql_records
+    case efirebirdsql_op:get_response(C2) of
+    {op_response, _, Buf, C3} ->
+        << _:48, Count1:32/little-unsigned, _:24, Count2:32/little-unsigned, _:24, Count3:32/little-unsigned, _:24, Count4:32/little-unsigned >> = Buf,
+        {ok, C3, Count1+Count2+Count3+Count4};
+    {error, ErrNo, Msg, C3} ->
+        {error, ErrNo, Msg, C3}
+    end.
 
 -spec exec_immediate(binary(), conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 exec_immediate(Sql, Conn) ->

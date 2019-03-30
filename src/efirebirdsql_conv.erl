@@ -181,7 +181,6 @@ param_to_blr({Hour, Minute, Second, Microsecond}, _) ->
     %% time
     {[13, 7, 0], lists:flatten(param_to_time(Hour, Minute, Second, Microsecond))};
 param_to_blr({{Year, Month, Day}, {Hour, Minute, Second, Microsecond}}, _) ->
-    io:format("AAA"),
     %% timestamp
     {[35, 7, 0], lists:flatten([param_to_date(Year, Month, Day),
         param_to_time(Hour, Minute, Second, Microsecond)])};

@@ -6,7 +6,7 @@
 
 -export([op_connect/6, op_attach/2, op_detach/1, op_create/3, op_transaction/2,
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/2,
-    op_execute/3, op_execute2/3, op_exec_immediate/2, op_fetch/2,
+    op_execute/3, op_execute2/3, op_exec_immediate/2, op_info_sql/2, op_fetch/2,
     op_commit_retaining/1, op_rollback_retaining/1, convert_row/3,
     get_response/1, get_connect_response/1, get_fetch_response/2,
     get_sql_response/2, get_prepare_statement_response/2]).
