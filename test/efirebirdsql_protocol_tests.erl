@@ -55,15 +55,15 @@ protocol_test() ->
     {ok, C10, Stmt8} = efirebirdsql_protocol:execute(C9, Stmt7, [1, "b"]),
     {ok, C11, 1} = efirebirdsql_protocol:rowcount(C10, Stmt8),
 
-
     {ok, C12, Stmt9} = efirebirdsql_protocol:prepare_statement(
-        <<"SELECT count(*) FROM foo WHERE f = ?">>, C11, Stmt8),
+        <<"SELECT * FROM foo WHERE f = ?">>, C11, Stmt8),
     {ok, C13, Stmt10} = efirebirdsql_protocol:execute(C12, Stmt9, [{{1967, 8, 11}, {23, 45, 1, 0}}]),
-    {ok, Rows, C14, _Stmt11} = efirebirdsql_protocol:fetchall(C13, Stmt10),
-    ?assertEqual(Rows, [[{<<"COUNT">>, 1}]]),
+    {ok, Rows, C14, Stmt11} = efirebirdsql_protocol:fetchall(C13, Stmt10),
+    ?assertEqual(length(Rows),  1),
+    {ok, C15, 1} = efirebirdsql_protocol:rowcount(C14, Stmt11),
 
-    {ok, C15} = efirebirdsql_protocol:rollback(C14),
-    {ok, _} = efirebirdsql_protocol:close(C15).
+    {ok, C16} = efirebirdsql_protocol:rollback(C15),
+    {ok, _} = efirebirdsql_protocol:close(C16).
 
 
 connect_test(_DbName, 0) ->
