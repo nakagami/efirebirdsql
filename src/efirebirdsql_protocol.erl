@@ -240,7 +240,7 @@ execute(Conn, Stmt, Params, _StmtType) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_execute(Conn, Stmt, Params)),
     case efirebirdsql_op:get_response(C2) of
-    {op_response, _, _, C3} -> {ok, C3, Stmt#stmt{rows=[], more_data=false}};
+    {op_response, _, _, C3} -> {ok, C3, Stmt#stmt{rows=nil, more_data=false}};
     {error, ErrNo, Msg, C3} -> {error, ErrNo, Msg, C3}
     end.
 
@@ -285,7 +285,9 @@ fetch_all(Rows, {nil, Conn, Stmt}) ->
 fetch_all(Rows, {Row, Conn, Stmt}) ->
     fetch_all([Row | Rows], fetchone(Conn, Stmt)).
 
--spec fetchall(conn(), stmt()) -> {ok, list(), conn(), stmt()}.
+-spec fetchall(conn(), stmt()) -> {ok, list() | nil, conn(), stmt()}.
+fetchall(Conn, Stmt) when Stmt#stmt.rows =:= nil ->
+    {ok, nil, Conn, Stmt};
 fetchall(Conn, Stmt) ->
     fetch_all([], fetchone(Conn, Stmt)).
 

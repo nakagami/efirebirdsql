@@ -50,20 +50,22 @@ protocol_test() ->
             CONSTRAINT CHECK_A CHECK (a <> 0)
         )">>, C7),
 
-    {ok, C9, Stmt7} = efirebirdsql_protocol:prepare_statement(
-        <<"INSERT INTO foo(a, b) VALUES(?, ?)">>, C8, Stmt6),
-    {ok, C10, Stmt8} = efirebirdsql_protocol:execute(C9, Stmt7, [1, "b"]),
-    {ok, C11, 1} = efirebirdsql_protocol:rowcount(C10, Stmt8),
+    {ok, nil, C9, Stmt7} = efirebirdsql_protocol:fetchall(C8, Stmt6),
 
-    {ok, C12, Stmt9} = efirebirdsql_protocol:prepare_statement(
-        <<"SELECT * FROM foo WHERE f = ?">>, C11, Stmt8),
-    {ok, C13, Stmt10} = efirebirdsql_protocol:execute(C12, Stmt9, [{{1967, 8, 11}, {23, 45, 1, 0}}]),
-    {ok, Rows, C14, Stmt11} = efirebirdsql_protocol:fetchall(C13, Stmt10),
+    {ok, C10, Stmt8} = efirebirdsql_protocol:prepare_statement(
+        <<"INSERT INTO foo(a, b) VALUES(?, ?)">>, C9, Stmt7),
+    {ok, C11, Stmt9} = efirebirdsql_protocol:execute(C10, Stmt8, [1, "b"]),
+    {ok, C12, 1} = efirebirdsql_protocol:rowcount(C11, Stmt9),
+
+    {ok, C13, Stmt10} = efirebirdsql_protocol:prepare_statement(
+        <<"SELECT * FROM foo WHERE f = ?">>, C12, Stmt9),
+    {ok, C14, Stmt11} = efirebirdsql_protocol:execute(C13, Stmt10, [{{1967, 8, 11}, {23, 45, 1, 0}}]),
+    {ok, Rows, C15, Stmt12} = efirebirdsql_protocol:fetchall(C14, Stmt11),
     ?assertEqual(length(Rows),  1),
-    {ok, C15, 1} = efirebirdsql_protocol:rowcount(C14, Stmt11),
+    {ok, C16, 1} = efirebirdsql_protocol:rowcount(C15, Stmt12),
 
-    {ok, C16} = efirebirdsql_protocol:rollback(C15),
-    {ok, _} = efirebirdsql_protocol:close(C16).
+    {ok, C17} = efirebirdsql_protocol:rollback(C16),
+    {ok, _} = efirebirdsql_protocol:close(C17).
 
 
 connect_test(_DbName, 0) ->

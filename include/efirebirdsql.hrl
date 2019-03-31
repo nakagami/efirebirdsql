@@ -38,7 +38,7 @@
     stmt_handle,
     stmt_type,
     xsqlvars = [],
-    rows = [],      %% segment rows values
+    rows = nil,      %% segment rows values
     more_data = false,  %% has more rows
     closed = true
 }).
