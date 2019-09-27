@@ -1007,7 +1007,7 @@ sql_type(580) -> int64;
 sql_type(32752) -> int128;
 sql_type(32754) -> timestamp_tz;
 sql_type(32756) -> time_tz;
-sql_type(32758) -> decimal_fixed;
+sql_type(32758) -> decimal_fixed;   %% OBSOLATED
 sql_type(32760) -> decimal64;
 sql_type(32762) -> decimal128;
 sql_type(32764) -> boolean;
