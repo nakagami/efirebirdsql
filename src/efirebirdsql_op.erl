@@ -79,6 +79,7 @@ calc_blr_item(XSqlVar) ->
     long -> [8, convert_scale(XSqlVar#column.scale), 7, 0];
     short -> [7, convert_scale(XSqlVar#column.scale), 7, 0];
     int64 -> [16,  convert_scale(XSqlVar#column.scale), 7, 0];
+    int128 -> [26,  convert_scale(XSqlVar#column.scale), 7, 0];
     quad -> [9, convert_scale(XSqlVar#column.scale), 7, 0];
     double -> [27, 7, 0];
     float -> [10, 7, 0];
@@ -711,6 +712,9 @@ convert_raw_value(Conn, XSqlVar, RawValue) ->
         int64 ->
             C2 = Conn,
             efirebirdsql_conv:parse_number(RawValue, XSqlVar#column.scale);
+        int128 ->
+            C2 = Conn,
+            efirebirdsql_conv:parse_number(RawValue, XSqlVar#column.scale);
         quad ->
             C2 = Conn,
             efirebirdsql_conv:parse_number(RawValue, XSqlVar#column.scale);
@@ -782,6 +786,7 @@ get_raw_value(Conn, XSqlVar) ->
                 long -> 4;
                 short -> 4;
                 int64 -> 8;
+                int128 -> 16;
                 quad -> 8;
                 double -> 8;
                 float -> 4;
@@ -999,6 +1004,7 @@ sql_type(550) -> quad;
 sql_type(560) -> time;
 sql_type(570) -> date;
 sql_type(580) -> int64;
+sql_type(32752) -> int128;
 sql_type(32754) -> timestamp_tz;
 sql_type(32756) -> time_tz;
 sql_type(32758) -> decimal_fixed;
