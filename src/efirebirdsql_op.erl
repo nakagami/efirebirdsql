@@ -652,7 +652,7 @@ parse_select_columns(Conn, Stmt, XSqlVars, DescVars) ->
         {C2, lists:reverse(XSqlVars)}
     end.
 
--spec get_prepare_statement_response(conn(), stmt()) -> {ok, conn(), stmt()} | {error, binary(), conn()}.
+-spec get_prepare_statement_response(conn(), stmt()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
 get_prepare_statement_response(Conn, Stmt) ->
     case get_response(Conn) of
     {op_response, _, Buf, C2} ->

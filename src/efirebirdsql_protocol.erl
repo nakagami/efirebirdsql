@@ -128,7 +128,7 @@ connect(Host, Username, Password, Database, Options) ->
         {ok, C2} ->
             case begin_transaction(AutoCommit, C2) of
             {ok, C3} -> load_timezone_data(C3);
-            {error, Reason, C3} -> {error, Reason, C3}
+            {error, ErrNo, Reason, C3} -> {error, ErrNo, Reason, C3}
             end;
         {error, ErrNo, Reason, C2} ->
             {error, ErrNo, Reason, C2}
