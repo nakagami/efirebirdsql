@@ -16,7 +16,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Utility functions in module
 
--spec connect_database(conn(), list(), list(), boolean(), integer()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
+-spec connect_database(conn(), string(), list(), boolean(), integer()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_connect(Host, Conn#conn.user, Conn#conn.client_public, Conn#conn.auth_plugin, Conn#conn.wire_crypt, Database)),
@@ -177,7 +177,7 @@ begin_transaction(AutoCommit, Conn) ->
     end.
 
 %% allocate, prepare and free statement
--spec allocate_statement(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
+-spec allocate_statement(conn()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
 allocate_statement(Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_allocate_statement(Conn#conn.db_handle)),

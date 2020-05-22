@@ -49,7 +49,7 @@ pack_specific_data_cnct_param(Acc, Idx, K, V) ->
 pack_specific_data_cnct_param(K, V) ->
     pack_specific_data_cnct_param([], 0, K, V).
 
--spec uid(string(), string(), string(), string(), boolean()) -> list().
+-spec uid(string(), string(), integer(), string(), boolean()) -> list().
 uid(Host, User, SpecificData, AuthPlugin, WireCrypt) ->
     Data = lists:flatten([
         pack_cnct_param(9, User),                   %% CNCT_login
@@ -111,7 +111,7 @@ calc_blr(XSqlVars) ->
         [255, 76]]).
 
 %%% create op_connect binary
--spec op_connect(string(), string(), list(), string(), boolean(), list()) -> binary().
+-spec op_connect(string(), string(), integer(), string(), boolean(), list()) -> binary().
 op_connect(Host, User, ClientPublic, AuthPlugin, WireCrypt, Database) ->
     ?DEBUG_FORMAT("op_connect~n", []),
     %% PROTOCOL_VERSION,ArchType(Generic)=1,MinAcceptType=0,MaxAcceptType=4,Weight

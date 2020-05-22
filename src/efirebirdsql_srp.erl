@@ -149,7 +149,7 @@ client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate
     {M, K}.
 
 %% convert to hex string
--spec to_hex(binary() | list()) -> list().
+-spec to_hex(binary() | list() | integer()) -> list().
 to_hex(Bin) when is_binary(Bin) ->
     lists:flatten([io_lib:format("~2.16.0B",[X]) || <<X:8>> <= Bin ]);
 to_hex(L) when is_list(L) ->
