@@ -26,7 +26,7 @@ start_link() ->
     efirebirdsql_server:start_link().
 
 -spec connect(connection(), list(), list(), list(), list(), [connect_option()])
-        -> ok | {error, Reason :: binary}.
+        -> {ok, connection()} | {error, Reason :: binary}.
 connect(C, Host, Username, Password, Database, Ops) ->
     case gen_server:call(C, {connect, Host, Username, Password, Database, Ops}, infinity) of
     ok -> {ok, C};
@@ -36,7 +36,7 @@ connect(C, Host, Username, Password, Database, Ops) ->
     end.
 
 -spec connect(list(), list(), list(), list(), [connect_option()])
-        -> {ok, Connection :: connection()} | {error, integer(), Reason :: binary()}.
+        -> {ok, connection()} | {error, Reason :: binary()}.
 connect(Host, Username, Password, Database, Ops) ->
     {ok, C} = start_link(),
     connect(C, Host, Username, Password, Database, Ops).
