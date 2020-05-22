@@ -24,7 +24,7 @@
 #define	SLONG long
 #define SCHAR char
 
-// wget https://raw.githubusercontent.com/FirebirdSQL/core/master/src/include/gen/msgs.h
+// curl -O https://raw.githubusercontent.com/FirebirdSQL/firebird/master/src/include/gen/msgs.h
 // perl -pi -e 's/\@\d+/~s/g' msgs.h
 // perl -pi -e 's/\\\"/@/g' msgs.h
 // perl -pi -e "s/@/'/g" msgs.h
