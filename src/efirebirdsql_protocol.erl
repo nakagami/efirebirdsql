@@ -66,7 +66,6 @@ fetchrow(Conn, Stmt) ->
         {ConvertedRow, C2, Stmt#stmt{rows=Rest}}
     end.
 
--spec puts_timezone_data(binary(), binary(), tuple()) -> tuple().
 puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, {nil, Conn, Stmt}) ->
     {TimeZoneNameById, TimeZoneIdByName, Conn, Stmt};
 puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, {[{_, ID}, {_, Name}], Conn, Stmt}) ->
