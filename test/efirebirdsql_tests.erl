@@ -182,13 +182,13 @@ basic_test() ->
     ?assertEqual(ResultProcedure,  [{<<"OUT1">>,4}, {<<"OUT2">>,<<"d">>}]),
 
     %% FB3
-    ok = efirebirdsql:execute(C2, <<"select True AS C from rdb$relations">>),
-    ?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C2)),
-    ok = efirebirdsql:execute(C2, <<"select False AS C from rdb$relations">>),
-    ?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C2)),
-
-    ok = efirebirdsql:commit(C2),
-    ok = efirebirdsql:close(C2),
+    %% ok = efirebirdsql:execute(C2, <<"select True AS C from rdb$relations">>),
+    %% ?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C2)),
+    %% ok = efirebirdsql:execute(C2, <<"select False AS C from rdb$relations">>),
+    %% ?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C2)),
+    %%
+    %% ok = efirebirdsql:commit(C2),
+    %% ok = efirebirdsql:close(C2),
 
     %% Fetch null value issue #6
     {ok, C3} = efirebirdsql:connect(
