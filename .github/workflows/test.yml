@@ -1,0 +1,32 @@
+name: Elixir CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Firebird
+      run: |
+        sudo apt update -qq
+        sudo apt install -qq firebird2.5-super firebird2.5-dev
+        sudo sed /ENABLE_FIREBIRD_SERVER=/s/no/yes/ -i /etc/default/firebird2.5
+        cat /etc/default/firebird2.5 | grep ENABLE_FIREBIRD_SERVER
+        sudo service firebird2.5-super start
+    - name: Set up Erlang
+      uses: actions/setup-elixir@v1
+      with:
+        elixir-version: '1.10.3' # Define the elixir version [required]
+        otp-version: '22.3' # Define the OTP version [required]
+      run: |
+        sudo apt install rebar
+    - name: Run tests
+      run: make test
