@@ -19,11 +19,12 @@ jobs:
         elixir-version: '1.10.3' # Define the elixir version [required]
         otp-version: '22.3' # Define the OTP version [required]
     - uses: actions/checkout@v2
-    - name: Set up Rebar & Firebird
+    - name: Set up Firebird
       run: |
         sudo mkdir -p /etc/firebird/3.0
         sudo cp attic/SYSDBA.password /etc/firebird/3.0
         sudo chmod 0600 /etc/firebird/3.0/SYSDBA.password
         sudo apt install firebird3.0-server -y
+        sudo cat /etc/firebird/3.0/SYSDBA.password
     - name: Run tests
       run: rebar3 eunit
