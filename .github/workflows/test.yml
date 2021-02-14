@@ -16,12 +16,12 @@ jobs:
     - uses: actions/checkout@v2
     - name: Set up Rebar & Firebird
       run: |
-        mkdir -p /etc/firebird/3.0
-        cat <<EOF >/etc/firebird/3.0/SYSDBA.password
+        sudo mkdir -p /etc/firebird/3.0
+        sudo cat <<EOF >/etc/firebird/3.0/SYSDBA.password
         ISC_USER=sysdba
         ISC_PASSWORD="masterkey"
         EOF
-        chmod 0600 /etc/firebird/3.0/SYSDBA.password
+        sudo chmod 0600 /etc/firebird/3.0/SYSDBA.password
         sudo apt install firebird3.0-server -y
     - name: Set up Erlang
       uses: actions/setup-elixir@v1
