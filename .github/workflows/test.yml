@@ -10,7 +10,7 @@ jobs:
   build:
 
     name: Build and test
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
@@ -18,10 +18,13 @@ jobs:
       run: |
         sudo apt update -qq
         sudo apt install rebar
-        sudo apt install -qq firebird2.5-super firebird2.5-dev
-        sudo sed /ENABLE_FIREBIRD_SERVER=/s/no/yes/ -i /etc/default/firebird2.5
-        cat /etc/default/firebird2.5 | grep ENABLE_FIREBIRD_SERVER
-        sudo service firebird2.5-super start
+        mkdir -p /etc/firebird/3.0
+        cat <<EOF >/etc/firebird/3.0/SYSDBA.password
+        ISC_USER=sysdba
+        ISC_PASSWORD="masterkey"
+        EOF
+        chmod 0600 /etc/firebird/3.0/SYSDBA.password
+        sudo apt install firebird3.0-server -y
     - name: Set up Erlang
       uses: actions/setup-elixir@v1
       with:
