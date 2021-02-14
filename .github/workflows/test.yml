@@ -29,4 +29,5 @@ jobs:
     - name: Run tests
       run: |
         source test_user.env
+        cat test_user.env
         rebar3 eunit
