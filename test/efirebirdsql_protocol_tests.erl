@@ -11,7 +11,7 @@ tmp_dbname() ->
 
 protocol_test() ->
     {ok, C1} = efirebirdsql_protocol:connect(
-        "localhost", "sysdba", "masterkey", tmp_dbname(),
+        "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD","masterkey"), tmp_dbname(),
         [{createdb, true}, {auth_plugin, "Srp"}]),
     ?assertEqual(C1#conn.auto_commit, true),
 
@@ -74,19 +74,19 @@ connect_test(_DbName, 0) ->
     ok;
 connect_test(DbName, Count) ->
     {ok, C} = efirebirdsql_protocol:connect(
-        "localhost", "sysdba", "masterkey", DbName,
+        "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName,
         [{auth_plugin, "Srp"}]),
     efirebirdsql_protocol:close(C),
     connect_test(DbName, Count-1).
 connect_test() ->
     DbName = tmp_dbname(),
     {ok, C} = efirebirdsql_protocol:connect(
-        "localhost", "sysdba", "masterkey", DbName,
+        "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName,
         [{createdb, true}, {auth_plugin, "Srp"}]),
     efirebirdsql_protocol:close(C),
     connect_test(DbName, 10).
 
 connect_error_test() ->
-    {error, ErrNo, Reason, _Conn} = efirebirdsql_protocol:connect("localhost", "sysdba", "masterkey", "something_wrong_database", []),
+    {error, ErrNo, Reason, _Conn} = efirebirdsql_protocol:connect("localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), "something_wrong_database", []),
     ?assertEqual(ErrNo, 335544734),
     ?assertEqual(Reason, <<"I/O error during 'open' operation for file 'something_wrong_database'\nError while trying to open file\nNo such file or directory">>).
