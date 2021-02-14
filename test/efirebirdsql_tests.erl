@@ -12,7 +12,7 @@ tmp_dbname() ->
 create_testdb(DbName) ->
     %% crete new database
     {ok, C} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", DbName,
+        "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName,
         [{createdb, true}]),
     ok = efirebirdsql:execute(C, <<"
         CREATE TABLE foo (
@@ -95,11 +95,11 @@ basic_test() ->
 
     %% connect to bad database
     {error, ErrMsg} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", "something_wrong_database", []),
+        "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), "something_wrong_database", []),
     ?assertEqual(ErrMsg, <<"I/O error during 'open' operation for file 'something_wrong_database'\nError while trying to open file\nNo such file or directory">>),
 
     {ok, C} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", DbName, []),
+        "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName, []),
 
     %% execute bad query
     {error, ErrMsg2} = efirebirdsql:prepare(C, <<"bad query statement">>),
@@ -141,7 +141,7 @@ basic_test() ->
 
     %% commit and rollback
     {ok, C2} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", DbName,
+        "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName,
         [{auto_commit, false}]),
     ok = efirebirdsql:execute(C2, <<"update foo set c='C'">>),
     ok = efirebirdsql:execute(C2, <<"select * from foo where c='C'">>),
@@ -192,7 +192,7 @@ basic_test() ->
 
     %% Fetch null value issue #6
     {ok, C3} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", tmp_dbname(),
+        "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), tmp_dbname(),
         [{createdb, true}]),
     ok = efirebirdsql:execute(C3, <<"create table TestTable (ID int, testvalue int)">>),
     ok = efirebirdsql:execute(C3, <<"insert into TestTable (ID, testvalue) values (2, null)">>),

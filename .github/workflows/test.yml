@@ -21,14 +21,12 @@ jobs:
     - uses: actions/checkout@v2
     - name: Set up Firebird
       run: |
-        sudo mkdir -p /etc/firebird/3.0
-        sudo cp attic/SYSDBA.password /etc/firebird/3.0
-        sudo chmod 0600 /etc/firebird/3.0/SYSDBA.password
         sudo apt install firebird3.0-server -y
-        sudo ls /etc/firebird/3.0/
-        sudo cat /etc/firebird/3.0/SYSDBA.password
         sudo cp attic/firebird.conf /etc/firebird/3.0
-        sudo cat /etc/firebird/3.0/firebird.conf
         sudo systemctl restart firebird3.0
+        sudo chmod 0664 /etc/firebird/3.0/SYSDBA.password
+        grep '=' /etc/firebird/3.0/SYSDBA.password |sed 's/^/export /' >test_user.env
     - name: Run tests
-      run: rebar3 eunit
+      run: |
+        source test_user.env
+        rebar3 eunit
