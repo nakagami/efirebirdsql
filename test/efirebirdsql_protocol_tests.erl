@@ -23,15 +23,15 @@ protocol_test() ->
     _Description = efirebirdsql_protocol:description(Stmt3),
 
     {ok, C5, Stmt4} = efirebirdsql_protocol:prepare_statement(
-        <<"SELECT rdb$relation_name, rdb$owner_name FROM rdb$relations WHERE rdb$system_flag=?">>, C4, Stmt3),
+        <<"SELECT RDB$RELATION_ID, RDB$EXTERNAL_FILE FROM rdb$relations WHERE rdb$system_flag=?">>, C4, Stmt3),
     {ok, C6, Stmt5} = efirebirdsql_protocol:execute(C5, Stmt4, [1]),
 
     {ok, _Rows, C7, Stmt6} = efirebirdsql_protocol:fetchall(C6, Stmt5),
     ?assertEqual(
         efirebirdsql_protocol:columns(Stmt6),
 
-        [{<<"RDB$RELATION_NAME">>,text,0,252,true},
-         {<<"RDB$OWNER_NAME">>,text,0,252,true}]
+        [{<<"RDB$RELATION_ID">>,short,0,2,true},
+         {<<"RDB$EXTERNAL_FILE">>,varying,0,255,true}]
     ),
 
     {ok, C8, Stmt7} = efirebirdsql_protocol:prepare_statement(<<"
