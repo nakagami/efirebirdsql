@@ -19,6 +19,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Set up Firebird
       run: |
+        apt search firebird
         apt install firebird3.0-server -y
         cp attic/firebird.conf /etc/firebird/3.0
         systemctl restart firebird3.0
