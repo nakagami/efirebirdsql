@@ -12,21 +12,17 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    container:
-      image: erlang:22.0.7
-
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Firebird
+    - name: Set up Elixir, Firebird
       run: |
+        apt install efirebirdsql rebar make
         apt search firebird
         apt install firebird3.0-server -y
         cp attic/firebird.conf /etc/firebird/3.0
         systemctl restart firebird3.0
         grep '=' /etc/firebird/3.0/SYSDBA.password |sed 's/^/export /' >test_user.env
-    - name: Compile
-      run: rebar3 compile
     - name: Run tests
       run: |
         source test_user.env
-        rebar3 do eunit, ct
+        make test
