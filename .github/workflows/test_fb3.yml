@@ -14,9 +14,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Elixir, Firebird
+    - name: Set up Firebird
       run: |
-        sudo apt install erlang rebar make
         sudo apt install firebird3.0-server -y
         sudo cp attic/firebird.conf /etc/firebird/3.0
         sudo systemctl restart firebird3.0
@@ -25,4 +24,4 @@ jobs:
     - name: Run tests
       run: |
         source test_user.env
-        make test
+        rebar3 eunit
