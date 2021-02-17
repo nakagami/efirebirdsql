@@ -15,12 +15,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Set up Firebird
-      run: |
-        sudo apt install firebird3.0-server -y
-        sudo cp attic/firebird.conf /etc/firebird/3.0
-        sudo systemctl restart firebird3.0
-        sudo chmod 0664 /etc/firebird/3.0/SYSDBA.password
-        grep '=' /etc/firebird/3.0/SYSDBA.password |sed 's/^/export /' >test_user.env
+      uses: juarezr/firebirdsql-github-action@v1.0.0
+      with:
+        version: 'latest'
+        firebird_database: 'my_database.fdb'
+        firebird_user: 'sysdba'
+        firebird_password: 'masterkey'
     - name: Set up Elixir
       uses: actions/setup-elixir@v1
       with:
