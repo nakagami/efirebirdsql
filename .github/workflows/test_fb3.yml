@@ -16,7 +16,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Set up Elixir, Firebird
       run: |
-        sudo apt install efirebirdsql rebar make
+        sudo apt install erlang rebar make
         sudo apt install firebird3.0-server -y
         sudo cp attic/firebird.conf /etc/firebird/3.0
         sudo systemctl restart firebird3.0
