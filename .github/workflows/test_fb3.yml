@@ -11,6 +11,10 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    container:
+      image: ubuntu-latest
+      ports:
+        - 3050:3050
 
     steps:
     - uses: actions/checkout@v2
