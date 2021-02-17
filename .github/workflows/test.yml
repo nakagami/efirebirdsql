@@ -34,5 +34,4 @@ jobs:
         restore-keys: ${{ runner.os }}-mix-
     - name: Run tests
       run: |
-        source test_user.env
         rebar3 eunit
