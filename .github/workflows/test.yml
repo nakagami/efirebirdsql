@@ -10,17 +10,13 @@ jobs:
   build:
 
     name: Build and test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
-    - name: Set up Erlang
-      uses: actions/setup-elixir@v1
-      with:
-        elixir-version: '1.10.3' # Define the elixir version [required]
-        otp-version: '22.3' # Define the OTP version [required]
     - uses: actions/checkout@v2
-    - name: Set up Firebird
+    - name: Set up Erlang and Firebird
       run: |
+        sudo apt install erlang rebar make
         sudo apt install firebird3.0-server -y
         sudo cp attic/firebird.conf /etc/firebird/3.0
         sudo systemctl restart firebird3.0
@@ -29,5 +25,4 @@ jobs:
     - name: Run tests
       run: |
         source test_user.env
-        cat test_user.env
-        rebar3 eunit
+        make test
