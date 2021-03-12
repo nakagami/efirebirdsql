@@ -1,5 +1,5 @@
 %%% The MIT License (MIT)
-%%% Copyright (c) 2019 Hajime Nakagami<nakagami@gmail.com>
+%%% Copyright (c) 2016-2021 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_socket).
 
@@ -11,9 +11,9 @@ send(Conn, Data) when Conn#conn.write_state =:= undefined ->
     gen_tcp:send(Conn#conn.sock, Data),
     Conn;
 send(Conn, Message) ->
-    {NewWriteState, Encrypted} = crypto:stream_encrypt(Conn#conn.write_state, Message),
+    Encrypted = crypto:crypto_update(Conn#conn.write_state, Message),
     gen_tcp:send(Conn#conn.sock, Encrypted),
-    Conn#conn{write_state=NewWriteState}.
+    Conn.
 
 recv(Conn, Len) when Len =:= 0 ->
     {ok, [], Conn};
@@ -22,8 +22,8 @@ recv(Conn, Len) when Conn#conn.read_state =:= undefined ->
     {T, V, Conn};
 recv(Conn, Len) ->
     {T, Encrypted} = gen_tcp:recv(Conn#conn.sock, Len),
-    {NewReadState, Message} = crypto:stream_decrypt(Conn#conn.read_state, Encrypted),
-    {T, Message, Conn#conn{read_state=NewReadState}}.
+    Message = crypto:crypto_update(Conn#conn.read_state, Encrypted),
+    {T, Message, Conn}.
 
 recv_align(Conn, Len) ->
     {T, V, C2} = recv(Conn, Len),

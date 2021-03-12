@@ -1,5 +1,5 @@
 %%% The MIT License (MIT)
-%%% Copyright (c) 2016-2019 Hajime Nakagami<nakagami@gmail.com>
+%%% Copyright (c) 2016-2021 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_op).
 -define(DEBUG_FORMAT(X,Y), ok).
@@ -495,8 +495,8 @@ get_response(Conn) ->
 wire_crypt(Conn, SessionKey) ->
     C2 = efirebirdsql_socket:send(Conn, op_crypt()),
     C3 = C2#conn{
-        read_state=crypto:stream_init(rc4, SessionKey),
-        write_state=crypto:stream_init(rc4, SessionKey)
+        read_state=crypto:crypto_init(rc4, SessionKey, false),
+        write_state=crypto:crypto_init(rc4, SessionKey, true)
     },
     {op_response,  _, _, C4} = get_response(C3),
     C4.
