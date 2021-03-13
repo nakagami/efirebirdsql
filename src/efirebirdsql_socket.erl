@@ -15,11 +15,10 @@ send(Conn, Message) ->
     gen_tcp:send(Conn#conn.sock, Encrypted),
     Conn.
 
-recv(Conn, Len) when Len =:= 0 ->
+recv(_Conn, Len) when Len =:= 0 ->
     {ok, []};
 recv(Conn, Len) when Conn#conn.read_state =:= undefined ->
-    gen_tcp:recv(Conn#conn.sock, Len)
-    {T, V};
+    gen_tcp:recv(Conn#conn.sock, Len);
 recv(Conn, Len) ->
     {T, Encrypted} = gen_tcp:recv(Conn#conn.sock, Len),
     Message = crypto:crypto_update(Conn#conn.read_state, Encrypted),
@@ -27,12 +26,13 @@ recv(Conn, Len) ->
 
 recv_align(Conn, Len) ->
     {T, V} = recv(Conn, Len),
-    if recv(Conn, (Len rem 4)) <> 0
-        recv(Conn, 4 - (Len rem 4))
+    if
+        Len rem 4 =/= 0 -> recv(Conn, 4 - (Len rem 4));
+        true -> {}
     end,
     {T, V}.
 
-recv_null_bitmap(Conn, BitLen) when BitLen =:= 0 ->
+recv_null_bitmap(_Conn, BitLen) when BitLen =:= 0 ->
     [];
 recv_null_bitmap(Conn, BitLen) ->
     Div8 = BitLen div 8,
@@ -40,6 +40,6 @@ recv_null_bitmap(Conn, BitLen) ->
         BitLen rem 8 =:= 0 -> Div8;
         BitLen rem 8 =/= 0 -> Div8 + 1
         end,
-    {ok, Buf, C2} = recv_align(Conn, Len),
+    {ok, Buf} = recv_align(Conn, Len),
     <<Bitmap:Len/little-unit:8>> = Buf,
     Bitmap.

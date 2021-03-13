@@ -421,34 +421,34 @@ op_crypt() ->
 
 %%% parse status vector
 parse_status_vector_integer(Conn) ->
-    {ok, <<NumArg:32>>, C2} = efirebirdsql_socket:recv(Conn, 4),
-    {NumArg, C2}.
+    {ok, <<NumArg:32>>} = efirebirdsql_socket:recv(Conn, 4),
+    {NumArg, Conn}.
 
 parse_status_vector_string(Conn) ->
     {Len, C2} = parse_status_vector_integer(Conn),
-    {ok, Bin, C3} = efirebirdsql_socket:recv_align(C2, Len),
-    {binary_to_list(Bin), C3}.
+    {ok, Bin} = efirebirdsql_socket:recv_align(C2, Len),
+    {binary_to_list(Bin), Conn}.
 
 parse_status_vector_args(Conn, ErrNo, Template, Args) ->
-    {ok, <<IscArg:32>>, S2} = efirebirdsql_socket:recv(Conn, 4),
+    {ok, <<IscArg:32>>} = efirebirdsql_socket:recv(Conn, 4),
     case IscArg of
     0 ->    %% isc_arg_end
-        {S2, ErrNo, Template, Args};
+        {Conn, ErrNo, Template, Args};
     1 ->    %% isc_arg_gds
-        {N, S3} = parse_status_vector_integer(S2),
+        {N, S3} = parse_status_vector_integer(Conn),
         Msg = efirebirdsql_errmsgs:get_error_msg(N),
         parse_status_vector_args(S3, N, [Msg | Template], Args);
     2 ->    %% isc_arg_string
-        {V, S3} = parse_status_vector_string(S2),
+        {V, S3} = parse_status_vector_string(Conn),
         parse_status_vector_args(S3, ErrNo, Template, [V | Args]);
     4 ->    %% isc_arg_number
-        {V, S3} = parse_status_vector_integer(S2),
+        {V, S3} = parse_status_vector_integer(Conn),
         parse_status_vector_args(S3, ErrNo, Template, [integer_to_list(V) | Args]);
     5 ->    %% isc_arg_interpreted
-        {V, S3} = parse_status_vector_string(S2),
+        {V, S3} = parse_status_vector_string(Conn),
         parse_status_vector_args(S3, ErrNo, [V | Template], Args);
     19 ->   %% isc_arg_sql_state
-        {_V, S3} = parse_status_vector_string(S2),
+        {_V, S3} = parse_status_vector_string(Conn),
         parse_status_vector_args(S3, ErrNo, Template, Args)
     end.
 
@@ -464,32 +464,33 @@ get_error_message(Conn) ->
     {error, integer(), binary(), conn()}.
 get_response(Conn) ->
     ?DEBUG_FORMAT("get_response()~n", []),
-    {ok, <<OpCode:32>>, C2} = efirebirdsql_socket:recv(Conn, 4),
+    {ok, <<OpCode:32>>} = efirebirdsql_socket:recv(Conn, 4),
     Op = op_name(OpCode),
     case Op of 
     op_response ->
-        {ok, <<Handle:32, _ObjectID:64, Len:32>>, C3} = efirebirdsql_socket:recv(C2, 16),
+        {ok, <<Handle:32, _ObjectID:64, Len:32>>} = efirebirdsql_socket:recv(Conn, 16),
         Buf = if
             Len =/= 0 ->
-                {ok, RecvBuf, C4} = efirebirdsql_socket:recv_align(C3, Len),
+                {ok, RecvBuf} = efirebirdsql_socket:recv_align(Conn, Len),
                 RecvBuf;
-            true -> C4 = C3, <<>>
+            true ->
+                <<>>
             end,
-        {ErrNo, Msg, C5} = get_error_message(C4),
+        {ErrNo, Msg, C5} = get_error_message(Conn),
         case Msg of
-        <<>> -> {Op, Handle, Buf, C5};
-        _ -> {error, ErrNo, Msg, C5}
+        <<>> -> {Op, Handle, Buf, Conn};
+        _ -> {error, ErrNo, Msg, Conn}
         end;
     op_fetch_response ->
-        {ok, <<Status:32, Count:32>>, C3} = efirebirdsql_socket:recv(C2, 8),
-        {Op, Status, Count, C3};
+        {ok, <<Status:32, Count:32>>} = efirebirdsql_socket:recv(Conn, 8),
+        {Op, Status, Count, Conn};
     op_sql_response ->
-        {ok, <<Count:32>>, C3} = efirebirdsql_socket:recv(C2, 4),
-        {Op, Count, C3};
+        {ok, <<Count:32>>} = efirebirdsql_socket:recv(Conn, 4),
+        {Op, Count, Conn};
     op_dummy ->
-        get_response(C2);
+        get_response(Conn);
     _ ->
-        {error, 0, <<"Unknown response">>, C2}
+        {error, 0, <<"Unknown response">>, Conn}
     end.
 
 wire_crypt(Conn, SessionKey) ->
@@ -510,25 +511,25 @@ get_auth_data(Data, Conn) ->
 %% recieve and parse connect() response
 get_connect_response(op_accept, Conn) ->
     {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
-            _AcceptArchtecture:32, _AcceptType:32>>, C2} = efirebirdsql_socket:recv(Conn, 12),
-    {ok, C2#conn{accept_version=AcceptVersion}};
+            _AcceptArchtecture:32, _AcceptType:32>>} = efirebirdsql_socket:recv(Conn, 12),
+    {ok, Conn#conn{accept_version=AcceptVersion}};
 get_connect_response(Op, Conn) ->
     {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
-            _AcceptArchtecture:32, _AcceptType:32>>,C2} = efirebirdsql_socket:recv(Conn, 12),
-    {ok, <<Len1:32>>,C3} = efirebirdsql_socket:recv(C2, 4),
-    {ok, Data, C4} = efirebirdsql_socket:recv_align(C3, Len1),
-    {ok, <<Len2:32>>,C5} = efirebirdsql_socket:recv(C4, 4),
-    {ok, PluginName,C6} = efirebirdsql_socket:recv_align(C5, Len2),
-    {ok, <<IsAuthenticated:32>>, C7} = efirebirdsql_socket:recv(C6, 4),
-    {ok, <<_:32>>, C8} = efirebirdsql_socket:recv(C7, 4),
+            _AcceptArchtecture:32, _AcceptType:32>>} = efirebirdsql_socket:recv(Conn, 12),
+    {ok, <<Len1:32>>} = efirebirdsql_socket:recv(Conn, 4),
+    {ok, Data} = efirebirdsql_socket:recv_align(Conn, Len1),
+    {ok, <<Len2:32>>} = efirebirdsql_socket:recv(Conn, 4),
+    {ok, PluginName} = efirebirdsql_socket:recv_align(Conn, Len2),
+    {ok, <<IsAuthenticated:32>>} = efirebirdsql_socket:recv(Conn, 4),
+    {ok, <<_:32>>} = efirebirdsql_socket:recv(Conn, 4),
     if IsAuthenticated == 0 ->
-        {ServerAuthData, C9} = get_auth_data(Data, C8),
+        {ServerAuthData, C9} = get_auth_data(Data, Conn),
         case binary_to_list(PluginName) of
         "Srp" ->
             <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = ServerAuthData,
             ServerPublic = binary_to_integer(Bin, 16),
             {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
-                C9#conn.user, C8#conn.password, Salt,
+                C9#conn.user, C9#conn.password, Salt,
                 C9#conn.client_public, ServerPublic, C9#conn.client_private, sha);
         "Srp256" ->
             <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = ServerAuthData,
@@ -543,7 +544,7 @@ get_connect_response(Op, Conn) ->
     true ->
         AuthData = '',
         SessionKey = '',
-        C9 = C8
+        C9 = Conn
     end,
     C10 = C9#conn{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)},
     C13 = case Op of
@@ -563,21 +564,21 @@ get_connect_response(Op, Conn) ->
 -spec get_connect_response(conn()) -> {ok, conn()} | {error, binary(), conn()}.
 get_connect_response(Conn) ->
     ?DEBUG_FORMAT("get_connect_response()~n", []),
-    {ok, <<OpCode:32>>, C2} = efirebirdsql_socket:recv(Conn, 4),
+    {ok, <<OpCode:32>>} = efirebirdsql_socket:recv(Conn, 4),
     Op = op_name(OpCode),
     if
         (Op == op_accept) or (Op == op_cond_accept) or (Op == op_accept_data) ->
-            get_connect_response(Op, C2);
+            get_connect_response(Op, Conn);
         Op == op_dummy ->
-            get_connect_response(C2);
+            get_connect_response(Conn);
         Op == op_response ->
-            {ok, <<_Handle:32, _ObjectID:64, _Len:32>>, C3} = efirebirdsql_socket:recv(C2, 16),
-            {ErrNo, Msg, C4} = get_error_message(C3),
-            {error, ErrNo, Msg, C4};
+            {ok, <<_Handle:32, _ObjectID:64, _Len:32>>} = efirebirdsql_socket:recv(Conn, 16),
+            {ErrNo, Msg} = get_error_message(Conn),
+            {error, ErrNo, Msg, Conn};
         Op == op_reject ->
-            {error, <<"Connect rejected">>, C2};
+            {error, <<"Connect rejected">>, Conn};
         true ->
-            {error, <<"Unknow connect error">>, C2}
+            {error, <<"Unknow connect error">>, Conn}
     end.
 
 %% parse select items.
@@ -779,7 +780,7 @@ convert_row(Conn, XSqlVars, Row) ->
 get_raw_value(Conn, XSqlVar) ->
     if
         XSqlVar#column.type =:= varying ->
-            {ok, <<L:32>>, C2} = efirebirdsql_socket:recv(Conn, 4);
+            {ok, <<L:32>>} = efirebirdsql_socket:recv(Conn, 4);
         true ->
             L = case XSqlVar#column.type of
                 text -> XSqlVar#column.length;
@@ -801,23 +802,22 @@ get_raw_value(Conn, XSqlVar) ->
                 blob -> 8;
                 array -> 8;
                 boolean -> 1
-                end,
-            C2 = Conn
+                end
     end,
     if
         L =:= 0 ->
-            {"", C2};
+            {"", Conn};
         L > 0 ->
-            {ok, V, C3} = efirebirdsql_socket:recv_align(C2, L),
-            {V, C3}
+            {ok, V} = efirebirdsql_socket:recv_align(Conn, L),
+            {V, Conn}
     end.
 
 get_raw_or_null_value(Conn, XSqlVar) ->
     {V, C2} = get_raw_value(Conn, XSqlVar),
-    {ok, NullFlag, C3} = efirebirdsql_socket:recv(C2, 4),
+    {ok, NullFlag} = efirebirdsql_socket:recv(Conn, 4),
     case NullFlag of
-    <<0,0,0,0>> -> {V, C3};
-    _ -> {nil, C3}
+    <<0,0,0,0>> -> {V, Conn};
+    _ -> {nil, Conn}
     end.
 
 get_row(Conn, [], Columns, _NullBitmap, _Idx) ->
@@ -844,14 +844,14 @@ get_fetch_response(Conn, _Stmt, Status, 0, _XSqlVars, Results) ->
 get_fetch_response(Conn, Stmt, _Status, _Count, XSqlVars, Results) ->
     {Row, S3} = if
         Conn#conn.accept_version >= 13 ->
-            {NullBitmap, S2} = efirebirdsql_socket:recv_null_bitmap(Conn, length(Stmt#stmt.xsqlvars)),
-            get_row(S2, XSqlVars, [], NullBitmap, 0);
+            NullBitmap = efirebirdsql_socket:recv_null_bitmap(Conn, length(Stmt#stmt.xsqlvars)),
+            get_row(Conn, XSqlVars, [], NullBitmap, 0);
         Conn#conn.accept_version < 13 ->
             get_row(Conn, XSqlVars, [])
         end,
     NewResults = [Row | Results],
-    {ok, <<_:32, NewStatus:32, NewCount:32>>, C4} = efirebirdsql_socket:recv(S3, 12),
-    get_fetch_response(C4, Stmt, NewStatus, NewCount, XSqlVars, NewResults).
+    {ok, <<_:32, NewStatus:32, NewCount:32>>} = efirebirdsql_socket:recv(S3, 12),
+    get_fetch_response(Conn, Stmt, NewStatus, NewCount, XSqlVars, NewResults).
 
 -spec get_fetch_response(conn(), stmt()) -> {ok, list(), boolean(), conn()}.
 get_fetch_response(Conn, Stmt) ->
@@ -867,8 +867,8 @@ get_sql_response(Conn, Stmt) ->
     _ ->
         if
             Conn#conn.accept_version >= 13 ->
-                {NullBitmap, C3} = efirebirdsql_socket:recv_null_bitmap(C2, length(Stmt#stmt.xsqlvars)),
-                get_row(C3, Stmt#stmt.xsqlvars, [], NullBitmap, 0);
+                NullBitmap = efirebirdsql_socket:recv_null_bitmap(C2, length(Stmt#stmt.xsqlvars)),
+                get_row(C2, Stmt#stmt.xsqlvars, [], NullBitmap, 0);
             Conn#conn.accept_version < 13 ->
                 get_row(C2, Stmt#stmt.xsqlvars, [])
         end
