@@ -33,7 +33,7 @@ recv_align(Conn, Len) ->
     {T, V}.
 
 recv_null_bitmap(_Conn, BitLen) when BitLen =:= 0 ->
-    [];
+    <<>>;
 recv_null_bitmap(Conn, BitLen) ->
     Div8 = BitLen div 8,
     Len = if
