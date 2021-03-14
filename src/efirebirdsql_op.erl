@@ -453,8 +453,8 @@ parse_status_vector_args(Conn, ErrNo, Template, Args) ->
     end.
 
 get_error_message(Conn) ->
-    {S2, ErrNo, Msg, Arg} = parse_status_vector_args(Conn, 0, [], []),
-    {ErrNo, iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(Msg)), lists:reverse(Arg))), S2}.
+    {_S2, ErrNo, Msg, Arg} = parse_status_vector_args(Conn, 0, [], []),
+    {ErrNo, iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(Msg)), lists:reverse(Arg)))}.
 
 %% recieve and parse response
 -spec get_response(conn()) ->
@@ -476,7 +476,7 @@ get_response(Conn) ->
             true ->
                 <<>>
             end,
-        {ErrNo, Msg, C5} = get_error_message(Conn),
+        {ErrNo, Msg} = get_error_message(Conn),
         case Msg of
         <<>> -> {Op, Handle, Buf, Conn};
         _ -> {error, ErrNo, Msg, Conn}
@@ -813,7 +813,7 @@ get_raw_value(Conn, XSqlVar) ->
     end.
 
 get_raw_or_null_value(Conn, XSqlVar) ->
-    {V, C2} = get_raw_value(Conn, XSqlVar),
+    {V, _C2} = get_raw_value(Conn, XSqlVar),
     {ok, NullFlag} = efirebirdsql_socket:recv(Conn, 4),
     case NullFlag of
     <<0,0,0,0>> -> {V, Conn};
