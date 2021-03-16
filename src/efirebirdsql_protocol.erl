@@ -18,9 +18,9 @@
 
 -spec connect_database(conn(), string(), list(), boolean(), integer()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
-    C2 = efirebirdsql_socket:send(Conn,
+    efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_connect(Host, Conn#conn.user, Conn#conn.client_public, Conn#conn.auth_plugin, Conn#conn.wire_crypt, Database)),
-    case efirebirdsql_op:get_connect_response(C2) of
+    case efirebirdsql_op:get_connect_response(Conn) of
     {ok, C3} ->
         C4 = case IsCreateDB of
         true ->
@@ -29,10 +29,10 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
             efirebirdsql_socket:send(C3, efirebirdsql_op:op_attach(C3, Database))
         end,
         case efirebirdsql_op:get_response(C4) of
-        {op_response, Handle, _, _} -> {ok, C4#conn{db_handle=Handle}};
-        {op_fetch_response, _, _, _} -> {error, <<"Unknown op_fetch_response">>, C4};
-        {op_sql_response, _, _} -> {error, <<"Unknown op_sql_response">>, C4};
-        {error, ErrNo, Msg, _} -> {error, ErrNo, Msg, C4}
+        {op_response, Handle, _} -> {ok, C4#conn{db_handle=Handle}};
+        {op_fetch_response, _, _} -> {error, <<"Unknown op_fetch_response">>, C4};
+        {op_sql_response, _} -> {error, <<"Unknown op_sql_response">>, C4};
+        {error, ErrNo, Msg} -> {error, ErrNo, Msg, C4}
         end;
     {error, Reason, C3} ->
         {error, Reason, C3}
@@ -152,10 +152,10 @@ close(Conn) ->
     C3 = efirebirdsql_socket:send(C2,
         efirebirdsql_op:op_detach(C2#conn.db_handle)),
     case efirebirdsql_op:get_response(C3) of
-    {op_response, _, _, _} ->
+    {op_response, _, _} ->
         gen_tcp:close(C3#conn.sock),
         {ok, C3#conn{sock=undefined}};
-    {error, ErrNo, Msg, _} ->
+    {error, ErrNo, Msg} ->
         {error, ErrNo, Msg, C3}
     end.
 
@@ -171,8 +171,8 @@ begin_transaction(AutoCommit, Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_transaction(Conn#conn.db_handle, Tpb)),
     case efirebirdsql_op:get_response(C2) of
-    {op_response, Handle, _, _} -> {ok, C2#conn{trans_handle=Handle}};
-    {error, ErrNo, Msg, _} -> {error, ErrNo, Msg, C2}
+    {op_response, Handle, _} -> {ok, C2#conn{trans_handle=Handle}};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg, C2}
     end.
 
 %% allocate, prepare and free statement
@@ -181,8 +181,8 @@ allocate_statement(Conn) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_allocate_statement(Conn#conn.db_handle)),
     case efirebirdsql_op:get_response(C2) of
-    {op_response, Handle, _, _} -> {ok, C2, #stmt{stmt_handle=Handle}};
-    {error, ErrNo, Msg, _} -> {error, ErrNo, Msg, C2}
+    {op_response, Handle, _} -> {ok, C2, #stmt{stmt_handle=Handle}};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg, C2}
     end.
 
 -spec prepare_statement(binary(), conn(), stmt()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
@@ -203,8 +203,8 @@ free_statement(Conn, Stmt, Type) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_free_statement(Stmt#stmt.stmt_handle, Type)),
     case efirebirdsql_op:get_response(C2) of
-    {op_response, _, _, _} -> {ok, C2, Stmt#stmt{closed=true}};
-    {error, ErrNo, Msg, _} -> {error, ErrNo, Msg, C2}
+    {op_response, _, _} -> {ok, C2, Stmt#stmt{closed=true}};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg, C2}
     end.
 
 -spec columns(stmt()) -> list().
@@ -224,24 +224,24 @@ execute(Conn, Stmt, Params, isc_info_sql_stmt_exec_procedure) ->
         efirebirdsql_op:op_execute2(Conn, Stmt, Params)),
     {Row, C3} = efirebirdsql_op:get_sql_response(C2, Stmt),
     case efirebirdsql_op:get_response(C3) of
-    {op_response, _, _, _} -> {ok, C3, Stmt#stmt{rows=[Row], more_data=false}};
-    {error, ErrNo, Msg, _} -> {error, ErrNo, Msg, C3}
+    {op_response, _, _} -> {ok, C3, Stmt#stmt{rows=[Row], more_data=false}};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg, C3}
     end;
 execute(Conn, Stmt, Params, isc_info_sql_stmt_select) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_execute(Conn, Stmt, Params)),
     case efirebirdsql_op:get_response(C2) of
-    {op_response, _, _, _} ->
+    {op_response, _, _} ->
         {ok, C2, Stmt#stmt{rows=[], more_data=true, closed=false}};
-    {error, ErrNo, Msg, _} ->
+    {error, ErrNo, Msg} ->
         {error, ErrNo, Msg, C2}
     end;
 execute(Conn, Stmt, Params, _StmtType) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_execute(Conn, Stmt, Params)),
     case efirebirdsql_op:get_response(C2) of
-    {op_response, _, _, _} -> {ok, C2, Stmt#stmt{rows=nil, more_data=false}};
-    {error, ErrNo, Msg, _} -> {error, ErrNo, Msg, C2}
+    {op_response, _, _} -> {ok, C2, Stmt#stmt{rows=nil, more_data=false}};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg, C2}
     end.
 
 -spec execute(conn(), stmt(), list()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
@@ -257,10 +257,10 @@ rowcount(Conn, Stmt) ->
     C2 = efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_info_sql(Stmt#stmt.stmt_handle, [23])), % 23:isc_info_sql_records
     case efirebirdsql_op:get_response(C2) of
-    {op_response, _, Buf, _} ->
+    {op_response, _, Buf} ->
         << _:48, Count1:32/little-unsigned, _:24, Count2:32/little-unsigned, _:24, Count3:32/little-unsigned, _:24, Count4:32/little-unsigned, _Rest/binary >> = Buf,
         {ok, C2, Count1+Count2+Count3+Count4};
-    {error, ErrNo, Msg, _} ->
+    {error, ErrNo, Msg} ->
         {error, ErrNo, Msg, C2}
     end.
 
@@ -269,8 +269,8 @@ exec_immediate(Sql, Conn) ->
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_exec_immediate(Conn, Sql)),
     case efirebirdsql_op:get_response(Conn) of
-    {op_response, _, _, _} -> {ok, Conn};
-    {error, ErrNo, Msg, _} -> {error, ErrNo, Msg, Conn}
+    {op_response, _, _} -> {ok, Conn};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg, Conn}
     end.
 
 %% Fetch
@@ -318,8 +318,8 @@ commit(Conn) ->
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(Conn) of
-    {op_response, _, _, _} -> {ok, Conn};
-    {error, ErrNo, Msg, _} -> {error, ErrNo, Msg, Conn}
+    {op_response, _, _} -> {ok, Conn};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg, Conn}
     end.
 
 -spec rollback(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
@@ -327,6 +327,6 @@ rollback(Conn) ->
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_rollback_retaining(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(Conn) of
-    {op_response, _, _, _} -> {ok, Conn};
-    {error, ErrNo, Msg, _} -> {error, ErrNo, Msg, Conn}
+    {op_response, _, _} -> {ok, Conn};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg, Conn}
     end.
