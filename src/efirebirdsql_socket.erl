@@ -8,12 +8,10 @@
 -include("efirebirdsql.hrl").
 
 send(Conn, Data) when Conn#conn.write_state =:= undefined ->
-    gen_tcp:send(Conn#conn.sock, Data),
-    Conn;
+    gen_tcp:send(Conn#conn.sock, Data);
 send(Conn, Message) ->
     Encrypted = crypto:crypto_update(Conn#conn.write_state, Message),
-    gen_tcp:send(Conn#conn.sock, Encrypted),
-    Conn.
+    gen_tcp:send(Conn#conn.sock, Encrypted).
 
 recv(_Conn, Len) when Len =:= 0 ->
     {ok, []};
@@ -28,7 +26,7 @@ recv_align(Conn, Len) ->
     {T, V} = recv(Conn, Len),
     if
         Len rem 4 =/= 0 -> recv(Conn, 4 - (Len rem 4));
-        true -> {}
+        true -> nil
     end,
     {T, V}.
 
