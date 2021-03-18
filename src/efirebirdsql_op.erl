@@ -422,12 +422,12 @@ op_crypt() ->
 %%% parse status vector
 parse_status_vector_integer(Conn) ->
     {ok, <<NumArg:32>>} = efirebirdsql_socket:recv(Conn, 4),
-    {NumArg, Conn}.
+    NumArg.
 
 parse_status_vector_string(Conn) ->
-    {Len, C2} = parse_status_vector_integer(Conn),
-    {ok, Bin} = efirebirdsql_socket:recv_align(C2, Len),
-    {binary_to_list(Bin), Conn}.
+    Len = parse_status_vector_integer(Conn),
+    {ok, Bin} = efirebirdsql_socket:recv_align(Conn, Len),
+    binary_to_list(Bin).
 
 parse_status_vector_args(Conn, ErrNo, Template, Args) ->
     {ok, <<IscArg:32>>} = efirebirdsql_socket:recv(Conn, 4),
@@ -435,25 +435,25 @@ parse_status_vector_args(Conn, ErrNo, Template, Args) ->
     0 ->    %% isc_arg_end
         {Conn, ErrNo, Template, Args};
     1 ->    %% isc_arg_gds
-        {N, S3} = parse_status_vector_integer(Conn),
+        N = parse_status_vector_integer(Conn),
         Msg = efirebirdsql_errmsgs:get_error_msg(N),
-        parse_status_vector_args(S3, N, [Msg | Template], Args);
+        parse_status_vector_args(Conn, N, [Msg | Template], Args);
     2 ->    %% isc_arg_string
-        {V, S3} = parse_status_vector_string(Conn),
-        parse_status_vector_args(S3, ErrNo, Template, [V | Args]);
+        V = parse_status_vector_string(Conn),
+        parse_status_vector_args(Conn, ErrNo, Template, [V | Args]);
     4 ->    %% isc_arg_number
-        {V, S3} = parse_status_vector_integer(Conn),
-        parse_status_vector_args(S3, ErrNo, Template, [integer_to_list(V) | Args]);
+        V = parse_status_vector_integer(Conn),
+        parse_status_vector_args(Conn, ErrNo, Template, [integer_to_list(V) | Args]);
     5 ->    %% isc_arg_interpreted
-        {V, S3} = parse_status_vector_string(Conn),
-        parse_status_vector_args(S3, ErrNo, [V | Template], Args);
+        V = parse_status_vector_string(Conn),
+        parse_status_vector_args(Conn, ErrNo, [V | Template], Args);
     19 ->   %% isc_arg_sql_state
-        {_V, S3} = parse_status_vector_string(Conn),
-        parse_status_vector_args(S3, ErrNo, Template, Args)
+        _V = parse_status_vector_string(Conn),
+        parse_status_vector_args(Conn, ErrNo, Template, Args)
     end.
 
 get_error_message(Conn) ->
-    {_S2, ErrNo, Msg, Arg} = parse_status_vector_args(Conn, 0, [], []),
+    {_Conn, ErrNo, Msg, Arg} = parse_status_vector_args(Conn, 0, [], []),
     {ErrNo, iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(Msg)), lists:reverse(Arg)))}.
 
 %% recieve and parse response
@@ -681,18 +681,18 @@ get_blob_segment(Conn, BlobHandle, SegmentList) ->
     {op_response, F, Buf} = get_response(Conn),
     NewList = lists:flatten([SegmentList, get_blob_segment_list(Buf, [])]),
     case F of
-    2 -> {NewList, Conn};
+    2 -> NewList;
     _ -> get_blob_segment(Conn, BlobHandle, NewList)
     end.
 
 get_blob_data(Conn, BlobId) ->
     efirebirdsql_socket:send(Conn, op_open_blob(BlobId, Conn#conn.trans_handle)),
     {op_response, BlobHandle, _} = get_response(Conn),
-    {SegmentList, C4} = get_blob_segment(Conn, BlobHandle, []),
-    efirebirdsql_socket:send(C4, op_close_blob(BlobHandle)),
-    {op_response, 0, _} = get_response(C4),
+    SegmentList = get_blob_segment(Conn, BlobHandle, []),
+    efirebirdsql_socket:send(Conn, op_close_blob(BlobHandle)),
+    {op_response, 0, _} = get_response(Conn),
     R = list_to_binary(SegmentList),
-    {ok, R, C4}.
+    {ok, R}.
 
 convert_raw_value(Conn, _XSqlVar, nil) ->
     {nil, Conn};
@@ -700,65 +700,47 @@ convert_raw_value(Conn, XSqlVar, RawValue) ->
     ?DEBUG_FORMAT("convert_raw_value() start~n", []),
     CookedValue = case XSqlVar#column.type of
         long ->
-            C2 = Conn,
             efirebirdsql_conv:parse_number(RawValue, XSqlVar#column.scale);
         short ->
-            C2 = Conn,
             efirebirdsql_conv:parse_number(RawValue, XSqlVar#column.scale);
         int64 ->
-            C2 = Conn,
             efirebirdsql_conv:parse_number(RawValue, XSqlVar#column.scale);
         int128 ->
-            C2 = Conn,
             efirebirdsql_conv:parse_number(RawValue, XSqlVar#column.scale);
         quad ->
-            C2 = Conn,
             efirebirdsql_conv:parse_number(RawValue, XSqlVar#column.scale);
         double ->
-            C2 = Conn,
             L = size(RawValue) * 8, <<V:L/float>> = RawValue, V;
         float ->
-            C2 = Conn,
             L = size(RawValue) * 8, <<V:L/float>> = RawValue, V;
         date ->
-            C2 = Conn,
             efirebirdsql_conv:parse_date(RawValue);
         time ->
-            C2 = Conn,
             efirebirdsql_conv:parse_time(RawValue);
         timestamp ->
-            C2 = Conn,
             efirebirdsql_conv:parse_timestamp(RawValue);
         time_tz ->
-            C2 = Conn,
             efirebirdsql_conv:parse_time_tz(RawValue, Conn#conn.timezone_name_by_id);
         timestamp_tz ->
-            C2 = Conn,
             efirebirdsql_conv:parse_timestamp_tz(RawValue, Conn#conn.timezone_name_by_id);
         decimal_fixed ->
-            C2 = Conn,
             efirebirdsql_decfloat:decimal_fixed_to_decimal(RawValue, XSqlVar#column.scale);
         decimal64 ->
-            C2 = Conn,
             efirebirdsql_decfloat:decimal64_to_decimal(RawValue);
         decimal128 ->
-            C2 = Conn,
             efirebirdsql_decfloat:decimal128_to_decimal(RawValue);
         blob ->
-            {ok, B, C2} = get_blob_data(Conn, RawValue),
+            {ok, B} = get_blob_data(Conn, RawValue),
             B;
         boolean ->
-            C2 = Conn,
             if RawValue =/= <<0,0,0,0>> -> true; true -> false end;
         text ->
-            C2 = Conn,
             list_to_binary(lists:reverse(lists:dropwhile(fun(32) -> true; (_) -> false end, lists:reverse(binary_to_list(RawValue)))));
         _ ->
-            C2 = Conn,
             RawValue
         end,
     ?DEBUG_FORMAT("convert_raw_value() end ~p~n", [CookedValue]),
-    {CookedValue, C2}.
+    {CookedValue, Conn}.
 
 convert_row(Conn, [], [], Converted) ->
     ?DEBUG_FORMAT("convert_row()~n", []),
@@ -801,14 +783,14 @@ get_raw_value(Conn, XSqlVar) ->
     end,
     if
         L =:= 0 ->
-            {"", Conn};
+            "";
         L > 0 ->
             {ok, V} = efirebirdsql_socket:recv_align(Conn, L),
-            {V, Conn}
+            V
     end.
 
 get_raw_or_null_value(Conn, XSqlVar) ->
-    {V, _C2} = get_raw_value(Conn, XSqlVar),
+    V = get_raw_value(Conn, XSqlVar),
     {ok, NullFlag} = efirebirdsql_socket:recv(Conn, 4),
     case NullFlag of
     <<0,0,0,0>> -> {V, Conn};
@@ -820,11 +802,11 @@ get_row(Conn, [], Columns, _NullBitmap, _Idx) ->
 get_row(Conn, XSqlVars, Columns, NullBitmap, Idx) ->
     [X | RestVars] = XSqlVars,
     if NullBitmap band (1 bsl Idx) =/= 0 ->
-            {V, C2} = {nil, Conn};
+            V = nil;
         true ->
-            {V, C2} = get_raw_value(Conn, X)
+            V = get_raw_value(Conn, X)
         end,
-    get_row(C2, RestVars, [V | Columns], NullBitmap, Idx + 1).
+    get_row(Conn, RestVars, [V | Columns], NullBitmap, Idx + 1).
 
 get_row(Conn, [], Columns) ->
     {lists:reverse(Columns), Conn};
