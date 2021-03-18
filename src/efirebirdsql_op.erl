@@ -586,7 +586,7 @@ more_select_describe_vars(Conn, Stmt, Start) ->
     efirebirdsql_socket:send(Conn, op_info_sql(Stmt#stmt.stmt_handle, V)),
     {op_response, _, Buf} = get_response(Conn),
     <<_:8/binary, DescVars/binary>> = Buf,
-    {Conn, DescVars}.
+    DescVars.
 
 parse_select_item_elem_binary(DescVars) ->
     <<L:16/little, V:L/binary, Rest/binary>> = DescVars,
@@ -634,8 +634,8 @@ parse_select_column(Conn, Stmt, Column, DescVars) ->
         {S, Rest2} = parse_select_item_elem_binary(Rest),
         parse_select_column(Conn, Stmt, Column#column{name=S}, Rest2);
     isc_info_truncated ->
-        {C2, Rest2} = more_select_describe_vars(Conn, Stmt, Column#column.seq),
-        parse_select_column(C2, Stmt, Column, Rest2);
+        Rest2 = more_select_describe_vars(Conn, Stmt, Column#column.seq),
+        parse_select_column(Conn, Stmt, Column, Rest2);
     isc_info_sql_describe_end ->
         {Conn, Column, Rest};
     isc_info_end ->
