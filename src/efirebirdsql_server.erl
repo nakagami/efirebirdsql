@@ -33,8 +33,8 @@ init([]) ->
 -spec allocate_statement(conn(), state()) -> {ok, state()} | {error, state()}.
 allocate_statement(Conn, State) ->
     case efirebirdsql_protocol:allocate_statement(Conn) of
-    {ok, C2, Stmt} -> {ok, State#state{connection=C2, statement=Stmt}};
-    {error, ErrNo, Reason, C2} -> {error, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
+    {ok, Stmt} -> {ok, State#state{connection=Conn, statement=Stmt}};
+    {error, ErrNo, Reason} -> {error, State#state{connection=Conn, error_no=ErrNo, error_message=Reason}}
     end.
 
 handle_call({connect, Host, Username, Password, Database, Options}, _From, State) ->
@@ -73,10 +73,9 @@ handle_call(close, _From, State) ->
     {error, ErrNo, Reason, C2} -> {reply, {error, close}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
     end;
 handle_call({prepare, Sql}, _From, State) ->
-    case efirebirdsql_protocol:prepare_statement(Sql,
-        State#state.connection, State#state.statement) of
-    {ok, C2, Stmt} -> {reply, ok, State#state{connection=C2, statement=Stmt}};
-    {error, ErrNo, Reason, C2} -> {reply, {error, prepare}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
+    case efirebirdsql_protocol:prepare_statement(Sql, State#state.connection, State#state.statement) of
+    {ok, Stmt} -> {reply, ok, State#state{connection=State#state.connection, statement=Stmt}};
+    {error, ErrNo, Reason} -> {reply, {error, prepare}, State#state{connection=State#state.connection, error_no=ErrNo, error_message=Reason}}
     end;
 handle_call({execute, Params}, _From, State) ->
     case efirebirdsql_protocol:execute(State#state.connection, State#state.statement, Params) of

@@ -44,12 +44,12 @@ ready_fetch_segment(Conn, Stmt) when Stmt#stmt.rows =:= [], Stmt#stmt.more_data 
     XSqlVars = Stmt#stmt.xsqlvars,
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
-    {ok, Rows, MoreData, C3} = efirebirdsql_op:get_fetch_response(Conn, Stmt),
+    {ok, Rows, MoreData} = efirebirdsql_op:get_fetch_response(Conn, Stmt),
     Stmt2 = Stmt#stmt{rows=Rows, more_data=MoreData},
     {ok, C4, Stmt3} = if MoreData =:= true ->
-        {ok, C3, Stmt2};
+        {ok, Conn, Stmt2};
     MoreData =:= false ->
-        free_statement(C3, Stmt2, close)
+        free_statement(Conn, Stmt2, close)
     end,
     {C4, Stmt3};
 ready_fetch_segment(Conn, Stmt) ->
@@ -75,10 +75,10 @@ puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, {[{_, ID}, {_, Name}], Co
 
 -spec load_timezone_data(conn()) -> {ok, conn()}.
 load_timezone_data(Conn) ->
-    {ok, C1, Stmt} = allocate_statement(Conn),
-    {ok, C2, Stmt2} = prepare_statement(
-        <<"select count(*) from rdb$relations where rdb$relation_name='RDB$TIME_ZONES' and rdb$system_flag=1">>, C1, Stmt),
-    {ok, C4, Stmt3} = execute(C2, Stmt2),
+    {ok, Stmt} = allocate_statement(Conn),
+    {ok, Stmt2} = prepare_statement(
+        <<"select count(*) from rdb$relations where rdb$relation_name='RDB$TIME_ZONES' and rdb$system_flag=1">>, Conn, Stmt),
+    {ok, C4, Stmt3} = execute(Conn, Stmt2),
     {[{_, Count}], C5, Stmt4} = fetchone(C4, Stmt3),
 
     TimeZoneNameById = maps:new(),
@@ -89,9 +89,9 @@ load_timezone_data(Conn) ->
         TimeZoneNameById2 = TimeZoneNameById,
         TimeZoneIdByName2 = TimeZoneIdByName;
     _ ->
-        {ok, C6, Stmt5} = prepare_statement(
+        {ok, Stmt5} = prepare_statement(
             <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, C5, Stmt4),
-        {ok, C7, Stmt6} = execute(C6, Stmt5),
+        {ok, C7, Stmt6} = execute(C5, Stmt5),
         {TimeZoneNameById2, TimeZoneIdByName2, C8, Stmt7} = puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, fetchone(C7, Stmt6)),
         {ok, NewConn, _} = free_statement(C8, Stmt7, drop)
     end,
@@ -176,16 +176,16 @@ begin_transaction(AutoCommit, Conn) ->
     end.
 
 %% allocate, prepare and free statement
--spec allocate_statement(conn()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
+-spec allocate_statement(conn()) -> {ok, stmt()} | {error, integer(), binary()}.
 allocate_statement(Conn) ->
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_allocate_statement(Conn#conn.db_handle)),
     case efirebirdsql_op:get_response(Conn) of
-    {op_response, Handle, _} -> {ok, Conn, #stmt{stmt_handle=Handle}};
-    {error, ErrNo, Msg} -> {error, ErrNo, Msg, Conn}
+    {op_response, Handle, _} -> {ok, #stmt{stmt_handle=Handle}};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
     end.
 
--spec prepare_statement(binary(), conn(), stmt()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
+-spec prepare_statement(binary(), conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
 prepare_statement(Sql, Conn, Stmt) ->
     {ok, C2, S2} = case Stmt#stmt.closed of
     true -> {ok, Conn, Stmt};

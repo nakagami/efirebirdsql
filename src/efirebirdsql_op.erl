@@ -650,14 +650,14 @@ parse_select_columns(Conn, Stmt, XSqlVars, DescVars) ->
         {C2, lists:reverse(XSqlVars)}
     end.
 
--spec get_prepare_statement_response(conn(), stmt()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
+-spec get_prepare_statement_response(conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
 get_prepare_statement_response(Conn, Stmt) ->
     case get_response(Conn) of
     {op_response, _, Buf} ->
         << _21:8, _Len:16, StmtType:32/little, Rest/binary>> = Buf,
         StmtName = isc_info_sql_stmt_name(StmtType),
         Stmt2 = Stmt#stmt{stmt_type=StmtName},
-        {C3, XSqlVars} = case StmtName of
+        {_, XSqlVars} = case StmtName of
             isc_info_sql_stmt_select ->
                 << _Skip:8/binary, DescVars/binary >> = Rest,
                 parse_select_columns(Conn, Stmt2, [], DescVars);
@@ -666,8 +666,8 @@ get_prepare_statement_response(Conn, Stmt) ->
                 parse_select_columns(Conn, Stmt2, [], DescVars);
             _ -> {Conn, []}
             end,
-        {ok, C3, Stmt2#stmt{xsqlvars=XSqlVars, rows=[]}};
-    {error, ErrNo, Msg} -> {error, ErrNo, Msg, Conn}
+        {ok, Stmt2#stmt{xsqlvars=XSqlVars, rows=[]}};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
     end.
 
 get_blob_segment_list(<<>>, SegmentList) ->
@@ -817,7 +817,7 @@ get_row(Conn, XSqlVars, Columns) ->
 
 get_fetch_response(Conn, _Stmt, Status, 0, _XSqlVars, Results) ->
     %% {list_of_response, more_data}
-    {lists:reverse(Results), if Status =/= 100 -> true; Status =:= 100 -> false end, Conn};
+    {lists:reverse(Results), if Status =/= 100 -> true; Status =:= 100 -> false end};
 get_fetch_response(Conn, Stmt, _Status, _Count, XSqlVars, Results) ->
     {Row, S3} = if
         Conn#conn.accept_version >= 13 ->
@@ -830,11 +830,11 @@ get_fetch_response(Conn, Stmt, _Status, _Count, XSqlVars, Results) ->
     {ok, <<_:32, NewStatus:32, NewCount:32>>} = efirebirdsql_socket:recv(S3, 12),
     get_fetch_response(Conn, Stmt, NewStatus, NewCount, XSqlVars, NewResults).
 
--spec get_fetch_response(conn(), stmt()) -> {ok, list(), boolean(), conn()}.
+-spec get_fetch_response(conn(), stmt()) -> {ok, list(), boolean()}.
 get_fetch_response(Conn, Stmt) ->
     {op_fetch_response, Status, Count} = get_response(Conn),
-    {Results, MoreData, C3} = get_fetch_response(Conn, Stmt, Status, Count, Stmt#stmt.xsqlvars, []),
-    {ok, Results, MoreData, C3}.
+    {Results, MoreData} = get_fetch_response(Conn, Stmt, Status, Count, Stmt#stmt.xsqlvars, []),
+    {ok, Results, MoreData}.
 
 get_sql_response(Conn, Stmt) ->
     {op_sql_response, Count} = get_response(Conn),
