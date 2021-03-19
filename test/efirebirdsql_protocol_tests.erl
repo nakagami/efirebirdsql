@@ -15,16 +15,16 @@ protocol_test() ->
         [{createdb, true}, {auth_plugin, "Srp"}]),
     ?assertEqual(C1#conn.auto_commit, true),
 
-    {ok, C2, Stmt} = efirebirdsql_protocol:allocate_statement(C1),
+    {ok, Stmt} = efirebirdsql_protocol:allocate_statement(C1),
 
-    {ok, C3, Stmt2} = efirebirdsql_protocol:prepare_statement(
-        <<"SELECT rdb$relation_name, rdb$owner_name FROM rdb$relations WHERE rdb$system_flag=?">>, C2, Stmt),
-    {ok, C4, Stmt3} = efirebirdsql_protocol:execute(C3, Stmt2, [1]),
+    {ok, Stmt2} = efirebirdsql_protocol:prepare_statement(
+        <<"SELECT rdb$relation_name, rdb$owner_name FROM rdb$relations WHERE rdb$system_flag=?">>, C1, Stmt),
+    {ok, C4, Stmt3} = efirebirdsql_protocol:execute(C1, Stmt2, [1]),
     _Description = efirebirdsql_protocol:description(Stmt3),
 
-    {ok, C5, Stmt4} = efirebirdsql_protocol:prepare_statement(
+    {ok, Stmt4} = efirebirdsql_protocol:prepare_statement(
         <<"SELECT RDB$RELATION_ID, RDB$EXTERNAL_FILE FROM rdb$relations WHERE rdb$system_flag=?">>, C4, Stmt3),
-    {ok, C6, Stmt5} = efirebirdsql_protocol:execute(C5, Stmt4, [1]),
+    {ok, C6, Stmt5} = efirebirdsql_protocol:execute(C4, Stmt4, [1]),
 
     {ok, _Rows, C7, Stmt6} = efirebirdsql_protocol:fetchall(C6, Stmt5),
     ?assertEqual(
@@ -34,7 +34,7 @@ protocol_test() ->
          {<<"RDB$EXTERNAL_FILE">>,varying,0,255,true}]
     ),
 
-    {ok, C8, Stmt7} = efirebirdsql_protocol:prepare_statement(<<"
+    {ok, Stmt7} = efirebirdsql_protocol:prepare_statement(<<"
         CREATE TABLE foo (
             a INTEGER NOT NULL,
             b VARCHAR(30) NOT NULL UNIQUE,
@@ -49,19 +49,19 @@ protocol_test() ->
             PRIMARY KEY (a),
             CONSTRAINT CHECK_A CHECK (a <> 0)
         )">>, C7, Stmt6),
-    {ok, C9, Stmt8} = efirebirdsql_protocol:execute(C8, Stmt7, []),
+    {ok, C9, Stmt8} = efirebirdsql_protocol:execute(C7, Stmt7, []),
 
     {ok, nil, C10, Stmt9} = efirebirdsql_protocol:fetchall(C9, Stmt8),
 
-    {ok, C11, Stmt10} = efirebirdsql_protocol:prepare_statement(
+    {ok, Stmt10} = efirebirdsql_protocol:prepare_statement(
         <<"INSERT INTO foo(a, b) VALUES(?, ?)">>, C10, Stmt9),
-    {ok, C12, Stmt11} = efirebirdsql_protocol:execute(C11, Stmt10, [1, "b"]),
+    {ok, C12, Stmt11} = efirebirdsql_protocol:execute(C10, Stmt10, [1, "b"]),
     ?assertEqual(Stmt11#stmt.rows, nil),
     {ok, C13, 1} = efirebirdsql_protocol:rowcount(C12, Stmt11),
 
-    {ok, C14, Stmt12} = efirebirdsql_protocol:prepare_statement(
+    {ok, Stmt12} = efirebirdsql_protocol:prepare_statement(
         <<"SELECT * FROM foo WHERE f = ?">>, C13, Stmt11),
-    {ok, C15, Stmt13} = efirebirdsql_protocol:execute(C14, Stmt12, [{{1967, 8, 11}, {23, 45, 1, 0}}]),
+    {ok, C15, Stmt13} = efirebirdsql_protocol:execute(C13, Stmt12, [{{1967, 8, 11}, {23, 45, 1, 0}}]),
     {ok, Rows, C16, Stmt14} = efirebirdsql_protocol:fetchall(C15, Stmt13),
     ?assertEqual(length(Rows),  1),
     {ok, C17, 1} = efirebirdsql_protocol:rowcount(C16, Stmt14),
