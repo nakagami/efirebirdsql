@@ -57,14 +57,14 @@ handle_call({transaction, Options}, _From, State) ->
 handle_call(commit, _From, State) ->
     Conn = State#state.connection,
     case efirebirdsql_protocol:commit(Conn) of
-    {ok, C2} -> {reply, ok, State#state{connection=C2}};
-    {error, ErrNo, Reason, C2} -> {reply, {error, commit}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
+    ok -> {reply, ok, State};
+    {error, ErrNo, Reason} -> {reply, {error, commit}, State#state{error_no=ErrNo, error_message=Reason}}
     end;
 handle_call(rollback, _From, State) ->
     Conn = State#state.connection,
     case efirebirdsql_protocol:rollback(Conn) of
-    {ok, C2} -> {reply, ok, State#state{connection=C2}};
-    {error, ErrNo, Reason, C2} -> {reply, {error, rollback}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
+    ok -> {reply, ok, State};
+    {error, ErrNo, Reason} -> {reply, {error, rollback}, State#state{error_no=ErrNo, error_message=Reason}}
     end;
 handle_call(close, _From, State) ->
     Conn = State#state.connection,

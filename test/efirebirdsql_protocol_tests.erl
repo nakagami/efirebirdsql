@@ -66,8 +66,8 @@ protocol_test() ->
     ?assertEqual(length(Rows),  1),
     {ok, C17, 1} = efirebirdsql_protocol:rowcount(C16, Stmt14),
 
-    {ok, C18} = efirebirdsql_protocol:rollback(C17),
-    {ok, _} = efirebirdsql_protocol:close(C18).
+    ok = efirebirdsql_protocol:rollback(C17),
+    {ok, _} = efirebirdsql_protocol:close(C17).
 
 
 connect_test(_DbName, 0) ->

@@ -38,7 +38,7 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
         {error, Reason, C3}
     end.
 
--spec ready_fetch_segment(conn(), stmt()) -> {conn(), stmt()}.
+-spec ready_fetch_segment(conn(), stmt()) -> stmt().
 ready_fetch_segment(Conn, Stmt) when Stmt#stmt.rows =:= [], Stmt#stmt.more_data =:= true ->
     StmtHandle = Stmt#stmt.stmt_handle,
     XSqlVars = Stmt#stmt.xsqlvars,
@@ -51,9 +51,9 @@ ready_fetch_segment(Conn, Stmt) when Stmt#stmt.rows =:= [], Stmt#stmt.more_data 
     MoreData =:= false ->
         free_statement(Conn, Stmt2, close)
     end,
-    {C4, Stmt3};
-ready_fetch_segment(Conn, Stmt) ->
-    {Conn, Stmt}.
+    Stmt3;
+ready_fetch_segment(_Conn, Stmt) ->
+    Stmt.
 
 fetchrow(Conn, Stmt) ->
     Rows = Stmt#stmt.rows,
@@ -187,16 +187,16 @@ allocate_statement(Conn) ->
 
 -spec prepare_statement(binary(), conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
 prepare_statement(Sql, Conn, Stmt) ->
-    {ok, C2, S2} = case Stmt#stmt.closed of
+    {ok, _, S2} = case Stmt#stmt.closed of
     true -> {ok, Conn, Stmt};
     false -> free_statement(Conn, Stmt, close)
     end,
 
-    TransHandle = C2#conn.trans_handle,
+    TransHandle = Conn#conn.trans_handle,
     StmtHandle = S2#stmt.stmt_handle,
-    efirebirdsql_socket:send(C2,
+    efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
-    efirebirdsql_op:get_prepare_statement_response(C2, S2).
+    efirebirdsql_op:get_prepare_statement_response(Conn, S2).
 
 -spec free_statement(conn(), stmt(), atom()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
 free_statement(Conn, Stmt, Type) ->
@@ -274,8 +274,8 @@ exec_immediate(Sql, Conn) ->
 
 -spec fetchone(conn(), stmt()) -> {list() | nil, conn(), stmt()}.
 fetchone(Conn, Stmt) ->
-    {C2, S2} = ready_fetch_segment(Conn, Stmt),
-    fetchrow(C2, S2).
+    Stmt2 = ready_fetch_segment(Conn, Stmt),
+    fetchrow(Conn, Stmt2).
 
 fetch_all(Rows, {nil, Conn, Stmt}) ->
     {ok, lists:reverse(Rows), Conn, Stmt};
@@ -295,8 +295,8 @@ fetch_segment(Rows, {Row, Conn, Stmt}) ->
 
 -spec fetchsegment(conn(), stmt()) -> {ok, list(), conn(), stmt()}.
 fetchsegment(Conn, Stmt) ->
-    {C2, S2} = ready_fetch_segment(Conn, Stmt),
-    fetch_segment([], fetchrow(C2, S2)).
+    Stmt2 = ready_fetch_segment(Conn, Stmt),
+    fetch_segment([], fetchrow(Conn, Stmt2)).
 
 %% Description
 -spec description(stmt()) -> list().
@@ -310,20 +310,20 @@ description(Stmt) ->
     description(Stmt#stmt.xsqlvars, []).
 
 %% Commit and rollback
--spec commit(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
+-spec commit(conn()) -> ok | {error, integer(), binary()}.
 commit(Conn) ->
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(Conn) of
-    {op_response, _, _} -> {ok, Conn};
-    {error, ErrNo, Msg} -> {error, ErrNo, Msg, Conn}
+    {op_response, _, _} -> ok;
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
     end.
 
--spec rollback(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
+-spec rollback(conn()) -> ok | {error, integer(), binary()}.
 rollback(Conn) ->
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_rollback_retaining(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(Conn) of
-    {op_response, _, _} -> {ok, Conn};
-    {error, ErrNo, Msg} -> {error, ErrNo, Msg, Conn}
+    {op_response, _, _} -> ok;
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
     end.
