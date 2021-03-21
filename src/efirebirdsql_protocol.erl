@@ -58,11 +58,11 @@ fetchrow(Conn, Stmt) ->
     Rows = Stmt#stmt.rows,
     case Rows of
     [] ->
-        {nil, Conn, Stmt};
+        {nil, Stmt};
     _ ->
         [R | Rest] = Rows,
-        {ConvertedRow, C2} = efirebirdsql_op:convert_row(Conn, Stmt#stmt.xsqlvars, R),
-        {ConvertedRow, C2, Stmt#stmt{rows=Rest}}
+        ConvertedRow = efirebirdsql_op:convert_row(Conn, Stmt#stmt.xsqlvars, R),
+        {ConvertedRow, Stmt#stmt{rows=Rest}}
     end.
 
 puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, {nil, Conn, Stmt}) ->
@@ -276,7 +276,8 @@ exec_immediate(Sql, Conn) ->
 -spec fetchone(conn(), stmt()) -> {list() | nil, conn(), stmt()}.
 fetchone(Conn, Stmt) ->
     Stmt2 = ready_fetch_segment(Conn, Stmt),
-    fetchrow(Conn, Stmt2).
+    {Row, Stmt3} = fetchrow(Conn, Stmt2),
+    {Row, Conn, Stmt3}.
 
 fetch_all(Rows, {nil, Conn, Stmt}) ->
     {ok, lists:reverse(Rows), Conn, Stmt};

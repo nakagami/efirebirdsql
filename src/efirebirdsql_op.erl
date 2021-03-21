@@ -742,9 +742,9 @@ convert_raw_value(Conn, XSqlVar, RawValue) ->
     ?DEBUG_FORMAT("convert_raw_value() end ~p~n", [CookedValue]),
     CookedValue.
 
-convert_row(Conn, [], [], Converted) ->
+convert_row(_Conn, [], [], Converted) ->
     ?DEBUG_FORMAT("convert_row()~n", []),
-    {lists:reverse(Converted), Conn};
+    lists:reverse(Converted);
 convert_row(Conn, XSqlVars, Row, Converted) ->
     [X | XRest] = XSqlVars,
     [R | RRest] = Row,
