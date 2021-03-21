@@ -84,7 +84,8 @@ load_timezone_data(Conn) ->
     TimeZoneIdByName = maps:new(),
     case Count of
     0 ->
-        {ok, NewConn, _} = free_statement(C5, Stmt4, drop),
+        {ok, _, _} = free_statement(C5, Stmt4, drop),
+        NewConn = C5,
         TimeZoneNameById2 = TimeZoneNameById,
         TimeZoneIdByName2 = TimeZoneIdByName;
     _ ->
@@ -92,7 +93,8 @@ load_timezone_data(Conn) ->
             <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, C5, Stmt4),
         {ok, C7, Stmt6} = execute(C5, Stmt5),
         {TimeZoneNameById2, TimeZoneIdByName2, C8, Stmt7} = puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, fetchone(C7, Stmt6)),
-        {ok, NewConn, _} = free_statement(C8, Stmt7, drop)
+        {ok, _, _} = free_statement(C8, Stmt7, drop),
+        NewConn = C8
     end,
     {ok, NewConn#conn{timezone_name_by_id=TimeZoneNameById2, timezone_id_by_name=TimeZoneIdByName2}}.
 
