@@ -7,7 +7,7 @@
 -export([connect/5, close/1, begin_transaction/2]).
 -export([allocate_statement/1, prepare_statement/3, free_statement/3, columns/1]).
 -export([execute/2, execute/3, rowcount/2, exec_immediate/2]).
--export([fetchone/2, fetchall/2, fetchsegment/2]).
+-export([fetchone/2, fetchall/2]).
 -export([description/1]).
 -export([commit/1, rollback/1]).
 
@@ -288,16 +288,6 @@ fetchall(Conn, Stmt) when Stmt#stmt.rows =:= nil ->
     {ok, nil, Conn, Stmt};
 fetchall(Conn, Stmt) ->
     fetch_all([], fetchone(Conn, Stmt)).
-
-fetch_segment(Rows, {nil, Conn, Stmt}) ->
-    {ok, lists:reverse(Rows), Conn, Stmt};
-fetch_segment(Rows, {Row, Conn, Stmt}) ->
-    fetch_segment([Row | Rows], fetchrow(Conn, Stmt)).
-
--spec fetchsegment(conn(), stmt()) -> {ok, list(), conn(), stmt()}.
-fetchsegment(Conn, Stmt) ->
-    Stmt2 = ready_fetch_segment(Conn, Stmt),
-    fetch_segment([], fetchrow(Conn, Stmt2)).
 
 %% Description
 -spec description(stmt()) -> list().
