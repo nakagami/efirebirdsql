@@ -46,10 +46,9 @@ ready_fetch_segment(Conn, Stmt) when Stmt#stmt.rows =:= [], Stmt#stmt.more_data 
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
     {ok, Rows, MoreData} = efirebirdsql_op:get_fetch_response(Conn, Stmt),
     Stmt2 = Stmt#stmt{rows=Rows, more_data=MoreData},
-    {ok, C4, Stmt3} = if MoreData =:= true ->
-        {ok, Conn, Stmt2};
-    MoreData =:= false ->
-        free_statement(Conn, Stmt2, close)
+    {ok, _Conn, Stmt3} = if
+        MoreData =:= true -> {ok, nil, Stmt2};
+        MoreData =:= false -> free_statement(Conn, Stmt2, close)
     end,
     Stmt3;
 ready_fetch_segment(_Conn, Stmt) ->

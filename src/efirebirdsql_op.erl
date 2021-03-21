@@ -694,8 +694,8 @@ get_blob_data(Conn, BlobId) ->
     R = list_to_binary(SegmentList),
     {ok, R}.
 
-convert_raw_value(Conn, _XSqlVar, nil) ->
-    {nil, Conn};
+convert_raw_value(_Conn, _XSqlVar, nil) ->
+    nil;
 convert_raw_value(Conn, XSqlVar, RawValue) ->
     ?DEBUG_FORMAT("convert_raw_value() start~n", []),
     CookedValue = case XSqlVar#column.type of
@@ -740,7 +740,7 @@ convert_raw_value(Conn, XSqlVar, RawValue) ->
             RawValue
         end,
     ?DEBUG_FORMAT("convert_raw_value() end ~p~n", [CookedValue]),
-    {CookedValue, Conn}.
+    CookedValue.
 
 convert_row(Conn, [], [], Converted) ->
     ?DEBUG_FORMAT("convert_row()~n", []),
@@ -748,8 +748,8 @@ convert_row(Conn, [], [], Converted) ->
 convert_row(Conn, XSqlVars, Row, Converted) ->
     [X | XRest] = XSqlVars,
     [R | RRest] = Row,
-    {V, S2} = convert_raw_value(Conn, X, R),
-    convert_row(S2, XRest, RRest, [{X#column.name, V} | Converted]).
+    V = convert_raw_value(Conn, X, R),
+    convert_row(Conn, XRest, RRest, [{X#column.name, V} | Converted]).
 
 convert_row(Conn, XSqlVars, Row) ->
     convert_row(Conn, XSqlVars, Row, []).
@@ -815,7 +815,7 @@ get_row(Conn, XSqlVars, Columns) ->
     {V, C2} = get_raw_or_null_value(Conn, X),
     get_row(C2, RestVars, [V | Columns]).
 
-get_fetch_response(Conn, _Stmt, Status, 0, _XSqlVars, Results) ->
+get_fetch_response(_Conn, _Stmt, Status, 0, _XSqlVars, Results) ->
     %% {list_of_response, more_data}
     {lists:reverse(Results), if Status =/= 100 -> true; Status =:= 100 -> false end};
 get_fetch_response(Conn, Stmt, _Status, _Count, XSqlVars, Results) ->
