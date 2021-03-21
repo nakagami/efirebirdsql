@@ -46,8 +46,8 @@ ready_fetch_segment(Conn, Stmt) when Stmt#stmt.rows =:= [], Stmt#stmt.more_data 
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
     {ok, Rows, MoreData} = efirebirdsql_op:get_fetch_response(Conn, Stmt),
     Stmt2 = Stmt#stmt{rows=Rows, more_data=MoreData},
-    {ok, _Conn, Stmt3} = if
-        MoreData =:= true -> {ok, nil, Stmt2};
+    {ok, Stmt3} = if
+        MoreData =:= true -> {ok, Stmt2};
         MoreData =:= false -> free_statement(Conn, Stmt2, close)
     end,
     Stmt3;
@@ -84,7 +84,7 @@ load_timezone_data(Conn) ->
     TimeZoneIdByName = maps:new(),
     case Count of
     0 ->
-        {ok, _, _} = free_statement(C5, Stmt4, drop),
+        {ok, _} = free_statement(C5, Stmt4, drop),
         NewConn = C5,
         TimeZoneNameById2 = TimeZoneNameById,
         TimeZoneIdByName2 = TimeZoneIdByName;
@@ -93,7 +93,7 @@ load_timezone_data(Conn) ->
             <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, C5, Stmt4),
         {ok, C7, Stmt6} = execute(C5, Stmt5),
         {TimeZoneNameById2, TimeZoneIdByName2, C8, Stmt7} = puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, fetchone(C7, Stmt6)),
-        {ok, _, _} = free_statement(C8, Stmt7, drop),
+        {ok, _} = free_statement(C8, Stmt7, drop),
         NewConn = C8
     end,
     {ok, NewConn#conn{timezone_name_by_id=TimeZoneNameById2, timezone_id_by_name=TimeZoneIdByName2}}.
@@ -188,8 +188,8 @@ allocate_statement(Conn) ->
 
 -spec prepare_statement(binary(), conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
 prepare_statement(Sql, Conn, Stmt) ->
-    {ok, _, S2} = case Stmt#stmt.closed of
-    true -> {ok, Conn, Stmt};
+    {ok, S2} = case Stmt#stmt.closed of
+    true -> {ok, Stmt};
     false -> free_statement(Conn, Stmt, close)
     end,
 
@@ -199,13 +199,13 @@ prepare_statement(Sql, Conn, Stmt) ->
         efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
     efirebirdsql_op:get_prepare_statement_response(Conn, S2).
 
--spec free_statement(conn(), stmt(), atom()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
+-spec free_statement(conn(), stmt(), atom()) -> {ok, stmt()} | {error, integer(), binary()}.
 free_statement(Conn, Stmt, Type) ->
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_free_statement(Stmt#stmt.stmt_handle, Type)),
     case efirebirdsql_op:get_response(Conn) of
-    {op_response, _, _} -> {ok, Conn, Stmt#stmt{closed=true}};
-    {error, ErrNo, Msg} -> {error, ErrNo, Msg, Conn}
+    {op_response, _, _} -> {ok, Stmt#stmt{closed=true}};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
     end.
 
 -spec columns(stmt()) -> list().
