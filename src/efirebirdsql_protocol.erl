@@ -65,12 +65,12 @@ fetchrow(Conn, Stmt) ->
         {ConvertedRow, Stmt#stmt{rows=Rest}}
     end.
 
-puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, {nil, Conn, Stmt}) ->
-    {TimeZoneNameById, TimeZoneIdByName, Conn, Stmt};
-puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, {[{_, ID}, {_, Name}], Conn, Stmt}) ->
+puts_timezone_data(_Conn, TimeZoneNameById, TimeZoneIdByName, {nil, Stmt}) ->
+    {TimeZoneNameById, TimeZoneIdByName, Stmt};
+puts_timezone_data(Conn, TimeZoneNameById, TimeZoneIdByName, {[{_, ID}, {_, Name}], Stmt}) ->
     TimeZoneNameById2 = maps:put(ID, Name, TimeZoneNameById),
     TimeZoneIdByName2 = maps:put(Name, ID, TimeZoneIdByName),
-    puts_timezone_data(TimeZoneNameById2, TimeZoneIdByName2, fetchone(Conn, Stmt)).
+    puts_timezone_data(Conn, TimeZoneNameById2, TimeZoneIdByName2, fetchone(Conn, Stmt)).
 
 -spec load_timezone_data(conn()) -> {ok, conn()}.
 load_timezone_data(Conn) ->
@@ -78,23 +78,23 @@ load_timezone_data(Conn) ->
     {ok, Stmt2} = prepare_statement(
         <<"select count(*) from rdb$relations where rdb$relation_name='RDB$TIME_ZONES' and rdb$system_flag=1">>, Conn, Stmt),
     {ok, C4, Stmt3} = execute(Conn, Stmt2),
-    {[{_, Count}], C5, Stmt4} = fetchone(C4, Stmt3),
+    {[{_, Count}], Stmt4} = fetchone(C4, Stmt3),
 
     TimeZoneNameById = maps:new(),
     TimeZoneIdByName = maps:new(),
     case Count of
     0 ->
-        {ok, _} = free_statement(C5, Stmt4, drop),
-        NewConn = C5,
+        {ok, _} = free_statement(C4, Stmt4, drop),
+        NewConn = C4,
         TimeZoneNameById2 = TimeZoneNameById,
         TimeZoneIdByName2 = TimeZoneIdByName;
     _ ->
         {ok, Stmt5} = prepare_statement(
-            <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, C5, Stmt4),
-        {ok, C7, Stmt6} = execute(C5, Stmt5),
-        {TimeZoneNameById2, TimeZoneIdByName2, C8, Stmt7} = puts_timezone_data(TimeZoneNameById, TimeZoneIdByName, fetchone(C7, Stmt6)),
-        {ok, _} = free_statement(C8, Stmt7, drop),
-        NewConn = C8
+            <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, C4, Stmt4),
+        {ok, C7, Stmt6} = execute(C4, Stmt5),
+        {TimeZoneNameById2, TimeZoneIdByName2, Stmt8} = puts_timezone_data(C7, TimeZoneNameById, TimeZoneIdByName, fetchone(C7, Stmt6)),
+        {ok, _} = free_statement(C7, Stmt8, drop),
+        NewConn = C7
     end,
     {ok, NewConn#conn{timezone_name_by_id=TimeZoneNameById2, timezone_id_by_name=TimeZoneIdByName2}}.
 
@@ -273,22 +273,21 @@ exec_immediate(Sql, Conn) ->
 
 %% Fetch
 
--spec fetchone(conn(), stmt()) -> {list() | nil, conn(), stmt()}.
+-spec fetchone(conn(), stmt()) -> {list() | nil, stmt()}.
 fetchone(Conn, Stmt) ->
     Stmt2 = ready_fetch_segment(Conn, Stmt),
-    {Row, Stmt3} = fetchrow(Conn, Stmt2),
-    {Row, Conn, Stmt3}.
+    fetchrow(Conn, Stmt2).
 
-fetch_all(Rows, {nil, Conn, Stmt}) ->
+fetch_all(Conn, Rows, {nil, Stmt}) ->
     {ok, lists:reverse(Rows), Conn, Stmt};
-fetch_all(Rows, {Row, Conn, Stmt}) ->
-    fetch_all([Row | Rows], fetchone(Conn, Stmt)).
+fetch_all(Conn, Rows, {Row, Stmt}) ->
+    fetch_all(Conn, [Row | Rows], fetchone(Conn, Stmt)).
 
 -spec fetchall(conn(), stmt()) -> {ok, list() | nil, conn(), stmt()}.
 fetchall(Conn, Stmt) when Stmt#stmt.rows =:= nil ->
     {ok, nil, Conn, Stmt};
 fetchall(Conn, Stmt) ->
-    fetch_all([], fetchone(Conn, Stmt)).
+    fetch_all(Conn, [], fetchone(Conn, Stmt)).
 
 %% Description
 -spec description(stmt()) -> list().

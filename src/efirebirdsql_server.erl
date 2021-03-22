@@ -83,8 +83,8 @@ handle_call({execute, Params}, _From, State) ->
     {error, ErrNo, Reason, C2} -> {reply, {error, execute}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
     end;
 handle_call(fetchone, _From, State) ->
-    {ConvertedRow, C2, Stmt} = efirebirdsql_protocol:fetchone(State#state.connection, State#state.statement),
-    {reply, {ok, ConvertedRow}, State#state{connection=C2, statement=Stmt}};
+    {ConvertedRow, Stmt} = efirebirdsql_protocol:fetchone(State#state.connection, State#state.statement),
+    {reply, {ok, ConvertedRow}, State#state{statement=Stmt}};
 handle_call(fetchall, _From, State) ->
     {ok, Rows, C2, S2} = efirebirdsql_protocol:fetchall(
         State#state.connection, State#state.statement),
