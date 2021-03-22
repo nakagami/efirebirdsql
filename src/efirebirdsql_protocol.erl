@@ -278,16 +278,19 @@ fetchone(Conn, Stmt) ->
     Stmt2 = ready_fetch_segment(Conn, Stmt),
     fetchrow(Conn, Stmt2).
 
-fetch_all(Conn, Rows, {nil, Stmt}) ->
-    {ok, lists:reverse(Rows), Conn, Stmt};
-fetch_all(Conn, Rows, {Row, Stmt}) ->
-    fetch_all(Conn, [Row | Rows], fetchone(Conn, Stmt)).
+fetch_all(_Conn, Rows, nil, Stmt) ->
+    {ok, lists:reverse(Rows), Stmt};
+fetch_all(Conn, Rows, Row, Stmt) ->
+    {NextRow, Stmt2} = fetchone(Conn, Stmt),
+    fetch_all(Conn, [Row | Rows], NextRow, Stmt2).
 
 -spec fetchall(conn(), stmt()) -> {ok, list() | nil, conn(), stmt()}.
 fetchall(Conn, Stmt) when Stmt#stmt.rows =:= nil ->
     {ok, nil, Conn, Stmt};
 fetchall(Conn, Stmt) ->
-    fetch_all(Conn, [], fetchone(Conn, Stmt)).
+    {NextRow, Stmt2} = fetchone(Conn, Stmt),
+    {ok, Rows, Stmt3} = fetch_all(Conn, [], NextRow, Stmt2),
+    {ok, Rows, Conn, Stmt3}.
 
 %% Description
 -spec description(stmt()) -> list().
