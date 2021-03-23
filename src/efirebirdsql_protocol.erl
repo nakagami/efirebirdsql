@@ -248,27 +248,27 @@ execute(Conn, Stmt, Params) ->
 execute(Conn, Stmt) ->
     execute(Conn, Stmt, []).
 
--spec rowcount(conn(), stmt()) -> {ok, conn(), integer()} | {error, integer(), binary(), conn()}.
-rowcount(Conn, Stmt) when Stmt#stmt.stmt_type =:= isc_info_sql_stmt_ddl ->
-    {ok, Conn, 0};
+-spec rowcount(conn(), stmt()) -> {ok, integer()} | {error, integer(), binary()}.
+rowcount(_Conn, Stmt) when Stmt#stmt.stmt_type =:= isc_info_sql_stmt_ddl ->
+    {ok, 0};
 rowcount(Conn, Stmt) ->
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_info_sql(Stmt#stmt.stmt_handle, [23])), % 23:isc_info_sql_records
     case efirebirdsql_op:get_response(Conn) of
     {op_response, _, Buf} ->
         << _:48, Count1:32/little-unsigned, _:24, Count2:32/little-unsigned, _:24, Count3:32/little-unsigned, _:24, Count4:32/little-unsigned, _Rest/binary >> = Buf,
-        {ok, Conn, Count1+Count2+Count3+Count4};
+        {ok, Count1+Count2+Count3+Count4};
     {error, ErrNo, Msg} ->
-        {error, ErrNo, Msg, Conn}
+        {error, ErrNo, Msg}
     end.
 
--spec exec_immediate(binary(), conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
+-spec exec_immediate(binary(), conn()) -> ok | {error, integer(), binary()}.
 exec_immediate(Sql, Conn) ->
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_exec_immediate(Conn, Sql)),
     case efirebirdsql_op:get_response(Conn) of
-    {op_response, _, _} -> {ok, Conn};
-    {error, ErrNo, Msg} -> {error, ErrNo, Msg, Conn}
+    {op_response, _, _} -> ok;
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
     end.
 
 %% Fetch
@@ -284,13 +284,12 @@ fetch_all(Conn, Rows, Row, Stmt) ->
     {NextRow, Stmt2} = fetchone(Conn, Stmt),
     fetch_all(Conn, [Row | Rows], NextRow, Stmt2).
 
--spec fetchall(conn(), stmt()) -> {ok, list() | nil, conn(), stmt()}.
-fetchall(Conn, Stmt) when Stmt#stmt.rows =:= nil ->
-    {ok, nil, Conn, Stmt};
+-spec fetchall(conn(), stmt()) -> {ok, list() | nil, stmt()}.
+fetchall(_Conn, Stmt) when Stmt#stmt.rows =:= nil ->
+    {ok, nil, Stmt};
 fetchall(Conn, Stmt) ->
     {NextRow, Stmt2} = fetchone(Conn, Stmt),
-    {ok, Rows, Stmt3} = fetch_all(Conn, [], NextRow, Stmt2),
-    {ok, Rows, Conn, Stmt3}.
+    fetch_all(Conn, [], NextRow, Stmt2).
 
 %% Description
 -spec description(stmt()) -> list().

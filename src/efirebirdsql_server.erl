@@ -86,9 +86,9 @@ handle_call(fetchone, _From, State) ->
     {ConvertedRow, Stmt} = efirebirdsql_protocol:fetchone(State#state.connection, State#state.statement),
     {reply, {ok, ConvertedRow}, State#state{statement=Stmt}};
 handle_call(fetchall, _From, State) ->
-    {ok, Rows, C2, S2} = efirebirdsql_protocol:fetchall(
+    {ok, Rows, S2} = efirebirdsql_protocol:fetchall(
         State#state.connection, State#state.statement),
-    {reply, {ok, Rows}, State#state{connection=C2, statement=S2}};
+    {reply, {ok, Rows}, State#state{connection=State#state.connection, statement=S2}};
 handle_call(description, _From, State) ->
     case State#state.statement#stmt.stmt_type of
     isc_info_sql_stmt_select

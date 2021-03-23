@@ -26,7 +26,7 @@ protocol_test() ->
         <<"SELECT RDB$RELATION_ID, RDB$EXTERNAL_FILE FROM rdb$relations WHERE rdb$system_flag=?">>, C4, Stmt3),
     {ok, C6, Stmt5} = efirebirdsql_protocol:execute(C4, Stmt4, [1]),
 
-    {ok, _Rows, C7, Stmt6} = efirebirdsql_protocol:fetchall(C6, Stmt5),
+    {ok, _Rows, Stmt6} = efirebirdsql_protocol:fetchall(C6, Stmt5),
     ?assertEqual(
         efirebirdsql_protocol:columns(Stmt6),
 
@@ -48,26 +48,26 @@ protocol_test() ->
             j FLOAT DEFAULT 2.0,
             PRIMARY KEY (a),
             CONSTRAINT CHECK_A CHECK (a <> 0)
-        )">>, C7, Stmt6),
-    {ok, C9, Stmt8} = efirebirdsql_protocol:execute(C7, Stmt7, []),
+        )">>, C6, Stmt6),
+    {ok, C9, Stmt8} = efirebirdsql_protocol:execute(C6, Stmt7, []),
 
-    {ok, nil, C10, Stmt9} = efirebirdsql_protocol:fetchall(C9, Stmt8),
+    {ok, nil, Stmt9} = efirebirdsql_protocol:fetchall(C9, Stmt8),
 
     {ok, Stmt10} = efirebirdsql_protocol:prepare_statement(
-        <<"INSERT INTO foo(a, b) VALUES(?, ?)">>, C10, Stmt9),
-    {ok, C12, Stmt11} = efirebirdsql_protocol:execute(C10, Stmt10, [1, "b"]),
+        <<"INSERT INTO foo(a, b) VALUES(?, ?)">>, C9, Stmt9),
+    {ok, C12, Stmt11} = efirebirdsql_protocol:execute(C9, Stmt10, [1, "b"]),
     ?assertEqual(Stmt11#stmt.rows, nil),
-    {ok, C13, 1} = efirebirdsql_protocol:rowcount(C12, Stmt11),
+    {ok, 1} = efirebirdsql_protocol:rowcount(C12, Stmt11),
 
     {ok, Stmt12} = efirebirdsql_protocol:prepare_statement(
-        <<"SELECT * FROM foo WHERE f = ?">>, C13, Stmt11),
-    {ok, C15, Stmt13} = efirebirdsql_protocol:execute(C13, Stmt12, [{{1967, 8, 11}, {23, 45, 1, 0}}]),
-    {ok, Rows, C16, Stmt14} = efirebirdsql_protocol:fetchall(C15, Stmt13),
+        <<"SELECT * FROM foo WHERE f = ?">>, C12, Stmt11),
+    {ok, C15, Stmt13} = efirebirdsql_protocol:execute(C12, Stmt12, [{{1967, 8, 11}, {23, 45, 1, 0}}]),
+    {ok, Rows, Stmt14} = efirebirdsql_protocol:fetchall(C15, Stmt13),
     ?assertEqual(length(Rows),  1),
-    {ok, C17, 1} = efirebirdsql_protocol:rowcount(C16, Stmt14),
+    {ok, 1} = efirebirdsql_protocol:rowcount(C15, Stmt14),
 
-    ok = efirebirdsql_protocol:rollback(C17),
-    {ok, _} = efirebirdsql_protocol:close(C17).
+    ok = efirebirdsql_protocol:rollback(C15),
+    {ok, _} = efirebirdsql_protocol:close(C15).
 
 
 connect_test(_DbName, 0) ->
