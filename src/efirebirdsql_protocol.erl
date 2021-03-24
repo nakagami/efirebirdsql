@@ -21,21 +21,21 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_connect(Host, Conn#conn.user, Conn#conn.client_public, Conn#conn.auth_plugin, Conn#conn.wire_crypt, Database)),
     case efirebirdsql_op:get_connect_response(Conn) of
-    {ok, C3} ->
+    {ok, NewConn} ->
         case IsCreateDB of
         true ->
-            efirebirdsql_socket:send(C3, efirebirdsql_op:op_create(C3, Database, PageSize));
+            efirebirdsql_socket:send(NewConn, efirebirdsql_op:op_create(NewConn, Database, PageSize));
         false ->
-            efirebirdsql_socket:send(C3, efirebirdsql_op:op_attach(C3, Database))
+            efirebirdsql_socket:send(NewConn, efirebirdsql_op:op_attach(NewConn, Database))
         end,
-        case efirebirdsql_op:get_response(C3) of
-        {op_response, Handle, _} -> {ok, C3#conn{db_handle=Handle}};
-        {op_fetch_response, _, _} -> {error, <<"Unknown op_fetch_response">>, C3};
-        {op_sql_response, _} -> {error, <<"Unknown op_sql_response">>, C3};
-        {error, ErrNo, Msg} -> {error, ErrNo, Msg, C3}
+        case efirebirdsql_op:get_response(NewConn) of
+        {op_response, Handle, _} -> {ok, NewConn#conn{db_handle=Handle}};
+        {op_fetch_response, _, _} -> {error, <<"Unknown op_fetch_response">>, NewConn};
+        {op_sql_response, _} -> {error, <<"Unknown op_sql_response">>, NewConn};
+        {error, ErrNo, Msg} -> {error, ErrNo, Msg, NewConn}
         end;
-    {error, Reason, C3} ->
-        {error, Reason, C3}
+    {error, Reason, NewConn} ->
+        {error, Reason, NewConn}
     end.
 
 -spec ready_fetch_segment(conn(), stmt()) -> stmt().
@@ -77,26 +77,24 @@ load_timezone_data(Conn) ->
     {ok, Stmt} = allocate_statement(Conn),
     {ok, Stmt2} = prepare_statement(
         <<"select count(*) from rdb$relations where rdb$relation_name='RDB$TIME_ZONES' and rdb$system_flag=1">>, Conn, Stmt),
-    {ok, C4, Stmt3} = execute(Conn, Stmt2),
-    {[{_, Count}], Stmt4} = fetchone(C4, Stmt3),
+    {ok, Stmt3} = execute(Conn, Stmt2),
+    {[{_, Count}], Stmt4} = fetchone(Conn, Stmt3),
 
     TimeZoneNameById = maps:new(),
     TimeZoneIdByName = maps:new(),
     case Count of
     0 ->
-        {ok, _} = free_statement(C4, Stmt4, drop),
-        NewConn = C4,
+        {ok, _} = free_statement(Conn, Stmt4, drop),
         TimeZoneNameById2 = TimeZoneNameById,
         TimeZoneIdByName2 = TimeZoneIdByName;
     _ ->
         {ok, Stmt5} = prepare_statement(
-            <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, C4, Stmt4),
-        {ok, C7, Stmt6} = execute(C4, Stmt5),
-        {TimeZoneNameById2, TimeZoneIdByName2, Stmt8} = puts_timezone_data(C7, TimeZoneNameById, TimeZoneIdByName, fetchone(C7, Stmt6)),
-        {ok, _} = free_statement(C7, Stmt8, drop),
-        NewConn = C7
+            <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, Conn, Stmt4),
+        {ok, Stmt6} = execute(Conn, Stmt5),
+        {TimeZoneNameById2, TimeZoneIdByName2, Stmt8} = puts_timezone_data(Conn, TimeZoneNameById, TimeZoneIdByName, fetchone(Conn, Stmt6)),
+        {ok, _} = free_statement(Conn, Stmt8, drop)
     end,
-    {ok, NewConn#conn{timezone_name_by_id=TimeZoneNameById2, timezone_id_by_name=TimeZoneIdByName2}}.
+    {ok, Conn#conn{timezone_name_by_id=TimeZoneNameById2, timezone_id_by_name=TimeZoneIdByName2}}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -188,16 +186,13 @@ allocate_statement(Conn) ->
 
 -spec prepare_statement(binary(), conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
 prepare_statement(Sql, Conn, Stmt) ->
-    {ok, S2} = case Stmt#stmt.closed of
+    {ok, Stmt2} = case Stmt#stmt.closed of
     true -> {ok, Stmt};
     false -> free_statement(Conn, Stmt, close)
     end,
-
-    TransHandle = Conn#conn.trans_handle,
-    StmtHandle = S2#stmt.stmt_handle,
     efirebirdsql_socket:send(Conn,
-        efirebirdsql_op:op_prepare_statement(TransHandle, StmtHandle, Sql)),
-    efirebirdsql_op:get_prepare_statement_response(Conn, S2).
+        efirebirdsql_op:op_prepare_statement(Conn#conn.trans_handle, Stmt2#stmt.stmt_handle, Sql)),
+    efirebirdsql_op:get_prepare_statement_response(Conn, Stmt2).
 
 -spec free_statement(conn(), stmt(), atom()) -> {ok, stmt()} | {error, integer(), binary()}.
 free_statement(Conn, Stmt, Type) ->
@@ -224,25 +219,25 @@ execute(Conn, Stmt, Params, isc_info_sql_stmt_exec_procedure) ->
     efirebirdsql_socket:send(Conn, efirebirdsql_op:op_execute2(Conn, Stmt, Params)),
     {Row, C3} = efirebirdsql_op:get_sql_response(Conn, Stmt),
     case efirebirdsql_op:get_response(C3) of
-    {op_response, _, _} -> {ok, C3, Stmt#stmt{rows=[Row], more_data=false}};
-    {error, ErrNo, Msg} -> {error, ErrNo, Msg, C3}
+    {op_response, _, _} -> {ok, Stmt#stmt{rows=[Row], more_data=false}};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
     end;
 execute(Conn, Stmt, Params, isc_info_sql_stmt_select) ->
     efirebirdsql_socket:send(Conn, efirebirdsql_op:op_execute(Conn, Stmt, Params)),
     case efirebirdsql_op:get_response(Conn) of
     {op_response, _, _} ->
-        {ok, Conn, Stmt#stmt{rows=[], more_data=true, closed=false}};
+        {ok, Stmt#stmt{rows=[], more_data=true, closed=false}};
     {error, ErrNo, Msg} ->
-        {error, ErrNo, Msg, Conn}
+        {error, ErrNo, Msg}
     end;
 execute(Conn, Stmt, Params, _StmtType) ->
     efirebirdsql_socket:send(Conn, efirebirdsql_op:op_execute(Conn, Stmt, Params)),
     case efirebirdsql_op:get_response(Conn) of
-    {op_response, _, _} -> {ok, Conn, Stmt#stmt{rows=nil, more_data=false}};
-    {error, ErrNo, Msg} -> {error, ErrNo, Msg, Conn}
+    {op_response, _, _} -> {ok, Stmt#stmt{rows=nil, more_data=false}};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
     end.
 
--spec execute(conn(), stmt(), list()) -> {ok, conn(), stmt()} | {error, integer(), binary(), conn()}.
+-spec execute(conn(), stmt(), list()) -> {ok, stmt()} | {error, integer(), binary()}.
 execute(Conn, Stmt, Params) ->
     execute(Conn, Stmt, Params, Stmt#stmt.stmt_type).
 execute(Conn, Stmt) ->
