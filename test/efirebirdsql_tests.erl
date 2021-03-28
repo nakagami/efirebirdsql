@@ -9,6 +9,11 @@
 tmp_dbname() ->
     lists:flatten(io_lib:format("/tmp/~p.fdb", [erlang:system_time()])).
 
+get_major_version(Conn) ->
+    ok = efirebirdsql:execute(Conn, <<"select cast(LEFT(rdb$get_context('SYSTEM', 'ENGINE_VERSION'), 1) as int) from rdb$database;">>),
+    {ok, [{_, MajorVersion}]} = efirebirdsql:fetchone(Conn),
+    MajorVersion.
+
 create_testdb(DbName) ->
     %% crete new database
     {ok, C} = efirebirdsql:connect(
@@ -90,14 +95,13 @@ result2() ->
      {<<"J">>,2.0}].
 
 basic_test() ->
-    DbName = tmp_dbname(),
-    create_testdb(DbName),
-
     %% connect to bad database
     {error, ErrMsg} = efirebirdsql:connect(
         "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), "something_wrong_database", []),
     ?assertEqual(ErrMsg, <<"I/O error during 'open' operation for file 'something_wrong_database'\nError while trying to open file\nNo such file or directory">>),
 
+    DbName = tmp_dbname(),
+    create_testdb(DbName),
     {ok, C} = efirebirdsql:connect(
         "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName, []),
 
@@ -181,15 +185,6 @@ basic_test() ->
     {ok, ResultProcedure} = efirebirdsql:fetchone(C2),
     ?assertEqual(ResultProcedure,  [{<<"OUT1">>,4}, {<<"OUT2">>,<<"d">>}]),
 
-    %% FB3
-    ok = efirebirdsql:execute(C2, <<"select True AS C from rdb$relations">>),
-    ?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C2)),
-    ok = efirebirdsql:execute(C2, <<"select False AS C from rdb$relations">>),
-    ?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C2)),
-
-    ok = efirebirdsql:commit(C2),
-    ok = efirebirdsql:close(C2),
-
     %% Fetch null value issue #6
     {ok, C3} = efirebirdsql:connect(
         "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), tmp_dbname(),
@@ -201,58 +196,84 @@ basic_test() ->
     ?assertEqual(ResultHasNull,  [[{<<"ID">>,2}, {<<"TESTVALUE">>,nil}]]).
 
 
-%create_fb4_testdb(DbName) ->
-%    %% crete new database
-%    {ok, C} = efirebirdsql:connect(
-%        "localhost", "sysdba", "masterkey", DbName,
-%        [{createdb, true}]),
-%    ok = efirebirdsql:execute(C, <<"
-%        CREATE TABLE dec_test (
-%            d DECIMAL(20, 2),
-%            df64 DECFLOAT(16),
-%            df128 DECFLOAT(34),
-%            s varchar(32))
-%    ">>),
-%    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (0.0, 0.0, 0.0, '0.0')">>),
-%    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (1.0, 1.0, 1.0, '1.0')">>),
-%    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (20.0, 20.0, 20.0, '20.0')">>),
-%    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (-1.0, -1.0, -1.0, '-1.0')">>),
-%    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (-20.0, -20.0, -20.0, '-20.0')">>),
-%
-%    ok = efirebirdsql:execute(C, <<"
-%        CREATE TABLE tz_test (
-%            id INTEGER NOT NULL,
-%            t TIME WITH TIME ZONE DEFAULT '12:34:56',
-%            ts TIMESTAMP WITH TIME ZONE DEFAULT '1967-08-11 23:45:01',
-%            PRIMARY KEY (id)
-%        )
-%    ">>),
-%    ok = efirebirdsql:execute(C, <<"insert into tz_test (id) values (1)">>),
-%
-%    efirebirdsql:close(C).
-%
-%fb4_test() ->
-%    DbName = tmp_dbname(),
-%    create_fb4_testdb(DbName),
-%    {ok, C} = efirebirdsql:connect(
-%        "localhost", "sysdba", "masterkey", DbName, [{timezone, <<"GMT">>}]),
-%
-%    ok = efirebirdsql:execute(C, <<"select * from dec_test">>),
-%    {ok, ResultDecFloat} = efirebirdsql:fetchall(C),
-%    ?assertEqual([
-%        [{<<"D">>,"0.00"}, {<<"DF64">>,"0.0"}, {<<"DF128">>,"0.0"}, {<<"S">>, <<"0.0">>}],
-%        [{<<"D">>,"1.00"}, {<<"DF64">>,"1.0"}, {<<"DF128">>,"1.0"}, {<<"S">>, <<"1.0">>}],
-%        [{<<"D">>,"20.00"}, {<<"DF64">>,"20.0"}, {<<"DF128">>,"20.0"}, {<<"S">>, <<"20.0">>}],
-%        [{<<"D">>,"-1.00"}, {<<"DF64">>,"-1.0"}, {<<"DF128">>,"-1.0"}, {<<"S">>, <<"-1.0">>}],
-%        [{<<"D">>,"-20.00"}, {<<"DF64">>,"-20.0"}, {<<"DF128">>,"-20.0"}, {<<"S">>, <<"-20.0">>}]
-%    ], ResultDecFloat),
-%
-%    ok = efirebirdsql:execute(C, <<"select * from tz_test">>),
-%    {ok, ResultTimeZone} = efirebirdsql:fetchall(C),
-%    ?assertEqual([
-%        [{<<"ID">>,1}, {<<"T">>,{{12,34,56,0},<<"GMT">>}}, {<<"TS">>,{{1967,8,11},{23,45,1,0}, <<"GMT">>}}]
-%    ], ResultTimeZone),
-%    ok = efirebirdsql:execute(C, <<"select * from tz_test where T=? and TS=?">>,
-%        [{{12,34,56, 0}, <<"GMT">>}, {{1967,8,11},{23,45,1,0}, <<"GMT">>}]),
-%    {ok, ResultTimeZone2} = efirebirdsql:fetchall(C),
-%    ?assertEqual(ResultTimeZone2, ResultTimeZone).
+fb3_test() ->
+    DbName = tmp_dbname(),
+    create_testdb(DbName),
+    {ok, C} = efirebirdsql:connect(
+        "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName, []),
+    FirebirdMajorVersion = get_major_version(C),
+    if
+    FirebirdMajorVersion >= 3 ->
+        ok = efirebirdsql:execute(C, <<"select True AS C from rdb$relations">>),
+        ?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C)),
+        ok = efirebirdsql:execute(C, <<"select False AS C from rdb$relations">>),
+        ?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C)),
+
+        ok = efirebirdsql:commit(C),
+        ok = efirebirdsql:close(C);
+    FirebirdMajorVersion < 3 ->
+        ok
+    end.
+
+
+create_fb4_testdb(DbName) ->
+    %% crete new database
+    {ok, C} = efirebirdsql:connect(
+        "localhost", "sysdba", "masterkey", DbName,
+        [{createdb, true}]),
+    ok = efirebirdsql:execute(C, <<"
+        CREATE TABLE dec_test (
+            d DECIMAL(20, 2),
+            df64 DECFLOAT(16),
+            df128 DECFLOAT(34),
+            s varchar(32))
+    ">>),
+    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (0.0, 0.0, 0.0, '0.0')">>),
+    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (1.0, 1.0, 1.0, '1.0')">>),
+    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (20.0, 20.0, 20.0, '20.0')">>),
+    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (-1.0, -1.0, -1.0, '-1.0')">>),
+    ok = efirebirdsql:execute(C, <<"insert into dec_test(d, df64, df128, s) values (-20.0, -20.0, -20.0, '-20.0')">>),
+
+    ok = efirebirdsql:execute(C, <<"
+        CREATE TABLE tz_test (
+            id INTEGER NOT NULL,
+            t TIME WITH TIME ZONE DEFAULT '12:34:56',
+            ts TIMESTAMP WITH TIME ZONE DEFAULT '1967-08-11 23:45:01',
+            PRIMARY KEY (id)
+        )
+    ">>),
+    ok = efirebirdsql:execute(C, <<"insert into tz_test (id) values (1)">>),
+
+    efirebirdsql:close(C).
+
+fb4_test() ->
+    DbName = tmp_dbname(),
+    create_fb4_testdb(DbName),
+    {ok, C} = efirebirdsql:connect(
+        "localhost", "sysdba", "masterkey", DbName, [{timezone, <<"GMT">>}]),
+
+    FirebirdMajorVersion = get_major_version(C),
+    if
+    FirebirdMajorVersion >= 4 ->
+        ok = efirebirdsql:execute(C, <<"select * from dec_test">>),
+        {ok, ResultDecFloat} = efirebirdsql:fetchall(C),
+        ?assertEqual([
+            [{<<"D">>,"0.00"}, {<<"DF64">>,"0.0"}, {<<"DF128">>,"0.0"}, {<<"S">>, <<"0.0">>}],
+            [{<<"D">>,"1.00"}, {<<"DF64">>,"1.0"}, {<<"DF128">>,"1.0"}, {<<"S">>, <<"1.0">>}],
+            [{<<"D">>,"20.00"}, {<<"DF64">>,"20.0"}, {<<"DF128">>,"20.0"}, {<<"S">>, <<"20.0">>}],
+            [{<<"D">>,"-1.00"}, {<<"DF64">>,"-1.0"}, {<<"DF128">>,"-1.0"}, {<<"S">>, <<"-1.0">>}],
+            [{<<"D">>,"-20.00"}, {<<"DF64">>,"-20.0"}, {<<"DF128">>,"-20.0"}, {<<"S">>, <<"-20.0">>}]
+        ], ResultDecFloat),
+
+        ok = efirebirdsql:execute(C, <<"select * from tz_test">>),
+        {ok, ResultTimeZone} = efirebirdsql:fetchall(C),
+        ?assertEqual([
+            [{<<"ID">>,1}, {<<"T">>,{{12,34,56,0},<<"GMT">>}}, {<<"TS">>,{{1967,8,11},{23,45,1,0}, <<"GMT">>}}]
+        ], ResultTimeZone),
+        ok = efirebirdsql:execute(C, <<"select * from tz_test where T=? and TS=?">>,
+            [{{12,34,56, 0}, <<"GMT">>}, {{1967,8,11},{23,45,1,0}, <<"GMT">>}]),
+        {ok, ResultTimeZone2} = efirebirdsql:fetchall(C),
+        ?assertEqual(ResultTimeZone2, ResultTimeZone);
+    FirebirdMajorVersion < 4 ->
+        ok
+    end.
