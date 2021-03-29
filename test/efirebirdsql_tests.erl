@@ -14,11 +14,15 @@ get_major_version(Conn) ->
     {ok, [{_, MajorVersion}]} = efirebirdsql:fetchone(Conn),
     MajorVersion.
 
-create_testdb(DbName) ->
+create_test_db(DbName) ->
     %% crete new database
     {ok, C} = efirebirdsql:connect(
         "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName,
         [{createdb, true}]),
+    C.
+
+create_test_tables(C) ->
+    %% crete new database
     ok = efirebirdsql:execute(C, <<"
         CREATE TABLE foo (
             a INTEGER NOT NULL,
@@ -52,8 +56,7 @@ create_testdb(DbName) ->
                 out1 = param_a;
                 out2 = param_b;
               END
-    ">>),
-    efirebirdsql:close(C).
+    ">>).
 
 description() ->
     [{<<"A">>,long,0,4,false},
@@ -101,7 +104,10 @@ basic_test() ->
     ?assertEqual(ErrMsg, <<"I/O error during 'open' operation for file 'something_wrong_database'\nError while trying to open file\nNo such file or directory">>),
 
     DbName = tmp_dbname(),
-    create_testdb(DbName),
+    CreatedConn = create_test_db(DbName),
+    create_test_tables(CreatedConn),
+    efirebirdsql:close(CreatedConn),
+
     {ok, C} = efirebirdsql:connect(
         "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName, []),
 
@@ -198,12 +204,14 @@ basic_test() ->
 
 fb3_test() ->
     DbName = tmp_dbname(),
-    create_testdb(DbName),
-    {ok, C} = efirebirdsql:connect(
-        "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName, []),
-    FirebirdMajorVersion = get_major_version(C),
+    CreatedConn = create_test_db(DbName),
+    FirebirdMajorVersion = get_major_version(CreatedConn),
     if
     FirebirdMajorVersion >= 3 ->
+        create_test_tables(CreatedConn),
+        efirebirdsql:close(CreatedConn),
+        {ok, C} = efirebirdsql:connect(
+            "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName, []),
         ok = efirebirdsql:execute(C, <<"select True AS C from rdb$relations">>),
         ?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C)),
         ok = efirebirdsql:execute(C, <<"select False AS C from rdb$relations">>),
@@ -216,11 +224,8 @@ fb3_test() ->
     end.
 
 
-create_fb4_testdb(DbName) ->
+create_fb4_test_tables(C) ->
     %% crete new database
-    {ok, C} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", DbName,
-        [{createdb, true}]),
     ok = efirebirdsql:execute(C, <<"
         CREATE TABLE dec_test (
             d DECIMAL(20, 2),
@@ -242,19 +247,18 @@ create_fb4_testdb(DbName) ->
             PRIMARY KEY (id)
         )
     ">>),
-    ok = efirebirdsql:execute(C, <<"insert into tz_test (id) values (1)">>),
-
-    efirebirdsql:close(C).
+    ok = efirebirdsql:execute(C, <<"insert into tz_test (id) values (1)">>).
 
 fb4_test() ->
     DbName = tmp_dbname(),
-    create_fb4_testdb(DbName),
-    {ok, C} = efirebirdsql:connect(
-        "localhost", "sysdba", "masterkey", DbName, [{timezone, <<"GMT">>}]),
-
-    FirebirdMajorVersion = get_major_version(C),
+    CreatedConn = create_test_db(DbName),
+    FirebirdMajorVersion = get_major_version(CreatedConn),
     if
     FirebirdMajorVersion >= 4 ->
+        create_fb4_test_tables(CreatedConn),
+        efirebirdsql:close(CreatedConn),
+        {ok, C} = efirebirdsql:connect(
+            "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName, [{timezone, <<"GMT">>}]),
         ok = efirebirdsql:execute(C, <<"select * from dec_test">>),
         {ok, ResultDecFloat} = efirebirdsql:fetchall(C),
         ?assertEqual([
