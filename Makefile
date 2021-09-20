@@ -1,12 +1,16 @@
-REBAR = rebar
+REBAR = rebar3
 
 all: compile
 
 compile:
+	@$(REBAR) update
+	@$(REBAR) upgrade
 	@$(REBAR) compile
 
 clean:
 	@$(REBAR) clean
+	@rm -f build.plt
+	@rm -f rebar.lock
 
 test: compile
 	@$(REBAR) eunit

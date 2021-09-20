@@ -27,7 +27,7 @@
     db_handle,
     trans_handle,
     accept_version,
-    timezone :: binary() | nil,
+    timezone :: string() | nil,
     timezone_name_by_id :: map() | undefined,
     timezone_id_by_name :: map() | undefined
 }).

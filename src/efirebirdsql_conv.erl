@@ -88,18 +88,22 @@ parse_time(RawValue) ->
     {H, M rem 60, S rem 60, (N rem 10000) * 100}.
 
 parse_timestamp(RawValue) ->
-    <<YMD:4/binary, HMS:4/binary>> = RawValue,
-    {parse_date(YMD), parse_time(HMS)}.
+    <<YMD:4/binary, HMSN:4/binary>> = RawValue,
+    {parse_date(YMD), parse_time(HMSN)}.
 
+-spec parse_time_tz(binary(), integer()) -> {{integer(), integer(), integer(), integer()}, binary(), binary()}.
 parse_time_tz(RawValue, TimeZoneNameById) ->
-    <<HMS:4/binary, TimeZoneID:16>> = RawValue,
-    TimeZoneName = maps:get(TimeZoneID, TimeZoneNameById),
-    {parse_time(HMS), TimeZoneName}.
+    <<HMSN:4/binary, TimeZoneID:16, OffsetID:16>> = RawValue,
+    TimeZone = maps:get(TimeZoneID, TimeZoneNameById),
+    Offset = maps:get(OffsetID, TimeZoneNameById),
+    {parse_time(HMSN), TimeZone, Offset}.
 
+-spec parse_timestamp_tz(binary(), integer()) -> {{integer(), integer(), integer()}, {integer(), integer(), integer(), integer()}, binary(), binary()}.
 parse_timestamp_tz(RawValue, TimeZoneNameById) ->
-    <<YMD:4/binary, HMS:4/binary, TimeZoneID:16>> = RawValue,
-    TimeZoneName = maps:get(TimeZoneID, TimeZoneNameById),
-    {parse_date(YMD), parse_time(HMS), TimeZoneName}.
+    <<YMD:4/binary, HMSN:4/binary, TimeZoneID:16, OffsetID:16>> = RawValue,
+    TimeZone = maps:get(TimeZoneID, TimeZoneNameById),
+    Offset = maps:get(OffsetID, TimeZoneNameById),
+    {parse_date(YMD), parse_time(HMSN), TimeZone, Offset}.
 
 fill0(S, 0) -> S;
 fill0(S, N) -> fill0([48 | S], N-1).

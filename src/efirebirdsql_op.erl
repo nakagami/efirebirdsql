@@ -162,8 +162,7 @@ op_attach(Conn, Database) ->
     Dpb2 = case Conn#conn.timezone of
     nil ->
         Dpb;
-    TimeZoneBin ->
-        TimeZone = binary_to_list(TimeZoneBin),
+    TimeZone ->
         lists:flatten([Dpb,
             91, length(TimeZone), TimeZone  %% isc_dpb_session_time_zone = 91
         ])
@@ -216,8 +215,7 @@ op_create(Conn, Database, PageSize) ->
     Dpb2 = case Conn#conn.timezone of
     nil ->
         Dpb;
-    TimeZoneBin ->
-        TimeZone = binary_to_list(TimeZoneBin),
+    TimeZone ->
         lists:flatten([Dpb,
             91, length(TimeZone), TimeZone  %% isc_dpb_session_time_zone = 91
         ])
@@ -771,8 +769,8 @@ get_raw_value(Conn, XSqlVar) ->
                 date -> 4;
                 time -> 4;
                 timestamp -> 8;
-                time_tz -> 6;
-                timestamp_tz -> 10;
+                time_tz -> 8;
+                timestamp_tz -> 12;
                 decimal_fixed -> 16;
                 decimal64 -> 8;
                 decimal128 ->  16;

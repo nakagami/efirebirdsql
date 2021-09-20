@@ -18,7 +18,7 @@ create_test_db(DbName) ->
     %% crete new database
     {ok, C} = efirebirdsql:connect(
         "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName,
-        [{createdb, true}]),
+        [{createdb, true}, {timezone, "Asia/Tokyo"}]),
     C.
 
 create_test_tables(C) ->
@@ -247,7 +247,9 @@ create_fb4_test_tables(C) ->
             PRIMARY KEY (id)
         )
     ">>),
-    ok = efirebirdsql:execute(C, <<"insert into tz_test (id) values (1)">>).
+    ok = efirebirdsql:execute(C, <<"insert into tz_test (id) values (1)">>),
+    ok = efirebirdsql:execute(C, <<"insert into tz_test (id, t, ts) values (2, '12:34:56 Asia/Seoul', '1967-08-11 23:45:01.0000 Asia/Seoul')">>),
+    ok = efirebirdsql:execute(C, <<"insert into tz_test (id, t, ts) values (3, '03:34:56 UTC', '1967-08-11 14:45:01.0000 UTC')">>).
 
 fb4_test() ->
     DbName = tmp_dbname(),
@@ -258,7 +260,7 @@ fb4_test() ->
         create_fb4_test_tables(CreatedConn),
         efirebirdsql:close(CreatedConn),
         {ok, C} = efirebirdsql:connect(
-            "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName, [{timezone, <<"GMT">>}]),
+            "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName, [{timezone, "Asia/Tokyo"}]),
         ok = efirebirdsql:execute(C, <<"select * from dec_test">>),
         {ok, ResultDecFloat} = efirebirdsql:fetchall(C),
         ?assertEqual([
@@ -271,13 +273,16 @@ fb4_test() ->
 
         ok = efirebirdsql:execute(C, <<"select * from tz_test">>),
         {ok, ResultTimeZone} = efirebirdsql:fetchall(C),
-        ?assertEqual([
-            [{<<"ID">>,1}, {<<"T">>,{{12,34,56,0},<<"GMT">>}}, {<<"TS">>,{{1967,8,11},{23,45,1,0}, <<"GMT">>}}]
-        ], ResultTimeZone),
-        ok = efirebirdsql:execute(C, <<"select * from tz_test where T=? and TS=?">>,
-            [{{12,34,56, 0}, <<"GMT">>}, {{1967,8,11},{23,45,1,0}, <<"GMT">>}]),
-        {ok, ResultTimeZone2} = efirebirdsql:fetchall(C),
-        ?assertEqual(ResultTimeZone2, ResultTimeZone);
+        ?assertEqual(ResultTimeZone, [
+            [{<<"ID">>,1}, {<<"T">>,{{3,34,56,0},<<"GMT">>,<<"Asia/Tokyo">>}}, {<<"TS">>,{{1967,8,11},{14,45,1,0}, <<"GMT">>,<<"Asia/Tokyo">>}}],
+            [{<<"ID">>,2}, {<<"T">>,{{3,34,56,0},<<"GMT">>,<<"Asia/Seoul">>}}, {<<"TS">>,{{1967,8,11},{14,45,1,0}, <<"GMT">>,<<"Asia/Seoul">>}}],
+            [{<<"ID">>,3}, {<<"T">>,{{3,34,56,0},<<"GMT">>,<<"UTC">>}}, {<<"TS">>,{{1967,8,11},{14,45,1,0}, <<"GMT">>,<<"UTC">>}}]
+        % ]),
+        % ok = efirebirdsql:execute(C, <<"select * from tz_test where T=? and TS=?">>,
+        %     [{{12,34,56, 0}, <<"Asia/Seoul">>}, {{1967,8,11},{23,45,1,0}, <<"Asia/Seoul">>}]),
+        % {ok, ResultTimeZone2} = efirebirdsql:fetchall(C),
+        % ?assertEqual(ResultTimeZone2, ResultTimeZone);
+        ]);
     FirebirdMajorVersion < 4 ->
         ok
     end.

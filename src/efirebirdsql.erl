@@ -19,7 +19,8 @@
     {createdb, IsCreateDB :: boolean()} |
     {auto_commit, AutoCommit :: boolean()} |
     {pagesize, PageSize :: integer()} |
-    {auth_plugin, AuthPlugin :: list()}.
+    {auth_plugin, AuthPlugin :: list()} |
+    {timezone, TimeZone :: string()}.
 
 -spec start_link() -> {ok, pid()}.
 start_link() ->
