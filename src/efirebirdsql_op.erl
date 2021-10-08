@@ -124,7 +124,11 @@ op_connect(Host, User, ClientPublic, AuthPlugin, WireCrypt, Database) ->
         [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
         [255, 255, 128, 11, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4],
         [255, 255, 128, 12, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 6],
-        [255, 255, 128, 13, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 8]
+        [255, 255, 128, 13, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 8],
+        [255, 255, 128, 14, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 10],
+        [255, 255, 128, 15, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 12],
+        [255, 255, 128, 16, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 14],
+        [255, 255, 128, 17, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 16]
     ]
     end,
     Buf = [
@@ -277,27 +281,34 @@ op_execute(Conn, Stmt, Params) ->
     TransHandle = Conn#conn.trans_handle,
     StmtHandle = Stmt#stmt.stmt_handle,
 
-    if
+    L = if
     length(Params) == 0 ->
-        list_to_binary([
+        [
             efirebirdsql_conv:byte4(op_val(op_execute)),
             efirebirdsql_conv:byte4(StmtHandle),
             efirebirdsql_conv:byte4(TransHandle),
             efirebirdsql_conv:list_to_xdr_bytes([]),
             efirebirdsql_conv:byte4(0),
-            efirebirdsql_conv:byte4(0)]);
+            efirebirdsql_conv:byte4(0)
+        ];
     length(Params) > 0 ->
         {Blr, Value} = efirebirdsql_conv:params_to_blr(
             Conn#conn.accept_version, Conn#conn.timezone_id_by_name, Params),
-        list_to_binary([
+        [
             efirebirdsql_conv:byte4(op_val(op_execute)),
             efirebirdsql_conv:byte4(StmtHandle),
             efirebirdsql_conv:byte4(TransHandle),
             efirebirdsql_conv:list_to_xdr_bytes(Blr),
             efirebirdsql_conv:byte4(0),
             efirebirdsql_conv:byte4(1),
-            Value])
+            Value
+        ]
+    end,
+    if
+        Conn#conn.accept_version >= 16 -> list_to_binary([L, efirebirdsql_conv:byte4(0)]);
+        Conn#conn.accept_version < 16 -> list_to_binary(L)
     end.
+
 
 op_execute2(Conn, Stmt, Params) ->
     ?DEBUG_FORMAT("op_execute2~n", []),
@@ -306,21 +317,22 @@ op_execute2(Conn, Stmt, Params) ->
     XSqlVars = Stmt#stmt.xsqlvars,
 
     OutputBlr = efirebirdsql_conv:list_to_xdr_bytes(calc_blr(XSqlVars)),
-    if
+    L = if
     length(Params) == 0 ->
-        list_to_binary([
-            efirebirdsql_conv:byte4(op_val(op_execute2)),
+        [
+           efirebirdsql_conv:byte4(op_val(op_execute2)),
             efirebirdsql_conv:byte4(StmtHandle),
             efirebirdsql_conv:byte4(TransHandle),
             efirebirdsql_conv:list_to_xdr_bytes([]),
             efirebirdsql_conv:byte4(0),
             efirebirdsql_conv:byte4(0),
             OutputBlr,
-            efirebirdsql_conv:byte4(0)]);
+            efirebirdsql_conv:byte4(0)
+        ];
     length(Params) > 0 ->
         {Blr, Value} = efirebirdsql_conv:params_to_blr(
             Conn#conn.accept_version, Conn#conn.timezone_id_by_name, Params),
-        list_to_binary([
+        [
             efirebirdsql_conv:byte4(op_val(op_execute2)),
             efirebirdsql_conv:byte4(StmtHandle),
             efirebirdsql_conv:byte4(TransHandle),
@@ -329,7 +341,12 @@ op_execute2(Conn, Stmt, Params) ->
             efirebirdsql_conv:byte4(1),
             Value,
             OutputBlr,
-            efirebirdsql_conv:byte4(0)])
+            efirebirdsql_conv:byte4(0)
+        ]
+    end,
+    if
+        Conn#conn.accept_version >= 16 -> list_to_binary([L, efirebirdsql_conv:byte4(0)]);
+        Conn#conn.accept_version < 16 -> list_to_binary(L)
     end.
 
 op_exec_immediate(Conn, Sql) ->
