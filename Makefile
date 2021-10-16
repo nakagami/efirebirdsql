@@ -9,7 +9,7 @@ compile:
 
 clean:
 	@$(REBAR) clean
-	@rm -rf ebin
+	@rm -rf ebin/*
 	@rm -f build.plt
 	@rm -f rebar.lock
 
