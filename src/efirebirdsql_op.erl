@@ -427,11 +427,11 @@ op_cont_auth(AuthData, PluginName, PluginNameList, Keys) ->
         efirebirdsql_conv:list_to_xdr_string(PluginNameList),
         efirebirdsql_conv:list_to_xdr_string(Keys)]).
 
-op_crypt() ->
+op_crypt(PluginName) ->
     ?DEBUG_FORMAT("op_crypt~n", []),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_crypt)),
-        efirebirdsql_conv:list_to_xdr_string("Arc4"),
+        efirebirdsql_conv:list_to_xdr_string(PluginName),
         efirebirdsql_conv:list_to_xdr_string("Symmetric")]).
 
 %%% parse status vector
@@ -508,12 +508,43 @@ get_response(Conn) ->
         {error, 0, <<"Unknown response">>}
     end.
 
-wire_crypt(Conn, SessionKey) ->
-    efirebirdsql_socket:send(Conn, op_crypt()),
-    C2 = Conn#conn{
-        read_state=crypto:crypto_init(rc4, SessionKey, false),
-        write_state=crypto:crypto_init(rc4, SessionKey, true)
-    },
+wire_crypt_params(Map, []) ->
+    Map;
+wire_crypt_params(Map, Buf) ->
+    [K | Rest1] = Buf,
+    [Ln | Rest2] = Rest1,
+    {V, Rest3} = lists:split(Ln, Rest2),
+    wire_crypt_params(maps:put(K, V, Map), Rest3).
+
+guess_wire_crypt(Buf) ->
+    Params = wire_crypt_params(maps:new(), binary_to_list(Buf)),
+    case maps:find(3, Params) of
+        {ok, V1} ->
+            case lists:prefix(string:concat("ChaCha", [0]), V1) of
+                true ->
+                {_, NonceRaw} = lists:split(7, V1),
+                {Nonce, _} = lists:split(length(NonceRaw)-4, NonceRaw),
+                {"ChaCha", string:concat([0, 0, 0, 0], Nonce)};
+                _ -> {"Arc4", ""}
+            end;
+        _ -> {"Arc4", ""}
+    end.
+
+wire_crypt(Conn, EncryptPlugin, SessionKey, IV) ->
+    efirebirdsql_socket:send(Conn, op_crypt(EncryptPlugin)),
+    C2 = case EncryptPlugin of
+        "Arc4" ->
+        Conn#conn{
+            read_state=crypto:crypto_init(rc4, SessionKey, false),
+            write_state=crypto:crypto_init(rc4, SessionKey, true)
+        };
+        "ChaCha" ->
+        Key = crypto:hash(sha256, SessionKey),
+        Conn#conn{
+            read_state=crypto:crypto_init(chacha20, Key, IV, false),
+            write_state=crypto:crypto_init(chacha20, Key, IV, true)
+        }
+    end,
     {op_response,  _, _} = get_response(C2),
     C2.
 
@@ -565,11 +596,13 @@ get_connect_response(Op, Conn) ->
     op_cond_accept ->
         efirebirdsql_socket:send(C2,
             op_cont_auth(C2#conn.auth_data, C2#conn.auth_plugin, C2#conn.auth_plugin, "")),
-        {op_response, _, _} = get_response(C2);
-    _ -> nil
+        {op_response, _, Buf} = get_response(C2),
+        {EncryptPlugin, IV} = guess_wire_crypt(Buf);
+    _ ->
+        {EncryptPlugin, IV} = {[], []}
     end,
     NewConn = case C2#conn.wire_crypt of
-    true -> wire_crypt(C2, SessionKey);
+    true -> wire_crypt(C2, EncryptPlugin, SessionKey, IV);
     false -> C2
     end,
     {ok, NewConn}.

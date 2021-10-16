@@ -91,14 +91,14 @@ parse_timestamp(RawValue) ->
     <<YMD:4/binary, HMSN:4/binary>> = RawValue,
     {parse_date(YMD), parse_time(HMSN)}.
 
--spec parse_time_tz(binary(), integer()) -> {{integer(), integer(), integer(), integer()}, binary(), binary()}.
+-spec parse_time_tz(binary(), map()) -> {{integer(), integer(), integer(), integer()}, binary(), binary()}.
 parse_time_tz(RawValue, TimeZoneNameById) ->
     <<HMSN:4/binary, TimeZoneID:16, OffsetID:16>> = RawValue,
     TimeZone = maps:get(TimeZoneID, TimeZoneNameById),
     Offset = maps:get(OffsetID, TimeZoneNameById),
     {parse_time(HMSN), TimeZone, Offset}.
 
--spec parse_timestamp_tz(binary(), integer()) -> {{integer(), integer(), integer()}, {integer(), integer(), integer(), integer()}, binary(), binary()}.
+-spec parse_timestamp_tz(binary(), map()) -> {{integer(), integer(), integer()}, {integer(), integer(), integer(), integer()}, binary(), binary()}.
 parse_timestamp_tz(RawValue, TimeZoneNameById) ->
     <<YMD:4/binary, HMSN:4/binary, TimeZoneID:16, OffsetID:16>> = RawValue,
     TimeZone = maps:get(TimeZoneID, TimeZoneNameById),
