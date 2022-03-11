@@ -6,7 +6,8 @@
 -export([start_link/0]).
 -export([connect/5, connect/6, prepare/2, execute/1, execute/2, execute/3,
         description/1, fetchone/1, fetchall/1, commit/1, rollback/1,
-        close/1, get_last_error/1, cancel/1, sync/1]).
+        close/1, get_last_error/1, cancel/1, sync/1,
+        fbevent_connect_request/2, fbevent_wait/2, fbevent_close/2]).
 
 -export_type([connection/0, connect_option/0]).
 
@@ -129,3 +130,17 @@ cancel(C) ->
 sync(C) ->
     gen_server:call(C, sync).
 
+-spec fbevent_connect_request(connection(), list())
+    -> {ok, fbevent()} | {error, Reason :: binary()}.
+fbevent_connect_request(_C, _EventNames) ->
+    {error, <<"Not implemented">>}.
+
+-spec fbevent_wait(connection(), fbevent())
+    -> {ok, map()} | {error, Reason :: binary()}.
+fbevent_wait(_C, _FbEvent) ->
+    {error, <<"Not implemented">>}.
+
+-spec fbevent_close(connection(), fbevent())
+    -> ok | {error, Reason :: binary()}.
+fbevent_close(_C, _FbEvent) ->
+    {error, <<"Not implemented">>}.
