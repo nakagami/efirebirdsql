@@ -54,3 +54,11 @@
 }).
 
 -type state() :: #state{}.
+
+-record(fbevent, {
+    sock,
+    event_count :: map(),
+    event_id :: integer()
+}).
+
+-type fbevent() :: #fbevent{}.
