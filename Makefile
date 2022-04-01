@@ -21,3 +21,5 @@ dialyzer: build.plt compile
 build.plt:
 	dialyzer -q --build_plt --apps erts kernel stdlib crypto --output_plt $@
 
+publish:
+	@$(REBAR) hex publish
