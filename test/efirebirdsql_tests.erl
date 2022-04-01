@@ -32,15 +32,16 @@ create_test_tables(C) ->
             e DATE DEFAULT '1967-08-11',
             f TIMESTAMP DEFAULT '1967-08-11 23:45:01',
             g TIME DEFAULT '23:45:01',
-            h BLOB SUB_TYPE 1,
+            h0 BLOB SUB_TYPE 0,
+            h1 BLOB SUB_TYPE 1,
             i DOUBLE PRECISION DEFAULT 1.0,
             j FLOAT DEFAULT 2.0,
             PRIMARY KEY (a),
             CONSTRAINT CHECK_A CHECK (a <> 0)
         )
     ">>),
-    ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (1, 'b', 'c','blob')">>),
-    ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h) values (2, 'B', 'C','BLOB')">>),
+    ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h1) values (1, 'b', 'c','blob')">>),
+    ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h1) values (2, 'B', 'C','BLOB')">>),
 
     ok = efirebirdsql:execute(C, <<"
             CREATE PROCEDURE foo_proc
@@ -66,7 +67,8 @@ description() ->
      {<<"E">>,date,0,4,true},
      {<<"F">>,timestamp,0,8,true},
      {<<"G">>,time,0,4,true},
-     {<<"H">>,blob,4,8,true},
+     {<<"H0">>,blob,0,8,true},
+     {<<"H1">>,blob,4,8,true},
      {<<"I">>,double,0,8,true},
      {<<"J">>,float,0,4,true}].
 
@@ -81,7 +83,8 @@ result1() ->
      {<<"E">>,{1967,8,11}},
      {<<"F">>,{{1967,8,11},{23,45,1,0}}},
      {<<"G">>,{23,45,1,0}},
-     {<<"H">>,<<"blob">>},
+     {<<"H0">>,nil},
+     {<<"H1">>,<<"blob">>},
      {<<"I">>,1.0},
      {<<"J">>,2.0}].
 
@@ -93,7 +96,8 @@ result2() ->
      {<<"E">>,{1967,8,11}},
      {<<"F">>,{{1967,8,11},{23,45,1,0}}},
      {<<"G">>,{23,45,1,0}},
-     {<<"H">>,<<"BLOB">>},
+     {<<"H0">>,nil},
+     {<<"H1">>,<<"BLOB">>},
      {<<"I">>,1.0},
      {<<"J">>,2.0}].
 
