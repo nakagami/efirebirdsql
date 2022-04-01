@@ -193,15 +193,15 @@ param_to_blr(true, _) ->
 param_to_blr(false, _) ->
     {[23, 7, 0], [0, 0, 0, 0]}.
 
-null_indicator_bits([], Ind) ->
-    Ind;
-null_indicator_bits(Params, Ind) ->
+null_indicator_bits([], Ind, Indicator) ->
+    Indicator;
+null_indicator_bits(Params, Idx, Indicator) ->
     [X | RestParams] = Params,
-    Flag = if X =:= nil -> 1; X =/= nil -> 0 end,
-    null_indicator_bits(RestParams, Ind * 2 + Flag).
+    V = if X =:= nil -> (1 bsl Idx); X =/= nil -> 0 end,
+    null_indicator_bits(RestParams, Idx + 1, Indicator + V).
 
 null_indicator_bits(Params) ->
-    null_indicator_bits(Params, 0).
+    null_indicator_bits(Params, 0, 0).
 
 null_bitmap(Params) ->
     Bitmap = null_indicator_bits(Params),
@@ -245,4 +245,4 @@ params_to_blr(AcceptVersion, TimeZoneIdByName, Params) ->
         AcceptVersion >= 13 -> null_bitmap(Params);
         AcceptVersion < 13 -> []
         end,
-    {Blr, NullBitmap ++ Value}.
+    {Blr, lists:flatten(NullBitmap ++ Value)}.
