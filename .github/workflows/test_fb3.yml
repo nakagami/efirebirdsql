@@ -1,4 +1,4 @@
-name: Erlang CI
+name: Erlang CI Fb3
 
 on:
   push:
