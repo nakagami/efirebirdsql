@@ -6,6 +6,12 @@
 -include_lib("eunit/include/eunit.hrl").
 
 params_to_blr_test() ->
+    % Firebird 2.5
+    {Blr, Value} = efirebirdsql_conv:params_to_blr(11, maps:new(), [nil]),
+    ?assertEqual("0502040002000E00000700FF4C", efirebirdsql_srp:to_hex(Blr)),
+    ?assertEqual("FFFFFFFF", efirebirdsql_srp:to_hex(Value)),
+
+    % Firebird 3+
     {Blr1, Value1} = efirebirdsql_conv:params_to_blr(13, maps:new(), [nil]),
     ?assertEqual("0502040002000E00000700FF4C", efirebirdsql_srp:to_hex(Blr1)),
     ?assertEqual("01000000", efirebirdsql_srp:to_hex(Value1)),
