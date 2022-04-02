@@ -193,7 +193,7 @@ param_to_blr(true, _) ->
 param_to_blr(false, _) ->
     {[23, 7, 0], [0, 0, 0, 0]}.
 
-null_indicator_bits([], Ind, Indicator) ->
+null_indicator_bits([], _Idx, Indicator) ->
     Indicator;
 null_indicator_bits(Params, Idx, Indicator) ->
     [X | RestParams] = Params,
