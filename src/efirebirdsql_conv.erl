@@ -222,7 +222,7 @@ params_to_blr(AcceptVersion, TimeZoneIdByName, Params, Blr, Value) ->
     {NewBlr, NewValue} = if
         AcceptVersion >= 13 ->
             if
-            V =:= nil -> {[], []};
+            V =:= nil -> {[14, 0, 0, 7, 0], []};
             V =/= nil -> param_to_blr(V, TimeZoneIdByName)
             end;
         AcceptVersion < 13 ->
