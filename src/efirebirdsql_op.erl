@@ -471,7 +471,7 @@ get_error_message(Conn) ->
     {_Conn, ErrNo, Msg, Arg} = parse_status_vector_args(Conn, 0, [], []),
     {ErrNo, iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(Msg)), lists:reverse(Arg)))}.
 
-%% recieve and parse response
+%% receive and parse response
 -spec get_response(conn()) ->
     {op_response, integer(), binary()} |
     {op_fetch_response, integer(), integer()} |
@@ -554,7 +554,7 @@ get_auth_data([], _Conn) ->
 get_auth_data(Data, _Conn) ->
     Data.
 
-%% recieve and parse connect() response
+%% receive and parse connect() response
 get_connect_response(op_accept, Conn) ->
     {ok, <<_AcceptVersionMasks:24, AcceptVersion:8,
             _AcceptArchtecture:32, _AcceptType:32>>} = efirebirdsql_socket:recv(Conn, 12),
@@ -624,7 +624,7 @@ get_connect_response(Conn) ->
         Op == op_reject ->
             {error, <<"Connect rejected">>, Conn};
         true ->
-            {error, <<"Unknow connect error">>, Conn}
+            {error, <<"Unknown connect error">>, Conn}
     end.
 
 %% parse select items.
