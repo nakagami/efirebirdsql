@@ -4,6 +4,11 @@ efirebirdsql
 
 Erlang Firebird client library.
 
+Requirements
+----------------------
+
+* Firebird 2.5 or higher
+
 Examples
 -----------
 
