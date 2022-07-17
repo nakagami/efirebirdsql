@@ -118,7 +118,7 @@ connect(Host, Username, Password, Database, Options) ->
             auto_commit=AutoCommit,
             client_private=Private,
             client_public=Public,
-            auth_plugin=proplists:get_value(auth_plugin, Options, "Srp"),
+            auth_plugin=proplists:get_value(auth_plugin, Options, "Srp256"),
             wire_crypt=proplists:get_value(wire_crypt, Options, true),
             timezone=proplists:get_value(timezone, Options, nil)
         },
@@ -137,7 +137,7 @@ connect(Host, Username, Password, Database, Options) ->
             password=Password,
             client_private=Private,
             client_public=Public,
-            auth_plugin=proplists:get_value(auth_plugin, Options, "Srp"),
+            auth_plugin=proplists:get_value(auth_plugin, Options, "Srp256"),
             wire_crypt=proplists:get_value(wire_crypt, Options, true),
             auto_commit=proplists:get_value(auto_commit, Options, false),
             timezone=proplists:get_value(timezone, Options, nil)
