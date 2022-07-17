@@ -597,13 +597,13 @@ get_connect_response(Op, Conn) ->
         efirebirdsql_socket:send(C2,
             op_cont_auth(C2#conn.auth_data, C2#conn.auth_plugin, C2#conn.auth_plugin, "")),
         {op_response, _, Buf} = get_response(C2),
-        {EncryptPlugin, IV} = guess_wire_crypt(Buf);
+        {EncryptPlugin, IV} = guess_wire_crypt(Buf),
+        NewConn = case C2#conn.wire_crypt of
+        true -> wire_crypt(C2, EncryptPlugin, SessionKey, IV);
+        false -> C2
+        end;
     _ ->
-        {EncryptPlugin, IV} = {[], []}
-    end,
-    NewConn = case C2#conn.wire_crypt of
-    true -> wire_crypt(C2, EncryptPlugin, SessionKey, IV);
-    false -> C2
+        NewConn = C2
     end,
     {ok, NewConn}.
 
