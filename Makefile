@@ -4,7 +4,7 @@ all: compile
 
 compile:
 	@$(REBAR) update
-	@$(REBAR) upgrade
+	@$(REBAR) upgrade --all
 	@$(REBAR) compile
 
 clean:
