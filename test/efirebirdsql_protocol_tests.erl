@@ -15,8 +15,6 @@ protocol_test() ->
         [{createdb, true}, {auth_plugin, "Srp"}]),
     ?assertEqual(C#conn.auto_commit, true),
 
-    ok = efirebirdsql_protocol:ping(C),
-
     {ok, Stmt} = efirebirdsql_protocol:allocate_statement(C),
 
     {ok, Stmt2} = efirebirdsql_protocol:prepare_statement(
