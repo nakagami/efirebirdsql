@@ -6,7 +6,7 @@
 
 -export([connect/5, close/1, begin_transaction/2]).
 -export([allocate_statement/1, prepare_statement/3, free_statement/3, columns/1]).
--export([execute/2, execute/3, rowcount/2, exec_immediate/2]).
+-export([execute/2, execute/3, rowcount/2, exec_immediate/2, ping/1]).
 -export([fetchone/2, fetchall/2]).
 -export([description/1]).
 -export([commit/1, rollback/1]).
@@ -264,6 +264,16 @@ exec_immediate(Sql, Conn) ->
     case efirebirdsql_op:get_response(Conn) of
     {op_response, _, _} -> ok;
     {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+    end.
+
+-spec ping(conn()) -> ok | error.
+ping(Conn) ->
+    % Firebird 3.0+
+    efirebirdsql_socket:send(Conn,
+        efirebirdsql_op:op_ping()),
+    case efirebirdsql_op:get_response(Conn) of
+    {op_response, _, _} -> ok;
+    _ -> error
     end.
 
 %% Fetch
