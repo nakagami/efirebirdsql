@@ -4,7 +4,7 @@
 -module(efirebirdsql).
 
 -export([start_link/0]).
--export([connect/5, connect/6, prepare/2, execute/1, execute/2, execute/3,
+-export([connect/5, connect/6, ping/1, prepare/2, execute/1, execute/2, execute/3,
         description/1, fetchone/1, fetchall/1, commit/1, rollback/1,
         close/1, get_last_error/1, cancel/1, sync/1]).
 
@@ -41,6 +41,11 @@ connect(C, Host, Username, Password, Database, Ops) ->
 connect(Host, Username, Password, Database, Ops) ->
     {ok, C} = start_link(),
     connect(C, Host, Username, Password, Database, Ops).
+
+-spec ping(connection())
+    -> ok | error.
+ping(C) ->
+    gen_server:call(C, ping, infinity).
 
 -spec prepare(connection(), binary())
     -> ok | {error, Reason :: binary()}.

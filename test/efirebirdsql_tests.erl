@@ -216,6 +216,7 @@ fb3_test() ->
         efirebirdsql:close(CreatedConn),
         {ok, C} = efirebirdsql:connect(
             "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), DbName, []),
+        ok = efirebirdsql:ping(C),
         ok = efirebirdsql:execute(C, <<"select True AS C from rdb$relations">>),
         ?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C)),
         ok = efirebirdsql:execute(C, <<"select False AS C from rdb$relations">>),

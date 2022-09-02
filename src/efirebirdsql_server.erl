@@ -47,6 +47,9 @@ handle_call({connect, Host, Username, Password, Database, Options}, _From, State
     {error, ErrNo, Reason, Conn} ->
         {reply, {error, connect}, State#state{connection=Conn, error_no=ErrNo, error_message=Reason}}
     end;
+handle_call(ping, _From, State) ->
+    Conn = State#state.connection,
+    {reply, efirebirdsql_protocol:ping(Conn), State};
 handle_call({transaction, Options}, _From, State) ->
     Conn = State#state.connection,
     AutoCommit = proplists:get_value(auto_commit, Options, true),
