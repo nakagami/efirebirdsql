@@ -15,7 +15,7 @@
 -type connection() :: pid().
 -type connect_option() ::
     {port, PortNumber :: inet:port_number()} |
-    {charset, Charset :: string()} |
+    {charset, Charset :: atom()} |
     {timeout, Timeout :: integer()} |
     {createdb, IsCreateDB :: boolean()} |
     {auto_commit, AutoCommit :: boolean()} |
