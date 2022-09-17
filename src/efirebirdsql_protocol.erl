@@ -1,6 +1,6 @@
 %%% The MIT License (MIT)
 
-%%% Copyright (c) 2016-2021 Hajime Nakagami<nakagami@gmail.com>
+%%% Copyright (c) 2016-2022 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_protocol).
 
@@ -104,6 +104,7 @@ load_timezone_data(Conn) ->
 connect(Host, Username, Password, Database, Options) ->
     SockOptions = [{active, false}, {packet, raw}, binary],
     Port = proplists:get_value(port, Options, 3050),
+    Charset = proplists:get_value(charset, Options, "UTF8"),
     IsCreateDB = proplists:get_value(createdb, Options, false),
     PageSize = proplists:get_value(pagesize, Options, 4096),
     AutoCommit = proplists:get_value(auto_commit, Options, true),
@@ -115,6 +116,7 @@ connect(Host, Username, Password, Database, Options) ->
             sock=Sock,
             user=string:to_upper(Username),
             password=Password,
+            charset=Charset,
             auto_commit=AutoCommit,
             client_private=Private,
             client_public=Public,
