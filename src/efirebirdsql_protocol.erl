@@ -104,7 +104,7 @@ load_timezone_data(Conn) ->
 connect(Host, Username, Password, Database, Options) ->
     SockOptions = [{active, false}, {packet, raw}, binary],
     Port = proplists:get_value(port, Options, 3050),
-    Charset = proplists:get_value(charset, Options, "UTF8"),
+    Charset = proplists:get_value(charset, Options, utf_8),
     IsCreateDB = proplists:get_value(createdb, Options, false),
     PageSize = proplists:get_value(pagesize, Options, 4096),
     AutoCommit = proplists:get_value(auto_commit, Options, true),

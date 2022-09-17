@@ -16,7 +16,7 @@
     sock,
     user :: string(),
     password :: string(),
-    charset :: string(),
+    charset :: atom(),
     auto_commit :: boolean(),
     client_private :: integer(),
     client_public :: integer(),
