@@ -1,5 +1,5 @@
 %%% The MIT License (MIT)
-%%% Copyright (c) 2016-2021 Hajime Nakagami<nakagami@gmail.com>
+%%% Copyright (c) 2016-2022 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_op).
 -define(DEBUG_FORMAT(X,Y), ok).
@@ -13,7 +13,6 @@
 
 -include("efirebirdsql.hrl").
 
--define(CHARSET, "UTF8").
 -define(BUFSIZE, 1024).
 -define(INFO_SQL_SELECT_DESCRIBE_VARS, [
     4,      %% isc_info_sql_select
@@ -145,12 +144,13 @@ op_connect(Host, User, ClientPublic, AuthPlugin, WireCrypt, Database) ->
 op_attach(Conn, Database) ->
     ?DEBUG_FORMAT("op_attach~n", []),
     Username = Conn#conn.user,
+    Charset = efirebirdsql_charset:get_database_charset(Conn#conn.charset),
     Dpb = if
         Conn#conn.accept_version >= 13 ->
             AuthData = Conn#conn.auth_data,
             lists:flatten([
                 1,                              %% isc_dpb_version = 1
-                48, length(?CHARSET), ?CHARSET, %% isc_dpb_lc_ctype = 48
+                48, length(Charset), Charset,   %% isc_dpb_lc_ctype = 48
                 28, length(Username), Username, %% isc_dpb_user_name 28
                 84, length(AuthData), AuthData  %% isc_dpb_specific_auth_data = 84
             ]);
@@ -158,7 +158,7 @@ op_attach(Conn, Database) ->
             Password = Conn#conn.password,
             lists:flatten([
                 1,                              %% isc_dpb_version = 1
-                48, length(?CHARSET), ?CHARSET, %% isc_dpb_lc_ctype = 48
+                48, length(Charset), Charset,   %% isc_dpb_lc_ctype = 48
                 28, length(Username), Username, %% isc_dpb_user_name 28
                 29, length(Password), Password  %% isc_dpb_password = 29
             ])
@@ -188,13 +188,14 @@ op_detach(DbHandle) ->
 op_create(Conn, Database, PageSize) ->
     ?DEBUG_FORMAT("op_create~n", []),
     Username = Conn#conn.user,
+    Charset = efirebirdsql_charset:get_database_charset(Conn#conn.charset),
     Dpb = if
         Conn#conn.accept_version >= 13 ->
             AuthData = Conn#conn.auth_data,
             lists:flatten([
                 1,
-                68, length(?CHARSET), ?CHARSET, %% isc_dpb_set_db_charset = 68
-                48, length(?CHARSET), ?CHARSET, %% isc_dpb_lc_ctype = 48
+                68, length(Charset), Charset, %% isc_dpb_set_db_charset = 68
+                48, length(Charset), Charset, %% isc_dpb_lc_ctype = 48
                 28, length(Username), Username, %% isc_dpb_user_name 28
                 63, 4, efirebirdsql_conv:byte4(3, little),  %% isc_dpb_sql_dialect = 63
                 24, 4, efirebirdsql_conv:byte4(1, little),  %% isc_dpb_force_write = 24
@@ -206,8 +207,8 @@ op_create(Conn, Database, PageSize) ->
             Password = Conn#conn.password,
             lists:flatten([
                 1,
-                68, length(?CHARSET), ?CHARSET,   %% isc_dpb_set_db_charset = 68
-                48, length(?CHARSET), ?CHARSET,   %% isc_dpb_lc_ctype = 48
+                68, length(Charset), Charset,   %% isc_dpb_set_db_charset = 68
+                48, length(Charset), Charset,   %% isc_dpb_lc_ctype = 48
                 28, length(Username), Username, %% isc_dpb_user_name 28
                 29, length(Password), Password, %% isc_dpb_password = 29
                 63, 4, efirebirdsql_conv:byte4(3, little),        %% isc_dpb_sql_dialect = 63

@@ -1,5 +1,5 @@
 %%% The MIT License (MIT)
-%%% Copyright (c) 2016-2021 Hajime Nakagami<nakagami@gmail.com>
+%%% Copyright (c) 2016-2022 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql).
 
@@ -15,6 +15,7 @@
 -type connection() :: pid().
 -type connect_option() ::
     {port, PortNumber :: inet:port_number()} |
+    {charset, Charset :: atom()} |
     {timeout, Timeout :: integer()} |
     {createdb, IsCreateDB :: boolean()} |
     {auto_commit, AutoCommit :: boolean()} |

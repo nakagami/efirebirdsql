@@ -1,5 +1,5 @@
 %%% The MIT License (MIT)
-%%% Copyright (c) 2016 Hajime Nakagami<nakagami@gmail.com>
+%%% Copyright (c) 2016-2022 Hajime Nakagami<nakagami@gmail.com>
 
 -record(column, {
     name :: binary() | undefined,
@@ -16,6 +16,7 @@
     sock,
     user :: string(),
     password :: string(),
+    charset :: atom(),
     auto_commit :: boolean(),
     client_private :: integer(),
     client_public :: integer(),
