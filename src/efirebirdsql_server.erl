@@ -65,21 +65,26 @@ handle_call({transaction, Options}, _From, State) ->
     end;
 handle_call(commit, _From, State) ->
     Conn = State#state.connection,
-    case efirebirdsql_protocol:commit(Conn) of
+    case efirebirdsql_protocol:commit_retaining(Conn) of
     ok -> {reply, ok, State};
     {error, ErrNo, Reason} -> {reply, {error, commit}, State#state{error_no=ErrNo, error_message=Reason}}
     end;
 handle_call(rollback, _From, State) ->
     Conn = State#state.connection,
-    case efirebirdsql_protocol:rollback(Conn) of
+    case efirebirdsql_protocol:rollback_retaining(Conn) of
     ok -> {reply, ok, State};
     {error, ErrNo, Reason} -> {reply, {error, rollback}, State#state{error_no=ErrNo, error_message=Reason}}
     end;
 handle_call(close, _From, State) ->
     Conn = State#state.connection,
-    case efirebirdsql_protocol:close(Conn) of
-    {ok, C2} -> {reply, ok, State#state{connection=C2}};
-    {error, ErrNo, Reason, C2} -> {reply, {error, close}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
+    case efirebirdsql_protocol:rollback(Conn) of    % clear pending transaction
+    ok ->
+      case efirebirdsql_protocol:close(Conn) of
+      {ok, C2} -> {reply, ok, State#state{connection=C2}};
+      {error, ErrNo, Reason, C2} -> {reply, {error, close}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
+      end;
+    {error, ErrNo, Reason} ->
+      {reply, {error, rollback}, State#state{error_no=ErrNo, error_message=Reason}}
     end;
 handle_call({prepare, Sql}, _From, State) ->
     case efirebirdsql_protocol:prepare_statement(Sql, State#state.connection, State#state.statement) of

@@ -9,7 +9,7 @@
 -export([execute/2, execute/3, rowcount/2, exec_immediate/2, ping/1]).
 -export([fetchone/2, fetchall/2]).
 -export([description/1]).
--export([commit/1, rollback/1]).
+-export([commit_retaining/1, rollback_retaining/1, commit/1, rollback/1]).
 
 -include("efirebirdsql.hrl").
 
@@ -109,13 +109,6 @@ connect(Host, Username, Password, Database, Options) ->
 
 -spec close(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 close(Conn) ->
-    if
-      Conn#conn.trans_handle =/= undefined ->
-        efirebirdsql_socket:send(Conn,
-            efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle));
-      Conn#conn.trans_handle =:= undefined ->
-        ok
-    end,
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_detach(Conn#conn.db_handle)),
     case efirebirdsql_op:get_response(Conn) of
@@ -276,10 +269,28 @@ description(Stmt) ->
     description(Stmt#stmt.xsqlvars, []).
 
 %% Commit and rollback
+-spec commit_retaining(conn()) -> ok | {error, integer(), binary()}.
+commit_retaining(Conn) ->
+    efirebirdsql_socket:send(Conn,
+        efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
+    case efirebirdsql_op:get_response(Conn) of
+    {op_response, _, _} -> ok;
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+    end.
+
+-spec rollback_retaining(conn()) -> ok | {error, integer(), binary()}.
+rollback_retaining(Conn) ->
+    efirebirdsql_socket:send(Conn,
+        efirebirdsql_op:op_rollback_retaining(Conn#conn.trans_handle)),
+    case efirebirdsql_op:get_response(Conn) of
+    {op_response, _, _} -> ok;
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+    end.
+
 -spec commit(conn()) -> ok | {error, integer(), binary()}.
 commit(Conn) ->
     efirebirdsql_socket:send(Conn,
-        efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
+        efirebirdsql_op:op_commit(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(Conn) of
     {op_response, _, _} -> ok;
     {error, ErrNo, Msg} -> {error, ErrNo, Msg}
@@ -288,7 +299,7 @@ commit(Conn) ->
 -spec rollback(conn()) -> ok | {error, integer(), binary()}.
 rollback(Conn) ->
     efirebirdsql_socket:send(Conn,
-        efirebirdsql_op:op_rollback_retaining(Conn#conn.trans_handle)),
+        efirebirdsql_op:op_rollback(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(Conn) of
     {op_response, _, _} -> ok;
     {error, ErrNo, Msg} -> {error, ErrNo, Msg}
