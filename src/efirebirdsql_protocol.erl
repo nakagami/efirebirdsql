@@ -93,15 +93,7 @@ connect(Host, Username, Password, Database, Options) ->
             wire_crypt=proplists:get_value(wire_crypt, Options, true),
             timezone=proplists:get_value(timezone, Options, nil)
         },
-        case connect_database(Conn, Host, Database, IsCreateDB, PageSize) of
-        {ok, C2} ->
-            case begin_transaction(AutoCommit, C2) of
-            {ok, C3} -> {ok, C3};
-            {error, ErrNo, Reason, C3} -> {error, ErrNo, Reason, C3}
-            end;
-        {error, ErrNo, Reason, C2} ->
-            {error, ErrNo, Reason, C2}
-        end;
+        connect_database(Conn, Host, Database, IsCreateDB, PageSize);
     {error, Reason} ->
         {error, 0, atom_to_binary(Reason, latin1), #conn{
             user=string:to_upper(Username),
@@ -117,8 +109,13 @@ connect(Host, Username, Password, Database, Options) ->
 
 -spec close(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 close(Conn) ->
-    efirebirdsql_socket:send(Conn,
-        efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
+    if
+      Conn#conn.trans_handle =/= undefined ->
+        efirebirdsql_socket:send(Conn,
+            efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle));
+      Conn#conn.trans_handle =:= undefined ->
+        ok
+    end,
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_detach(Conn#conn.db_handle)),
     case efirebirdsql_op:get_response(Conn) of

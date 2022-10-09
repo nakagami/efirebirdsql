@@ -38,11 +38,17 @@ allocate_statement(Conn, State) ->
     end.
 
 handle_call({connect, Host, Username, Password, Database, Options}, _From, State) ->
+    AutoCommit = proplists:get_value(auto_commit, Options, true),
     case efirebirdsql_protocol:connect(Host, Username, Password, Database, Options) of
     {ok, Conn} ->
-        case allocate_statement(Conn, State) of
-        {ok, NewState} -> {reply, ok, NewState};
-        {error, NewState} -> {reply, {error, allocate_statement}, NewState}
+        case efirebirdsql_protocol:begin_transaction(AutoCommit, Conn) of
+        {ok, C2} ->
+            case allocate_statement(C2, State) of
+            {ok, NewState} -> {reply, ok, NewState};
+            {error, NewState} -> {reply, {error, allocate_statement}, NewState}
+            end;
+        {error, ErrNo, Reason, C2} ->
+            {reply, {error, begin_transaction}, State#state{connection=C2, error_no=ErrNo, error_message=Reason}}
         end;
     {error, ErrNo, Reason, Conn} ->
         {reply, {error, connect}, State#state{connection=Conn, error_no=ErrNo, error_message=Reason}}
