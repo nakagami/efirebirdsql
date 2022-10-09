@@ -5,7 +5,7 @@
 
 -export([byte2/1, byte4/2, byte4/1, pad4/1, list_to_xdr_string/1,
     list_to_xdr_bytes/1, parse_date/1,
-    parse_time/1, parse_timestamp/1, parse_time_tz/2, parse_timestamp_tz/2,
+    parse_time/1, parse_timestamp/1, parse_time_tz/1, parse_timestamp_tz/1,
     parse_number/2, parse_number/3, params_to_blr/3]).
 
 %%% little endian 2byte
@@ -91,18 +91,18 @@ parse_timestamp(RawValue) ->
     <<YMD:4/binary, HMSN:4/binary>> = RawValue,
     {parse_date(YMD), parse_time(HMSN)}.
 
--spec parse_time_tz(binary(), map()) -> {{integer(), integer(), integer(), integer()}, binary(), binary()}.
-parse_time_tz(RawValue, TimeZoneNameById) ->
+-spec parse_time_tz(binary()) -> {{integer(), integer(), integer(), integer()}, binary(), binary()}.
+parse_time_tz(RawValue) ->
     <<HMSN:4/binary, TimeZoneID:16, OffsetID:16>> = RawValue,
-    TimeZone = maps:get(TimeZoneID, TimeZoneNameById),
-    Offset = maps:get(OffsetID, TimeZoneNameById),
+    TimeZone = maps:get(TimeZoneID, efirebirdsql_tz_map:timezone_name_by_id()),
+    Offset = maps:get(OffsetID, efirebirdsql_tz_map:timezone_name_by_id()),
     {parse_time(HMSN), TimeZone, Offset}.
 
--spec parse_timestamp_tz(binary(), map()) -> {{integer(), integer(), integer()}, {integer(), integer(), integer(), integer()}, binary(), binary()}.
-parse_timestamp_tz(RawValue, TimeZoneNameById) ->
+-spec parse_timestamp_tz(binary()) -> {{integer(), integer(), integer()}, {integer(), integer(), integer(), integer()}, binary(), binary()}.
+parse_timestamp_tz(RawValue) ->
     <<YMD:4/binary, HMSN:4/binary, TimeZoneID:16, OffsetID:16>> = RawValue,
-    TimeZone = maps:get(TimeZoneID, TimeZoneNameById),
-    Offset = maps:get(OffsetID, TimeZoneNameById),
+    TimeZone = maps:get(TimeZoneID, efirebirdsql_tz_map:timezone_name_by_id()),
+    Offset = maps:get(OffsetID, efirebirdsql_tz_map:timezone_name_by_id()),
     {parse_date(YMD), parse_time(HMSN), TimeZone, Offset}.
 
 fill0(S, 0) -> S;
