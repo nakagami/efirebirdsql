@@ -294,7 +294,7 @@ op_execute(Conn, Stmt, Params) ->
         ];
     length(Params) > 0 ->
         {Blr, Value} = efirebirdsql_conv:params_to_blr(
-            Conn#conn.accept_version, Conn#conn.timezone_id_by_name, Params),
+            Conn#conn.accept_version, efirebirdsql_tz_map:timezone_id_by_name(), Params),
         [
             efirebirdsql_conv:byte4(op_val(op_execute)),
             efirebirdsql_conv:byte4(StmtHandle),
@@ -332,7 +332,7 @@ op_execute2(Conn, Stmt, Params) ->
         ];
     length(Params) > 0 ->
         {Blr, Value} = efirebirdsql_conv:params_to_blr(
-            Conn#conn.accept_version, Conn#conn.timezone_id_by_name, Params),
+            Conn#conn.accept_version, efirebirdsql_tz_map:timezone_id_by_name(), Params),
         [
             efirebirdsql_conv:byte4(op_val(op_execute2)),
             efirebirdsql_conv:byte4(StmtHandle),

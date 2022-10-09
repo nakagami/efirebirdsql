@@ -65,37 +65,6 @@ fetchrow(Conn, Stmt) ->
         {ConvertedRow, Stmt#stmt{rows=Rest}}
     end.
 
-puts_timezone_data(_Conn, TimeZoneNameById, TimeZoneIdByName, {nil, Stmt}) ->
-    {TimeZoneNameById, TimeZoneIdByName, Stmt};
-puts_timezone_data(Conn, TimeZoneNameById, TimeZoneIdByName, {[{_, ID}, {_, Name}], Stmt}) ->
-    TimeZoneNameById2 = maps:put(ID, Name, TimeZoneNameById),
-    TimeZoneIdByName2 = maps:put(Name, ID, TimeZoneIdByName),
-    puts_timezone_data(Conn, TimeZoneNameById2, TimeZoneIdByName2, fetchone(Conn, Stmt)).
-
--spec load_timezone_data(conn()) -> {ok, conn()}.
-load_timezone_data(Conn) ->
-    {ok, Stmt} = allocate_statement(Conn),
-    {ok, Stmt2} = prepare_statement(
-        <<"select count(*) from rdb$relations where rdb$relation_name='RDB$TIME_ZONES' and rdb$system_flag=1">>, Conn, Stmt),
-    {ok, Stmt3} = execute(Conn, Stmt2),
-    {[{_, Count}], Stmt4} = fetchone(Conn, Stmt3),
-
-    TimeZoneNameById = maps:new(),
-    TimeZoneIdByName = maps:new(),
-    case Count of
-    0 ->
-        {ok, _} = free_statement(Conn, Stmt4, drop),
-        TimeZoneNameById2 = TimeZoneNameById,
-        TimeZoneIdByName2 = TimeZoneIdByName;
-    _ ->
-        {ok, Stmt5} = prepare_statement(
-            <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, Conn, Stmt4),
-        {ok, Stmt6} = execute(Conn, Stmt5),
-        {TimeZoneNameById2, TimeZoneIdByName2, Stmt8} = puts_timezone_data(Conn, TimeZoneNameById, TimeZoneIdByName, fetchone(Conn, Stmt6)),
-        {ok, _} = free_statement(Conn, Stmt8, drop)
-    end,
-    {ok, Conn#conn{timezone_name_by_id=TimeZoneNameById2, timezone_id_by_name=TimeZoneIdByName2}}.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % public functions
@@ -127,7 +96,7 @@ connect(Host, Username, Password, Database, Options) ->
         case connect_database(Conn, Host, Database, IsCreateDB, PageSize) of
         {ok, C2} ->
             case begin_transaction(AutoCommit, C2) of
-            {ok, C3} -> load_timezone_data(C3);
+            {ok, C3} -> {ok, C3};
             {error, ErrNo, Reason, C3} -> {error, ErrNo, Reason, C3}
             end;
         {error, ErrNo, Reason, C2} ->
