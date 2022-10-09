@@ -7,8 +7,8 @@
 -export([op_connect/6, op_attach/2, op_detach/1, op_create/3, op_transaction/2,
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/2,
     op_execute/3, op_execute2/3, op_exec_immediate/2, op_ping/0, op_info_sql/2, op_fetch/2,
-    op_commit_retaining/1, op_rollback_retaining/1, convert_row/3,
-    get_response/1, get_connect_response/1, get_fetch_response/2,
+    op_commit_retaining/1, op_commit/1, op_rollback_retaining/1, op_rollback/1,
+    convert_row/3, get_response/1, get_connect_response/1, get_fetch_response/2,
     get_sql_response/2, get_prepare_statement_response/2]).
 
 -include("efirebirdsql.hrl").
@@ -294,7 +294,7 @@ op_execute(Conn, Stmt, Params) ->
         ];
     length(Params) > 0 ->
         {Blr, Value} = efirebirdsql_conv:params_to_blr(
-            Conn#conn.accept_version, Conn#conn.timezone_id_by_name, Params),
+            Conn#conn.accept_version, efirebirdsql_tz_map:timezone_id_by_name(), Params),
         [
             efirebirdsql_conv:byte4(op_val(op_execute)),
             efirebirdsql_conv:byte4(StmtHandle),
@@ -332,7 +332,7 @@ op_execute2(Conn, Stmt, Params) ->
         ];
     length(Params) > 0 ->
         {Blr, Value} = efirebirdsql_conv:params_to_blr(
-            Conn#conn.accept_version, Conn#conn.timezone_id_by_name, Params),
+            Conn#conn.accept_version, efirebirdsql_tz_map:timezone_id_by_name(), Params),
         [
             efirebirdsql_conv:byte4(op_val(op_execute2)),
             efirebirdsql_conv:byte4(StmtHandle),
@@ -393,11 +393,23 @@ op_commit_retaining(TransHandle) ->
         efirebirdsql_conv:byte4(op_val(op_commit_retaining)),
         efirebirdsql_conv:byte4(TransHandle)]).
 
+op_commit(TransHandle) ->
+    ?DEBUG_FORMAT("op_commit~n", []),
+    list_to_binary([
+        efirebirdsql_conv:byte4(op_val(op_commit)),
+        efirebirdsql_conv:byte4(TransHandle)]).
+
 %%% rollback
 op_rollback_retaining(TransHandle) ->
     ?DEBUG_FORMAT("op_rollback_retaining~n", []),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_rollback_retaining)),
+        efirebirdsql_conv:byte4(TransHandle)]).
+
+op_rollback(TransHandle) ->
+    ?DEBUG_FORMAT("op_rollback~n", []),
+    list_to_binary([
+        efirebirdsql_conv:byte4(op_val(op_rollback)),
         efirebirdsql_conv:byte4(TransHandle)]).
 
 
@@ -773,9 +785,9 @@ convert_raw_value(Conn, XSqlVar, RawValue) ->
         timestamp ->
             efirebirdsql_conv:parse_timestamp(RawValue);
         time_tz ->
-            efirebirdsql_conv:parse_time_tz(RawValue, Conn#conn.timezone_name_by_id);
+            efirebirdsql_conv:parse_time_tz(RawValue);
         timestamp_tz ->
-            efirebirdsql_conv:parse_timestamp_tz(RawValue, Conn#conn.timezone_name_by_id);
+            efirebirdsql_conv:parse_timestamp_tz(RawValue);
         decimal_fixed ->
             efirebirdsql_decfloat:decimal_fixed_to_decimal(RawValue, XSqlVar#column.scale);
         decimal64 ->

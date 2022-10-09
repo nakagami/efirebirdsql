@@ -9,7 +9,7 @@
 -export([execute/2, execute/3, rowcount/2, exec_immediate/2, ping/1]).
 -export([fetchone/2, fetchall/2]).
 -export([description/1]).
--export([commit/1, rollback/1]).
+-export([commit_retaining/1, rollback_retaining/1, commit/1, rollback/1]).
 
 -include("efirebirdsql.hrl").
 
@@ -65,37 +65,6 @@ fetchrow(Conn, Stmt) ->
         {ConvertedRow, Stmt#stmt{rows=Rest}}
     end.
 
-puts_timezone_data(_Conn, TimeZoneNameById, TimeZoneIdByName, {nil, Stmt}) ->
-    {TimeZoneNameById, TimeZoneIdByName, Stmt};
-puts_timezone_data(Conn, TimeZoneNameById, TimeZoneIdByName, {[{_, ID}, {_, Name}], Stmt}) ->
-    TimeZoneNameById2 = maps:put(ID, Name, TimeZoneNameById),
-    TimeZoneIdByName2 = maps:put(Name, ID, TimeZoneIdByName),
-    puts_timezone_data(Conn, TimeZoneNameById2, TimeZoneIdByName2, fetchone(Conn, Stmt)).
-
--spec load_timezone_data(conn()) -> {ok, conn()}.
-load_timezone_data(Conn) ->
-    {ok, Stmt} = allocate_statement(Conn),
-    {ok, Stmt2} = prepare_statement(
-        <<"select count(*) from rdb$relations where rdb$relation_name='RDB$TIME_ZONES' and rdb$system_flag=1">>, Conn, Stmt),
-    {ok, Stmt3} = execute(Conn, Stmt2),
-    {[{_, Count}], Stmt4} = fetchone(Conn, Stmt3),
-
-    TimeZoneNameById = maps:new(),
-    TimeZoneIdByName = maps:new(),
-    case Count of
-    0 ->
-        {ok, _} = free_statement(Conn, Stmt4, drop),
-        TimeZoneNameById2 = TimeZoneNameById,
-        TimeZoneIdByName2 = TimeZoneIdByName;
-    _ ->
-        {ok, Stmt5} = prepare_statement(
-            <<"select rdb$time_zone_id, rdb$time_zone_name from rdb$time_zones">>, Conn, Stmt4),
-        {ok, Stmt6} = execute(Conn, Stmt5),
-        {TimeZoneNameById2, TimeZoneIdByName2, Stmt8} = puts_timezone_data(Conn, TimeZoneNameById, TimeZoneIdByName, fetchone(Conn, Stmt6)),
-        {ok, _} = free_statement(Conn, Stmt8, drop)
-    end,
-    {ok, Conn#conn{timezone_name_by_id=TimeZoneNameById2, timezone_id_by_name=TimeZoneIdByName2}}.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % public functions
@@ -124,15 +93,7 @@ connect(Host, Username, Password, Database, Options) ->
             wire_crypt=proplists:get_value(wire_crypt, Options, true),
             timezone=proplists:get_value(timezone, Options, nil)
         },
-        case connect_database(Conn, Host, Database, IsCreateDB, PageSize) of
-        {ok, C2} ->
-            case begin_transaction(AutoCommit, C2) of
-            {ok, C3} -> load_timezone_data(C3);
-            {error, ErrNo, Reason, C3} -> {error, ErrNo, Reason, C3}
-            end;
-        {error, ErrNo, Reason, C2} ->
-            {error, ErrNo, Reason, C2}
-        end;
+        connect_database(Conn, Host, Database, IsCreateDB, PageSize);
     {error, Reason} ->
         {error, 0, atom_to_binary(Reason, latin1), #conn{
             user=string:to_upper(Username),
@@ -148,8 +109,6 @@ connect(Host, Username, Password, Database, Options) ->
 
 -spec close(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 close(Conn) ->
-    efirebirdsql_socket:send(Conn,
-        efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_detach(Conn#conn.db_handle)),
     case efirebirdsql_op:get_response(Conn) of
@@ -310,10 +269,28 @@ description(Stmt) ->
     description(Stmt#stmt.xsqlvars, []).
 
 %% Commit and rollback
+-spec commit_retaining(conn()) -> ok | {error, integer(), binary()}.
+commit_retaining(Conn) ->
+    efirebirdsql_socket:send(Conn,
+        efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
+    case efirebirdsql_op:get_response(Conn) of
+    {op_response, _, _} -> ok;
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+    end.
+
+-spec rollback_retaining(conn()) -> ok | {error, integer(), binary()}.
+rollback_retaining(Conn) ->
+    efirebirdsql_socket:send(Conn,
+        efirebirdsql_op:op_rollback_retaining(Conn#conn.trans_handle)),
+    case efirebirdsql_op:get_response(Conn) of
+    {op_response, _, _} -> ok;
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+    end.
+
 -spec commit(conn()) -> ok | {error, integer(), binary()}.
 commit(Conn) ->
     efirebirdsql_socket:send(Conn,
-        efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
+        efirebirdsql_op:op_commit(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(Conn) of
     {op_response, _, _} -> ok;
     {error, ErrNo, Msg} -> {error, ErrNo, Msg}
@@ -322,7 +299,7 @@ commit(Conn) ->
 -spec rollback(conn()) -> ok | {error, integer(), binary()}.
 rollback(Conn) ->
     efirebirdsql_socket:send(Conn,
-        efirebirdsql_op:op_rollback_retaining(Conn#conn.trans_handle)),
+        efirebirdsql_op:op_rollback(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(Conn) of
     {op_response, _, _} -> ok;
     {error, ErrNo, Msg} -> {error, ErrNo, Msg}

@@ -10,11 +10,12 @@ tmp_dbname() ->
     lists:flatten(io_lib:format("/tmp/~p.fdb", [erlang:system_time()])).
 
 protocol_test() ->
-    {ok, C} = efirebirdsql_protocol:connect(
+    {ok, Conn} = efirebirdsql_protocol:connect(
         "localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD","masterkey"), tmp_dbname(),
         [{createdb, true}, {auth_plugin, "Srp"}]),
-    ?assertEqual(C#conn.auto_commit, true),
+    ?assertEqual(Conn#conn.auto_commit, true),
 
+    {ok, C} = efirebirdsql_protocol:begin_transaction(true, Conn),
     {ok, Stmt} = efirebirdsql_protocol:allocate_statement(C),
 
     {ok, Stmt2} = efirebirdsql_protocol:prepare_statement(

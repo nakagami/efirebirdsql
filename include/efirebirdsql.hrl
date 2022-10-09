@@ -28,9 +28,7 @@
     db_handle,
     trans_handle,
     accept_version,
-    timezone :: string() | nil,
-    timezone_name_by_id :: map() | undefined,
-    timezone_id_by_name :: map() | undefined
+    timezone :: string() | nil
 }).
 
 -type conn() :: #conn{}.
