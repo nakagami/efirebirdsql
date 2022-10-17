@@ -93,7 +93,20 @@ connect(Host, Username, Password, Database, Options) ->
             wire_crypt=proplists:get_value(wire_crypt, Options, true),
             timezone=proplists:get_value(timezone, Options, nil)
         },
-        connect_database(Conn, Host, Database, IsCreateDB, PageSize);
+        case Conn#conn.auto_commit of 
+            true ->
+                case connect_database(Conn, Host, Database, IsCreateDB, PageSize) of
+                    {ok, C2} ->
+                        case begin_transaction(AutoCommit, C2) of
+                        {ok, C3} -> {ok, C3};
+                        {error, ErrNo, Reason, C3} -> {error, ErrNo, Reason, C3}
+                        end;
+                    {error, ErrNo, Reason, C2} ->
+                        {error, ErrNo, Reason, C2}
+                end;
+            false ->
+                connect_database(Conn, Host, Database, IsCreateDB, PageSize)
+        end;
     {error, Reason} ->
         {error, 0, atom_to_binary(Reason, latin1), #conn{
             user=string:to_upper(Username),
@@ -109,6 +122,10 @@ connect(Host, Username, Password, Database, Options) ->
 
 -spec close(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 close(Conn) ->
+    case Conn#conn.auto_commit of
+        true ->  efirebirdsql_socket:send(Conn, efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle));
+        false -> ok
+    end,
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_detach(Conn#conn.db_handle)),
     case efirebirdsql_op:get_response(Conn) of
@@ -230,12 +247,31 @@ exec_immediate(Sql, Conn) ->
 -spec ping(conn()) -> ok | error.
 ping(Conn) ->
     % Firebird 3.0+
-    efirebirdsql_socket:send(Conn,
-        efirebirdsql_op:op_ping()),
-    case efirebirdsql_op:get_response(Conn) of
-    {op_response, _, _} -> ok;
-    _ -> error
+%    efirebirdsql_socket:send(Conn,
+%        efirebirdsql_op:op_ping()),
+%    case efirebirdsql_op:get_response(Conn) of
+%    {op_response, _, _} -> ok;
+%    _ -> error
+%    end.
+    case Conn#conn.auto_commit of
+    true -> ok;
+    false ->
+        case begin_transaction(false, Conn) of
+        {ok, C2} ->
+            case allocate_statement(C2) of
+            {ok, Stmt} ->
+                free_statement(C2, Stmt, drop),
+                commit(C2),
+                ok;
+            {error, _errornr, msg} ->
+                rollback(C2),
+                error
+            end;
+        _ -> error
+        end
     end.
+
+
 
 %% Fetch
 
