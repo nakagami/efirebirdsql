@@ -68,7 +68,7 @@ protocol_test() ->
     ?assertEqual(length(Rows),  1),
     {ok, 1} = efirebirdsql_protocol:rowcount(C, Stmt14),
 
-    ok = efirebirdsql_protocol:rollback(C),
+    ok = efirebirdsql_protocol:rollback_retaining(C),
     {ok, _} = efirebirdsql_protocol:close(C).
 
 
