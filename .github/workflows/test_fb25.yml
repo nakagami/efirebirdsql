@@ -14,7 +14,7 @@ jobs:
 
     steps:
     - name: Checkout sources
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Setup FirebirdSQL container
       uses: juarezr/firebirdsql-github-action@v1.2.0
       with:
