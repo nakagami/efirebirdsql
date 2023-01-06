@@ -263,7 +263,7 @@ ping(Conn) ->
                 free_statement(C2, Stmt, drop),
                 commit(C2),
                 ok;
-            {error, _errornr, msg} ->
+            {error, _ErrNo, _Msg} ->
                 rollback(C2),
                 error
             end;
