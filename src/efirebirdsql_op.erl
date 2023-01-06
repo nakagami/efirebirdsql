@@ -663,54 +663,54 @@ parse_select_item_elem_int(DescVars) ->
     <<Num:L/signed-little>> = V,
     {Num, Rest}.
 
-parse_select_column(Conn, Stmt, Column, DescVars) ->
+parse_select_column(Conn, Stmt, Column, DescVars, NextIndex) ->
     %% Parse DescVars and return items info and rest DescVars
     <<IscInfoNum:8, Rest/binary>> = DescVars,
     case isc_info_sql_name(IscInfoNum) of
     isc_info_sql_sqlda_seq ->
         {Num, Rest2} = parse_select_item_elem_int(Rest),
-        parse_select_column(Conn, Stmt, Column#column{seq=Num}, Rest2);
+        parse_select_column(Conn, Stmt, Column#column{seq=Num}, Rest2, Num);
     isc_info_sql_type ->
         {Num, Rest2} = parse_select_item_elem_int(Rest),
-        parse_select_column(Conn, Stmt, Column#column{type=sql_type(Num)}, Rest2);
+        parse_select_column(Conn, Stmt, Column#column{type=sql_type(Num)}, Rest2, NextIndex);
     isc_info_sql_sub_type ->
         {_Num, Rest2} = parse_select_item_elem_int(Rest),
-        parse_select_column(Conn, Stmt, Column, Rest2);
+        parse_select_column(Conn, Stmt, Column, Rest2, NextIndex);
     isc_info_sql_scale ->
         {Num, Rest2} = parse_select_item_elem_int(Rest),
-        parse_select_column(Conn, Stmt, Column#column{scale=Num}, Rest2);
+        parse_select_column(Conn, Stmt, Column#column{scale=Num}, Rest2, NextIndex);
     isc_info_sql_length ->
         {Num, Rest2} = parse_select_item_elem_int(Rest),
-        parse_select_column(Conn, Stmt, Column#column{length=Num}, Rest2);
+        parse_select_column(Conn, Stmt, Column#column{length=Num}, Rest2, NextIndex);
     isc_info_sql_null_ind ->
         {Num, Rest2} = parse_select_item_elem_int(Rest),
         NullInd = if Num =/= 0 -> true; Num =:= 0 -> false end,
-        parse_select_column(Conn, Stmt, Column#column{null_ind=NullInd}, Rest2);
+        parse_select_column(Conn, Stmt, Column#column{null_ind=NullInd}, Rest2, NextIndex);
     isc_info_sql_field ->
         {_S, Rest2} = parse_select_item_elem_binary(Rest),
-        parse_select_column(Conn, Stmt, Column, Rest2);
+        parse_select_column(Conn, Stmt, Column, Rest2, NextIndex);
     isc_info_sql_relation ->
         {_S, Rest2} = parse_select_item_elem_binary(Rest),
-        parse_select_column(Conn, Stmt, Column, Rest2);
+        parse_select_column(Conn, Stmt, Column, Rest2, NextIndex);
     isc_info_sql_owner ->
         {_S, Rest2} = parse_select_item_elem_binary(Rest),
-        parse_select_column(Conn, Stmt, Column, Rest2);
+        parse_select_column(Conn, Stmt, Column, Rest2, NextIndex);
     isc_info_sql_alias ->
         {S, Rest2} = parse_select_item_elem_binary(Rest),
-        parse_select_column(Conn, Stmt, Column#column{name=S}, Rest2);
+        parse_select_column(Conn, Stmt, Column#column{name=S}, Rest2, NextIndex);
     isc_info_truncated ->
-        Rest2 = more_select_describe_vars(Conn, Stmt, Column#column.seq),
-        parse_select_column(Conn, Stmt, Column, Rest2);
+        Rest2 = more_select_describe_vars(Conn, Stmt, NextIndex),
+        parse_select_column(Conn, Stmt, Column, Rest2, NextIndex);
     isc_info_sql_describe_end ->
-        {Conn, Column, Rest};
+        {Conn, Column, Rest, Column#column.seq+1};
     isc_info_end ->
         {Conn, no_more_column}
     end.
 
-parse_select_columns(Conn, Stmt, XSqlVars, DescVars) ->
-    case parse_select_column(Conn, Stmt, #column{}, DescVars) of
-    {C2, XSqlVar, Rest} ->
-        parse_select_columns(C2, Stmt, [XSqlVar | XSqlVars], Rest);
+parse_select_columns(Conn, Stmt, XSqlVars, DescVars, NextIndex) ->
+    case parse_select_column(Conn, Stmt, #column{}, DescVars, NextIndex) of
+    {C2, XSqlVar, Rest, NextIndex2} ->
+        parse_select_columns(C2, Stmt, [XSqlVar | XSqlVars], Rest, NextIndex2);
     {C2, no_more_column} ->
         {C2, lists:reverse(XSqlVars)}
     end.
@@ -725,10 +725,10 @@ get_prepare_statement_response(Conn, Stmt) ->
         {_, XSqlVars} = case StmtName of
             isc_info_sql_stmt_select ->
                 << _Skip:8/binary, DescVars/binary >> = Rest,
-                parse_select_columns(Conn, Stmt2, [], DescVars);
+                parse_select_columns(Conn, Stmt2, [], DescVars, 1);
             isc_info_sql_stmt_exec_procedure ->
                 << _Skip:8/binary, DescVars/binary >> = Rest,
-                parse_select_columns(Conn, Stmt2, [], DescVars);
+                parse_select_columns(Conn, Stmt2, [], DescVars, 1);
             _ -> {Conn, []}
             end,
         {ok, Stmt2#stmt{xsqlvars=XSqlVars, rows=[]}};
