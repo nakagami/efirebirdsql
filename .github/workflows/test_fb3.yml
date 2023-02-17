@@ -14,9 +14,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-#    - name: Set up rebar3
-#      run: |
-#        sudo apt install rebar3 -y
     - name: Set up Firebird
       run: |
         sudo apt install firebird3.0-server -y

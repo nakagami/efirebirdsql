@@ -15,9 +15,6 @@ jobs:
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
-    - name: Set up rebar3
-      run: |
-        sudo apt install rebar3 -y
     - name: Setup FirebirdSQL container
       uses: juarezr/firebirdsql-github-action@v1.2.0
       with:
