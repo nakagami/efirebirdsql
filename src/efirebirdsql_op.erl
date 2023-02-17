@@ -848,7 +848,7 @@ get_raw_value(Conn, XSqlVar) ->
     end,
     if
         L =:= 0 ->
-            "";
+            <<"">>;
         L > 0 ->
             {ok, V} = efirebirdsql_socket:recv_align(Conn, L),
             V
