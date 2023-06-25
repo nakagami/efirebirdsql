@@ -68,6 +68,11 @@ protocol_test() ->
     ?assertEqual(length(Rows),  1),
     {ok, 1} = efirebirdsql_protocol:rowcount(C, Stmt14),
 
+    {ok, Stmt15} = efirebirdsql_protocol:prepare_statement(
+        <<"UPDATE foo SET b=? WHERE a=?">>, C, Stmt14),
+    {ok, Stmt16} = efirebirdsql_protocol:execute(C, Stmt15, ["c", 1]),
+    {ok, 1} = efirebirdsql_protocol:rowcount(C, Stmt16),
+
     ok = efirebirdsql_protocol:rollback_retaining(C),
     {ok, _} = efirebirdsql_protocol:close(C).
 
