@@ -230,7 +230,11 @@ rowcount(Conn, Stmt) ->
     case efirebirdsql_op:get_response(Conn) of
     {op_response, _, Buf} ->
         << _:48, Count1:32/little-unsigned, _:24, Count2:32/little-unsigned, _:24, Count3:32/little-unsigned, _:24, Count4:32/little-unsigned, _Rest/binary >> = Buf,
-        {ok, Count1+Count2+Count3+Count4};
+        Count = if
+            Stmt#stmt.stmt_type =:= isc_info_sql_stmt_select -> Count3;
+            Stmt#stmt.stmt_type =/= isc_info_sql_stmt_select -> Count1+Count2+Count4
+        end,
+        {ok, Count};
     {error, ErrNo, Msg} ->
         {error, ErrNo, Msg}
     end.
