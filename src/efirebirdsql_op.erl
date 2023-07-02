@@ -2,6 +2,7 @@
 %%% Copyright (c) 2016-2022 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_op).
+%%% -define(DEBUG_FORMAT(X,Y), io:format(standard_error, X, Y)).
 -define(DEBUG_FORMAT(X,Y), ok).
 
 -export([op_connect/6, op_attach/2, op_detach/1, op_create/3, op_transaction/2,
@@ -112,7 +113,7 @@ calc_blr(XSqlVars) ->
 %%% create op_connect binary
 -spec op_connect(string(), string(), integer(), string(), boolean(), list()) -> binary().
 op_connect(Host, User, ClientPublic, AuthPlugin, WireCrypt, Database) ->
-    ?DEBUG_FORMAT("op_connect~n", []),
+    ?DEBUG_FORMAT("op_connect -> ", []),
     %% PROTOCOL_VERSION,ArchType(Generic)=1,MinAcceptType=0,MaxAcceptType=4,Weight
     Protocols = if AuthPlugin == "Legacy_Auth" -> [
         [  0,   0,   0, 10, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 2],
@@ -142,7 +143,7 @@ op_connect(Host, User, ClientPublic, AuthPlugin, WireCrypt, Database) ->
 
 %%% create op_attach binary
 op_attach(Conn, Database) ->
-    ?DEBUG_FORMAT("op_attach~n", []),
+    ?DEBUG_FORMAT("op_attach -> ", []),
     Username = Conn#conn.user,
     Charset = efirebirdsql_charset:get_database_charset(Conn#conn.charset),
     Dpb = if
@@ -179,14 +180,14 @@ op_attach(Conn, Database) ->
         efirebirdsql_conv:list_to_xdr_bytes(Dpb2)])).
 
 op_detach(DbHandle) ->
-    ?DEBUG_FORMAT("op_detatch~n", []),
+    ?DEBUG_FORMAT("op_detatch -> ", []),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_detach)),
         efirebirdsql_conv:byte4(DbHandle)]).
 
 %%% create op_connect binary
 op_create(Conn, Database, PageSize) ->
-    ?DEBUG_FORMAT("op_create~n", []),
+    ?DEBUG_FORMAT("op_create -> ", []),
     Username = Conn#conn.user,
     Charset = efirebirdsql_charset:get_database_charset(Conn#conn.charset),
     Dpb = if
@@ -233,7 +234,7 @@ op_create(Conn, Database, PageSize) ->
 
 %%% begin transaction
 op_transaction(DbHandle, Tpb) ->
-    ?DEBUG_FORMAT("op_transaction~n", []),
+    ?DEBUG_FORMAT("op_transaction(db_handle=~p) -> ", [DbHandle]),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_transaction)),
         efirebirdsql_conv:byte4(DbHandle),
@@ -241,14 +242,14 @@ op_transaction(DbHandle, Tpb) ->
 
 %%% allocate statement
 op_allocate_statement(DbHandle) ->
-    ?DEBUG_FORMAT("op_allocate_statement~n", []),
+    ?DEBUG_FORMAT("op_allocate_statement(db_handle=~p) -> ", [DbHandle]),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_allocate_statement)),
         efirebirdsql_conv:byte4(DbHandle)]).
 
 %%% prepare statement
 op_prepare_statement(TransHandle, StmtHandle, Sql) ->
-    ?DEBUG_FORMAT("op_prepare_statement(~p,~p,~p)~n", [TransHandle, StmtHandle, Sql]),
+    ?DEBUG_FORMAT("op_prepare_statement(trans_handle=~p,stmt_handle=~p,~p) -> ", [TransHandle, StmtHandle, Sql]),
     DescItems = [21 | ?INFO_SQL_SELECT_DESCRIBE_VARS], %% isc_info_sql_stmt_type
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_prepare_statement)),
@@ -261,7 +262,7 @@ op_prepare_statement(TransHandle, StmtHandle, Sql) ->
 
 %%% free statement
 op_free_statement(StmtHandle, close) ->
-    ?DEBUG_FORMAT("op_free_statement(close)~n", []),
+    ?DEBUG_FORMAT("op_free_statement(close, stmt_handle=~p) -> ", [StmtHandle]),
     %% DSQL_close = 1
     %% DSQL_drop = 2
     list_to_binary([
@@ -269,7 +270,7 @@ op_free_statement(StmtHandle, close) ->
         efirebirdsql_conv:byte4(StmtHandle),
         efirebirdsql_conv:byte4(1)]);
 op_free_statement(StmtHandle, drop) ->
-    ?DEBUG_FORMAT("op_free_statement(drop)~n", []),
+    ?DEBUG_FORMAT("op_free_statement(drop, stmt_handle=~p) -> ", [StmtHandle]),
     %% DSQL_close = 1
     %% DSQL_drop = 2
     list_to_binary([
@@ -278,9 +279,9 @@ op_free_statement(StmtHandle, drop) ->
         efirebirdsql_conv:byte4(2)]).
 
 op_execute(Conn, Stmt, Params) ->
-    ?DEBUG_FORMAT("op_execute~n", []),
     TransHandle = Conn#conn.trans_handle,
     StmtHandle = Stmt#stmt.stmt_handle,
+    ?DEBUG_FORMAT("op_execute(db_handle=~p,trans_handle=~p,stmt_handle=~p) -> ", [Conn#conn.db_handle, TransHandle, StmtHandle]),
 
     L = if
     length(Params) == 0 ->
@@ -312,9 +313,9 @@ op_execute(Conn, Stmt, Params) ->
 
 
 op_execute2(Conn, Stmt, Params) ->
-    ?DEBUG_FORMAT("op_execute2~n", []),
     TransHandle = Conn#conn.trans_handle,
     StmtHandle = Stmt#stmt.stmt_handle,
+    ?DEBUG_FORMAT("op_execute2(trans_handle=~p,stmt_handle=~p -> ", [TransHandle, StmtHandle]),
     XSqlVars = Stmt#stmt.xsqlvars,
 
     OutputBlr = efirebirdsql_conv:list_to_xdr_bytes(calc_blr(XSqlVars)),
@@ -351,9 +352,9 @@ op_execute2(Conn, Stmt, Params) ->
     end.
 
 op_exec_immediate(Conn, Sql) ->
-    ?DEBUG_FORMAT("op_exec_immediate~n", []),
     DbHandle = Conn#conn.db_handle,
     TransHandle = Conn#conn.trans_handle,
+    ?DEBUG_FORMAT("op_exec_immediate(db_handle=~p,trans_handle=~p,~p) -> ", [DbHandle, TransHandle, Sql]),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_exec_immediate)),
         efirebirdsql_conv:byte4(TransHandle),
@@ -364,12 +365,12 @@ op_exec_immediate(Conn, Sql) ->
         efirebirdsql_conv:byte4(?BUFSIZE)]).
 
 op_ping() ->
-    ?DEBUG_FORMAT("op_ping~n", []),
+    ?DEBUG_FORMAT("op_ping -> ", []),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_ping))]).
 
 op_info_sql(StmtHandle, V) ->
-    ?DEBUG_FORMAT("op_info_sql(~p,~p)~n", [StmtHandle, V]),
+    ?DEBUG_FORMAT("op_info_sql(~p,~p) -> ", [StmtHandle, V]),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_info_sql)),
         efirebirdsql_conv:byte4(StmtHandle),
@@ -378,7 +379,7 @@ op_info_sql(StmtHandle, V) ->
         efirebirdsql_conv:byte4(?BUFSIZE)]).
 
 op_fetch(StmtHandle, XSqlVars) ->
-    ?DEBUG_FORMAT("op_fetch~n", []),
+    ?DEBUG_FORMAT("op_fetch(stmt_handle=~p) -> ", [StmtHandle]),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_fetch)),
         efirebirdsql_conv:byte4(StmtHandle),
@@ -388,26 +389,26 @@ op_fetch(StmtHandle, XSqlVars) ->
 
 %%% commit
 op_commit_retaining(TransHandle) ->
-    ?DEBUG_FORMAT("op_commit_retaining~n", []),
+    ?DEBUG_FORMAT("op_commit_retaining(trans_handle=~p) -> ", [TransHandle]),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_commit_retaining)),
         efirebirdsql_conv:byte4(TransHandle)]).
 
 op_commit(TransHandle) ->
-    ?DEBUG_FORMAT("op_commit~n", []),
+    ?DEBUG_FORMAT("op_commit(trans_handle=~p) -> ", [TransHandle]),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_commit)),
         efirebirdsql_conv:byte4(TransHandle)]).
 
 %%% rollback
 op_rollback_retaining(TransHandle) ->
-    ?DEBUG_FORMAT("op_rollback_retaining~n", []),
+    ?DEBUG_FORMAT("op_rollback_retaining(trans_handle=~p) -> ", [TransHandle]),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_rollback_retaining)),
         efirebirdsql_conv:byte4(TransHandle)]).
 
 op_rollback(TransHandle) ->
-    ?DEBUG_FORMAT("op_rollback~n", []),
+    ?DEBUG_FORMAT("op_rollback(trans_handle=~p) -> ", [TransHandle]),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_rollback)),
         efirebirdsql_conv:byte4(TransHandle)]).
@@ -415,14 +416,14 @@ op_rollback(TransHandle) ->
 
 %%% blob
 op_open_blob(BlobId, TransHandle) ->
-    ?DEBUG_FORMAT("op_open_blob~n", []),
+    ?DEBUG_FORMAT("op_open_blob(trans_handle=~p,blob_id~p) -> ", [TransHandle, BlobId]),
     H = list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_open_blob)),
         efirebirdsql_conv:byte4(TransHandle)]),
     <<H/binary, BlobId/binary>>.
 
 op_get_segment(BlobHandle) ->
-    ?DEBUG_FORMAT("op_get_segment~n", []),
+    ?DEBUG_FORMAT("op_get_segment(blob_handle=~p) -> ", [BlobHandle]),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_get_segment)),
         efirebirdsql_conv:byte4(BlobHandle),
@@ -430,13 +431,13 @@ op_get_segment(BlobHandle) ->
         efirebirdsql_conv:byte4(0)]).
 
 op_close_blob(BlobHandle) ->
-    ?DEBUG_FORMAT("op_close_blob~n", []),
+    ?DEBUG_FORMAT("op_close_blob(blob_handle=~p) -> ", [BlobHandle]),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_close_blob)),
         efirebirdsql_conv:byte4(BlobHandle)]).
 
 op_cont_auth(AuthData, PluginName, PluginNameList, Keys) ->
-    ?DEBUG_FORMAT("op_cont_auth~n", []),
+    ?DEBUG_FORMAT("op_cont_auth -> ", []),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_cont_auth)),
         efirebirdsql_conv:list_to_xdr_string(AuthData),
@@ -445,7 +446,7 @@ op_cont_auth(AuthData, PluginName, PluginNameList, Keys) ->
         efirebirdsql_conv:list_to_xdr_string(Keys)]).
 
 op_crypt(PluginName) ->
-    ?DEBUG_FORMAT("op_crypt~n", []),
+    ?DEBUG_FORMAT("op_crypt -> ", []),
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_crypt)),
         efirebirdsql_conv:list_to_xdr_string(PluginName),
@@ -495,12 +496,13 @@ get_error_message(Conn) ->
     {op_sql_response, integer()} |
     {error, integer(), binary()}.
 get_response(Conn) ->
-    ?DEBUG_FORMAT("get_response()~n", []),
     {ok, <<OpCode:32>>} = efirebirdsql_socket:recv(Conn, 4),
     Op = op_name(OpCode),
+    ?DEBUG_FORMAT("get_response() ~p", [Op]),
     case Op of 
     op_response ->
         {ok, <<Handle:32, _ObjectID:64, Len:32>>} = efirebirdsql_socket:recv(Conn, 16),
+        ?DEBUG_FORMAT("=~p~n", [Handle]),
         Buf = if
             Len =/= 0 ->
                 {ok, RecvBuf} = efirebirdsql_socket:recv_align(Conn, Len),
@@ -515,11 +517,14 @@ get_response(Conn) ->
         end;
     op_fetch_response ->
         {ok, <<Status:32, Count:32>>} = efirebirdsql_socket:recv(Conn, 8),
+        ?DEBUG_FORMAT(" status=~p,count=~p~n", [Status, Count]),
         {Op, Status, Count};
     op_sql_response ->
         {ok, <<Count:32>>} = efirebirdsql_socket:recv(Conn, 4),
+        ?DEBUG_FORMAT(" count=~p~n", [Count]),
         {Op, Count};
     op_dummy ->
+        ?DEBUG_FORMAT("~n", []),
         get_response(Conn);
     _ ->
         {error, 0, <<"Unknown response">>}
@@ -762,7 +767,6 @@ get_blob_data(Conn, BlobId) ->
 convert_raw_value(_Conn, _XSqlVar, nil) ->
     nil;
 convert_raw_value(Conn, XSqlVar, RawValue) ->
-    ?DEBUG_FORMAT("convert_raw_value() start~n", []),
     CookedValue = case XSqlVar#column.type of
         long ->
             efirebirdsql_conv:parse_number(RawValue, XSqlVar#column.scale);
@@ -804,11 +808,10 @@ convert_raw_value(Conn, XSqlVar, RawValue) ->
         _ ->
             RawValue
         end,
-    ?DEBUG_FORMAT("convert_raw_value() end ~p~n", [CookedValue]),
     CookedValue.
 
 convert_row(_Conn, [], [], Converted) ->
-    ?DEBUG_FORMAT("convert_row()~n", []),
+    ?DEBUG_FORMAT("convert_row() ~p~n", [Converted]),
     lists:reverse(Converted);
 convert_row(Conn, XSqlVars, Row, Converted) ->
     [X | XRest] = XSqlVars,
