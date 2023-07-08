@@ -123,7 +123,7 @@ connect(Host, Username, Password, Database, Options) ->
 -spec close(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 close(Conn) ->
     case Conn#conn.auto_commit of
-        true ->  efirebirdsql_socket:send(Conn, efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle));
+        true ->  efirebirdsql_socket:send(Conn, efirebirdsql_op:op_commit(Conn#conn.trans_handle));
         false -> ok
     end,
     efirebirdsql_socket:send(Conn,
