@@ -170,7 +170,7 @@ allocate_statement(Conn) ->
 
 -spec prepare_statement(binary(), conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
 prepare_statement(Sql, Conn, Stmt) ->
-    ?DEBUG_FORMAT("prepare_statement()~n", []),
+    ?DEBUG_FORMAT("prepare_statement()~p~n", [Sql]),
     {ok, Stmt2} = case Stmt#stmt.closed of
     true -> {ok, Stmt};
     false -> free_statement(Conn, Stmt, close)
