@@ -3,6 +3,8 @@
 %%% Copyright (c) 2016-2022 Hajime Nakagami<nakagami@gmail.com>
 
 -module(efirebirdsql_protocol).
+%%% -define(DEBUG_FORMAT(X,Y), io:format(standard_error, X, Y)).
+-define(DEBUG_FORMAT(X,Y), ok).
 
 -export([connect/5, close/1, begin_transaction/2]).
 -export([allocate_statement/1, prepare_statement/3, free_statement/3, columns/1]).
@@ -71,6 +73,7 @@ fetchrow(Conn, Stmt) ->
 
 -spec connect(string(), string(), string(), string(), list()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 connect(Host, Username, Password, Database, Options) ->
+    ?DEBUG_FORMAT("connect()~n", []),
     SockOptions = [{active, false}, {packet, raw}, binary],
     Port = proplists:get_value(port, Options, 3050),
     Charset = proplists:get_value(charset, Options, utf_8),
@@ -122,6 +125,7 @@ connect(Host, Username, Password, Database, Options) ->
 
 -spec close(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 close(Conn) ->
+    ?DEBUG_FORMAT("close()~n", []),
     case Conn#conn.auto_commit of
         true ->  efirebirdsql_socket:send(Conn, efirebirdsql_op:op_commit(Conn#conn.trans_handle));
         false -> ok
@@ -139,6 +143,7 @@ close(Conn) ->
 %% Transaction
 -spec begin_transaction(boolean(), conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 begin_transaction(AutoCommit, Conn) ->
+    ?DEBUG_FORMAT("begin_transaction()~n", []),
     %% ISOLATION_LEVEL_READ_COMMITED
     %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_rec_version
     Tpb = if
@@ -155,6 +160,7 @@ begin_transaction(AutoCommit, Conn) ->
 %% allocate, prepare and free statement
 -spec allocate_statement(conn()) -> {ok, stmt()} | {error, integer(), binary()}.
 allocate_statement(Conn) ->
+    ?DEBUG_FORMAT("allocate_statement()~n", []),
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_allocate_statement(Conn#conn.db_handle)),
     case efirebirdsql_op:get_response(Conn) of
@@ -164,6 +170,7 @@ allocate_statement(Conn) ->
 
 -spec prepare_statement(binary(), conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
 prepare_statement(Sql, Conn, Stmt) ->
+    ?DEBUG_FORMAT("prepare_statement()~n", []),
     {ok, Stmt2} = case Stmt#stmt.closed of
     true -> {ok, Stmt};
     false -> free_statement(Conn, Stmt, close)
@@ -194,6 +201,7 @@ columns(Stmt) ->
 %% Execute
 
 execute(Conn, Stmt, Params, isc_info_sql_stmt_exec_procedure) ->
+    ?DEBUG_FORMAT("execute(isc_info_sql_stmt_exec_procedure)~n", []),
     efirebirdsql_socket:send(Conn, efirebirdsql_op:op_execute2(Conn, Stmt, Params)),
     {Row, C3} = efirebirdsql_op:get_sql_response(Conn, Stmt),
     case efirebirdsql_op:get_response(C3) of
@@ -201,6 +209,7 @@ execute(Conn, Stmt, Params, isc_info_sql_stmt_exec_procedure) ->
     {error, ErrNo, Msg} -> {error, ErrNo, Msg}
     end;
 execute(Conn, Stmt, Params, isc_info_sql_stmt_select) ->
+    ?DEBUG_FORMAT("execute(isc_info_sql_stmt_select)~n", []),
     efirebirdsql_socket:send(Conn, efirebirdsql_op:op_execute(Conn, Stmt, Params)),
     case efirebirdsql_op:get_response(Conn) of
     {op_response, _, _} ->
@@ -209,6 +218,7 @@ execute(Conn, Stmt, Params, isc_info_sql_stmt_select) ->
         {error, ErrNo, Msg}
     end;
 execute(Conn, Stmt, Params, _StmtType) ->
+    ?DEBUG_FORMAT("execute()~n", []),
     efirebirdsql_socket:send(Conn, efirebirdsql_op:op_execute(Conn, Stmt, Params)),
     case efirebirdsql_op:get_response(Conn) of
     {op_response, _, _} -> {ok, Stmt#stmt{rows=nil, more_data=false}};
@@ -241,6 +251,7 @@ rowcount(Conn, Stmt) ->
 
 -spec exec_immediate(binary(), conn()) -> ok | {error, integer(), binary()}.
 exec_immediate(Sql, Conn) ->
+    ?DEBUG_FORMAT("exec_immediate()~n", []),
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_exec_immediate(Conn, Sql)),
     case efirebirdsql_op:get_response(Conn) of
@@ -311,6 +322,7 @@ description(Stmt) ->
 %% Commit and rollback
 -spec commit_retaining(conn()) -> ok | {error, integer(), binary()}.
 commit_retaining(Conn) ->
+    ?DEBUG_FORMAT("commit_retaining()~n", []),
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_commit_retaining(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(Conn) of
@@ -320,6 +332,7 @@ commit_retaining(Conn) ->
 
 -spec rollback_retaining(conn()) -> ok | {error, integer(), binary()}.
 rollback_retaining(Conn) ->
+    ?DEBUG_FORMAT("rollback_retaining()~n", []),
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_rollback_retaining(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(Conn) of
@@ -329,6 +342,7 @@ rollback_retaining(Conn) ->
 
 -spec commit(conn()) -> ok | {error, integer(), binary()}.
 commit(Conn) ->
+    ?DEBUG_FORMAT("commit()~n", []),
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_commit(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(Conn) of
@@ -338,6 +352,7 @@ commit(Conn) ->
 
 -spec rollback(conn()) -> ok | {error, integer(), binary()}.
 rollback(Conn) ->
+    ?DEBUG_FORMAT("rollback()~n", []),
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_rollback(Conn#conn.trans_handle)),
     case efirebirdsql_op:get_response(Conn) of
