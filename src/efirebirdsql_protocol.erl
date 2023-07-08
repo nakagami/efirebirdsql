@@ -126,10 +126,6 @@ connect(Host, Username, Password, Database, Options) ->
 -spec close(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 close(Conn) ->
     ?DEBUG_FORMAT("close()~n", []),
-    case Conn#conn.auto_commit of
-        true ->  efirebirdsql_socket:send(Conn, efirebirdsql_op:op_commit(Conn#conn.trans_handle));
-        false -> ok
-    end,
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_detach(Conn#conn.db_handle)),
     case efirebirdsql_op:get_response(Conn) of
@@ -137,7 +133,13 @@ close(Conn) ->
         gen_tcp:close(Conn#conn.sock),
         {ok, Conn#conn{sock=undefined}};
     {error, ErrNo, Msg} ->
-        {error, ErrNo, Msg, Conn}
+        if
+            ErrNo =:= 335544357 ->  % cannot disconnect database with open transactions
+                gen_tcp:close(Conn#conn.sock),
+                {ok, Conn#conn{sock=undefined}};
+            ErrNo =/= 335544357 ->
+                {error, ErrNo, Msg, Conn}
+        end
     end.
 
 %% Transaction
@@ -147,7 +149,7 @@ begin_transaction(AutoCommit, Conn) ->
     %% ISOLATION_LEVEL_READ_COMMITED
     %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_rec_version
     Tpb = if
-        AutoCommit =:= true -> [3, 9, 6, 15, 17, 16];
+        AutoCommit =:= true -> [3, 9, 6, 15, 17, 16];   % +isc_tpb_autocommit
         AutoCommit =:= false -> [3, 9, 6, 15, 17]
         end,
     efirebirdsql_socket:send(Conn,
