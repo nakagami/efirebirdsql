@@ -173,7 +173,7 @@ allocate_statement(Conn) ->
 
 -spec prepare_statement(binary(), conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
 prepare_statement(Sql, Conn, Stmt) ->
-    ?DEBUG_FORMAT("prepare_statement()~p~n", [Sql]),
+    ?DEBUG_FORMAT("prepare_statement() stmt_handle=~p:~p~n", [Stmt#stmt.stmt_handle, Sql]),
     {ok, Stmt2} = case Stmt#stmt.closed of
     true -> {ok, Stmt};
     false -> free_statement(Conn, Stmt, close)
@@ -184,6 +184,7 @@ prepare_statement(Sql, Conn, Stmt) ->
 
 -spec free_statement(conn(), stmt(), atom()) -> {ok, stmt()} | {error, integer(), binary()}.
 free_statement(Conn, Stmt, Type) ->
+    ?DEBUG_FORMAT("free_statement() stmt_handle=~p~n", [Stmt#stmt.stmt_handle]),
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_free_statement(Stmt#stmt.stmt_handle, Type)),
     case efirebirdsql_op:get_response(Conn) of
