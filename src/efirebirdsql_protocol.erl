@@ -180,7 +180,7 @@ prepare_statement(Sql, Conn, Stmt) ->
     end,
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_prepare_statement(Conn#conn.trans_handle, Stmt2#stmt.stmt_handle, Sql)),
-    efirebirdsql_op:get_prepare_statement_response(Conn, Stmt2).
+    efirebirdsql_op:get_prepare_statement_response(Conn, Stmt2#stmt{sql=Sql}).
 
 -spec free_statement(conn(), stmt(), atom()) -> {ok, stmt()} | {error, integer(), binary()}.
 free_statement(Conn, Stmt, Type) ->

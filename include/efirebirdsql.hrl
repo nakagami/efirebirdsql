@@ -34,6 +34,7 @@
 -type conn() :: #conn{}.
 
 -record(stmt, {
+    sql :: binary() | undefined,
     stmt_handle,
     stmt_type,
     xsqlvars = [],
