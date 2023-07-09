@@ -193,7 +193,10 @@ free_statement(Conn, Stmt, Type) ->
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_free_statement(Stmt#stmt.stmt_handle, Type)),
     case efirebirdsql_op:get_response(Conn) of
-    {op_response, _, _} -> {ok, Stmt#stmt{closed=true}};
+    {op_response, _, _} -> if
+        Type =:= drop -> {ok, #stmt{sql=Stmt#stmt.sql}};
+        Type =:= close -> {ok, Stmt#stmt{closed=true}}
+    end;
     {error, ErrNo, Msg} -> {error, ErrNo, Msg}
     end.
 
