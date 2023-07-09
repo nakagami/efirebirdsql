@@ -125,7 +125,7 @@ connect(Host, Username, Password, Database, Options) ->
 
 -spec close(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 close(Conn) ->
-    ?DEBUG_FORMAT("close()db_handle=~p~n", [Conn#conn.db_handle]),
+    ?DEBUG_FORMAT("close() db_handle=~p~n", [Conn#conn.db_handle]),
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_detach(Conn#conn.db_handle)),
     case efirebirdsql_op:get_response(Conn) of
@@ -138,6 +138,7 @@ close(Conn) ->
                 gen_tcp:close(Conn#conn.sock),
                 {ok, Conn#conn{sock=undefined}};
             ErrNo =/= 335544357 ->
+                ?DEBUG_FORMAT("close() error ~p~p~n", [ErrNo, Msg]),
                 {error, ErrNo, Msg, Conn}
         end
     end.
