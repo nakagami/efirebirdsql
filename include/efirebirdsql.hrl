@@ -35,8 +35,8 @@
 
 -record(stmt, {
     sql :: binary() | undefined,
-    stmt_handle,
-    stmt_type,
+    stmt_handle = nil,
+    stmt_type = nil,
     xsqlvars = [],
     rows = nil,      %% segment rows values
     more_data = false,  %% has more rows
