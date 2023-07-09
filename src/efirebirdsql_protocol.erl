@@ -227,7 +227,7 @@ execute(Conn, Stmt, Params, _StmtType) ->
 
 -spec execute(conn(), stmt(), list()) -> {ok, stmt()} | {error, integer(), binary()}.
 execute(Conn, Stmt, Params) ->
-    ?DEBUG_FORMAT("execute() stmt_type=~p,stmt_handle=~p~n", [Stmt#stmt.stmt_type, Stmt#stmt.stmt_handle]),
+    ?DEBUG_FORMAT("execute() stmt_type=~p,stmt_handle=~p:~p~n", [Stmt#stmt.stmt_type, Stmt#stmt.stmt_handle, Params]),
     execute(Conn, Stmt, Params, Stmt#stmt.stmt_type).
 execute(Conn, Stmt) ->
     execute(Conn, Stmt, []).
