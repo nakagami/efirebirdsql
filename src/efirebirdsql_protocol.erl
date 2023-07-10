@@ -7,7 +7,8 @@
 -define(DEBUG_FORMAT(X,Y), ok).
 
 -export([connect/5, close/1, begin_transaction/2]).
--export([allocate_statement/1, prepare_statement/3, prepare_statement/2, free_statement/3]).
+-export([unallocate_statement/1, allocate_statement/1]).
+-export([prepare_statement/3, prepare_statement/2, free_statement/3]).
 -export([columns/1]).
 -export([execute/2, execute/3, rowcount/2, exec_immediate/2, ping/1]).
 -export([fetchone/2, fetchall/2]).
@@ -160,6 +161,12 @@ begin_transaction(AutoCommit, Conn) ->
     {op_response, Handle, _} -> {ok, Conn#conn{trans_handle=Handle}};
     {error, ErrNo, Msg} -> {error, ErrNo, Msg, Conn}
     end.
+
+%% get stmt it still not allocate statement handle but register sql
+-spec unallocate_statement(binary()) -> {ok, stmt()}.
+unallocate_statement(Sql) ->
+    ?DEBUG_FORMAT("unallocate_statement() sql=~p~n", [Sql]),
+    {ok, #stmt{sql=Sql}}.
 
 %% allocate, prepare and free statement
 -spec allocate_statement(conn()) -> {ok, stmt()} | {error, integer(), binary()}.
