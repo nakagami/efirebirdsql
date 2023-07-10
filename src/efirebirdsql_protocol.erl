@@ -189,7 +189,7 @@ prepare_statement(Conn, Stmt) ->
 
 -spec free_statement(conn(), stmt(), atom()) -> {ok, stmt()} | {error, integer(), binary()}.
 free_statement(Conn, Stmt, Type) ->
-    ?DEBUG_FORMAT("free_statement() stmt_handle=~p:~p~n", [Stmt#stmt.stmt_handle, Stmt#stmt.sql]),
+    ?DEBUG_FORMAT("free_statement() stmt_handle=~p:type=~p:~p~n", [Stmt#stmt.stmt_handle, Type, Stmt#stmt.sql]),
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_free_statement(Stmt#stmt.stmt_handle, Type)),
     case efirebirdsql_op:get_response(Conn) of
@@ -279,25 +279,14 @@ ping(Conn) ->
 %    {op_response, _, _} -> ok;
 %    _ -> error
 %    end.
-    case Conn#conn.auto_commit of
-    true -> ok;
-    false ->
-        case begin_transaction(false, Conn) of
-        {ok, C2} ->
-            case allocate_statement(C2) of
-            {ok, Stmt} ->
-                free_statement(C2, Stmt, drop),
-                commit(C2),
-                ok;
-            {error, _ErrNo, _Msg} ->
-                rollback(C2),
-                error
-            end;
-        _ -> error
-        end
+
+    % [isc_info_ods_version, isc_info_end]
+    efirebirdsql_socket:send(Conn,
+        efirebirdsql_op:op_info_database(Conn#conn.db_handle, [32, 1])),
+    case efirebirdsql_op:get_response(Conn) of
+    {op_response, _, _} -> ok;
+    {error, _, _} -> error
     end.
-
-
 
 %% Fetch
 

@@ -6,6 +6,7 @@
 -define(DEBUG_FORMAT(X,Y), ok).
 
 -export([op_connect/6, op_attach/2, op_detach/1, op_create/3, op_transaction/2,
+    op_info_database/2,
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/2,
     op_execute/3, op_execute2/3, op_exec_immediate/2, op_ping/0, op_info_sql/2, op_fetch/2,
     op_commit_retaining/1, op_commit/1, op_rollback_retaining/1, op_rollback/1,
@@ -231,6 +232,16 @@ op_create(Conn, Database, PageSize) ->
         efirebirdsql_conv:byte4(0),
         efirebirdsql_conv:list_to_xdr_string(Database),
         efirebirdsql_conv:list_to_xdr_bytes(Dpb2)])).
+
+%%% database information
+op_info_database(DbHandle, InfoRequest) ->
+    ?DEBUG_FORMAT("op_info_database(db_handle=~p,request=~p) -> ", [DbHandle, InfoRequest]),
+    list_to_binary([
+        efirebirdsql_conv:byte4(op_val(op_info_database)),
+        efirebirdsql_conv:byte4(DbHandle),
+        efirebirdsql_conv:byte4(0),
+        efirebirdsql_conv:list_to_xdr_bytes(InfoRequest),
+        efirebirdsql_conv:byte4(?BUFSIZE)]).
 
 %%% begin transaction
 op_transaction(DbHandle, Tpb) ->
