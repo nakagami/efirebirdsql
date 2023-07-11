@@ -73,6 +73,24 @@ protocol_test() ->
     {ok, Stmt16} = efirebirdsql_protocol:execute(C, Stmt15, ["c", 1]),
     {ok, 1} = efirebirdsql_protocol:rowcount(C, Stmt16),
 
+    {ok, Stmt17} = efirebirdsql_protocol:unallocate_statement(<<"SELECT * FROM foo">>),
+    {ok, Stmt18} = efirebirdsql_protocol:execute(C, Stmt17, []),
+    ?assertEqual(Stmt18#stmt.closed, false),
+    {ok, Rows2, Stmt19} = efirebirdsql_protocol:fetchall(C, Stmt18),
+    ?assertEqual(Stmt19#stmt.closed, true),
+    ?assertEqual(length(Rows2),  1),
+    {ok, 1} = efirebirdsql_protocol:rowcount(C, Stmt19),
+
+    {ok, Stmt20} = efirebirdsql_protocol:free_statement(C, Stmt19, drop),
+    ?assertEqual(Stmt20#stmt.stmt_handle, nil),
+    ?assertEqual(Stmt20#stmt.sql, <<"SELECT * FROM foo">>),
+    {ok, Stmt21} = efirebirdsql_protocol:execute(C, Stmt20, []),
+    ?assertEqual(Stmt21#stmt.closed, false),
+    {ok, Rows3, Stmt22} = efirebirdsql_protocol:fetchall(C, Stmt21),
+    ?assertEqual(Stmt22#stmt.closed, true),
+    ?assertEqual(Rows2, Rows3),
+    {ok, 1} = efirebirdsql_protocol:rowcount(C, Stmt22),
+
     ok = efirebirdsql_protocol:rollback_retaining(C),
     {ok, _} = efirebirdsql_protocol:close(C).
 
