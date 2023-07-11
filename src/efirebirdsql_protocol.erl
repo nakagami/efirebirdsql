@@ -7,7 +7,7 @@
 -define(DEBUG_FORMAT(X,Y), ok).
 
 -export([connect/5, close/1, begin_transaction/2]).
--export([unallocate_statement/1, allocate_statement/1]).
+-export([unallocate_statement/1, allocate_statement/1, allocate_statement/2]).
 -export([prepare_statement/3, prepare_statement/2, free_statement/3]).
 -export([columns/1]).
 -export([execute/2, execute/3, rowcount/2, exec_immediate/2, ping/1]).
@@ -169,15 +169,20 @@ unallocate_statement(Sql) ->
     {ok, #stmt{sql=Sql}}.
 
 %% allocate, prepare and free statement
--spec allocate_statement(conn()) -> {ok, stmt()} | {error, integer(), binary()}.
-allocate_statement(Conn) ->
+
+-spec allocate_statement(conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
+allocate_statement(Conn, Stmt) ->
     ?DEBUG_FORMAT("allocate_statement() db_handle=~p~n", [Conn#conn.db_handle]),
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_allocate_statement(Conn#conn.db_handle)),
     case efirebirdsql_op:get_response(Conn) of
-    {op_response, Handle, _} -> {ok, #stmt{stmt_handle=Handle}};
+    {op_response, Handle, _} -> {ok, Stmt#stmt{stmt_handle=Handle}};
     {error, ErrNo, Msg} -> {error, ErrNo, Msg}
     end.
+
+-spec allocate_statement(conn()) -> {ok, stmt()} | {error, integer(), binary()}.
+allocate_statement(Conn) ->
+    allocate_statement(Conn, #stmt{}).
 
 -spec prepare_statement(binary(), conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
 prepare_statement(Sql, Conn, Stmt) ->
