@@ -197,7 +197,11 @@ prepare_statement(Sql, Conn, Stmt) ->
 
 -spec prepare_statement(conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
 prepare_statement(Conn, Stmt) ->
-    prepare_statement(Stmt#stmt.sql, Conn, Stmt).
+    {ok, Stmt2} = if
+        Stmt#stmt.stmt_handle =:= nil -> allocate_statement(Conn, Stmt);
+        Stmt#stmt.stmt_handle =/= nil -> {ok, Stmt}
+    end,
+    prepare_statement(Stmt2#stmt.sql, Conn, Stmt2).
 
 -spec free_statement(conn(), stmt(), atom()) -> {ok, stmt()} | {error, integer(), binary()}.
 free_statement(Conn, Stmt, Type) ->
