@@ -253,7 +253,11 @@ execute(Conn, Stmt, Params, _StmtType) ->
 -spec execute(conn(), stmt(), list()) -> {ok, stmt()} | {error, integer(), binary()}.
 execute(Conn, Stmt, Params) ->
     ?DEBUG_FORMAT("execute() stmt_type=~p,stmt_handle=~p:~p:~p~n", [Stmt#stmt.stmt_type, Stmt#stmt.stmt_handle, Stmt#stmt.sql, Params]),
-    execute(Conn, Stmt, Params, Stmt#stmt.stmt_type).
+    {ok, Stmt2} = if
+        Stmt#stmt.stmt_handle =:= nil -> prepare_statement(Conn, Stmt);
+        Stmt#stmt.stmt_handle =/= nil -> {ok, Stmt}
+    end,
+    execute(Conn, Stmt2, Params, Stmt2#stmt.stmt_type).
 execute(Conn, Stmt) ->
     execute(Conn, Stmt, []).
 
