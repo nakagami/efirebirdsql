@@ -581,10 +581,22 @@ wire_crypt(Conn, EncryptPlugin, SessionKey, IV) ->
     {op_response,  _, _} = get_response(C2),
     C2.
 
-get_auth_data([], _Conn) ->
-    %% TODO: op_cont_auth
-    <<>>;
-get_auth_data(Data, _Conn) ->
+get_auth_data([], PluginName, Conn) ->
+    AuthData = efirebirdsql_srp:to_hex(Conn#conn.client_public),
+    efirebirdsql_socket:send(Conn,
+        op_cont_auth(AuthData, binary_to_list(PluginName), Conn#conn.auth_plugin, "")),
+    {ok, <<OpCode:32>>} = efirebirdsql_socket:recv(Conn, 4),
+    op_cont_auth = op_name(OpCode),
+    {ok, <<Len1:32>>} = efirebirdsql_socket:recv(Conn, 4),
+    {ok, Data} = efirebirdsql_socket:recv_align(Conn, Len1),
+    {ok, <<Len2:32>>} = efirebirdsql_socket:recv(Conn, 4),
+    {ok, _PluginName} = efirebirdsql_socket:recv_align(Conn, Len2),
+    {ok, <<Len3:32>>} = efirebirdsql_socket:recv(Conn, 4),
+    {ok, _PluginList} = efirebirdsql_socket:recv_align(Conn, Len3),
+    {ok, <<Len4:32>>} = efirebirdsql_socket:recv(Conn, 4),
+    {ok, _Keys} = efirebirdsql_socket:recv_align(Conn, Len4),
+    Data;
+get_auth_data(Data, _PluginName, _Conn) ->
     Data.
 
 %% receive and parse connect() response
@@ -602,7 +614,7 @@ get_connect_response(Op, Conn) ->
     {ok, <<IsAuthenticated:32>>} = efirebirdsql_socket:recv(Conn, 4),
     {ok, <<_:32>>} = efirebirdsql_socket:recv(Conn, 4),
     if IsAuthenticated == 0 ->
-        ServerAuthData = get_auth_data(Data, Conn),
+        ServerAuthData = get_auth_data(Data, PluginName, Conn),
         case binary_to_list(PluginName) of
         "Srp" ->
             <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = ServerAuthData,
