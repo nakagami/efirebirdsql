@@ -1,7 +1,7 @@
  /*******************************************************************************
  The MIT License (MIT)
 
- Copyright (c) 2009-2016 Hajime Nakagami
+ Copyright (c) 2009-2016, 2023 Hajime Nakagami
 
  Permission is hereby granted, free of charge, to any person obtaining a copy of
  this software and associated documentation files (the "Software"), to deal in
@@ -20,24 +20,54 @@
  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *******************************************************************************/
+
+// 1. Get copy of Firebird 5 sources or at least src/include from Firebird 5 sources
+// 2. cc -I/path/to/firebird/src/include errmsgs.c
+// 3. ./a.out
+// 4. perl -pi -e 's/\@\d+/~s/g' ../src/efirebirdsql_errmsgs.erl
+
 #include <stdio.h>
-#define	SLONG long
-#define SCHAR char
+#include <stdint.h>
+#include "firebird/impl/msg_helper.h"
 
-// curl -O https://raw.githubusercontent.com/FirebirdSQL/firebird/master/src/include/gen/msgs.h
-// perl -pi -e 's/\@\d+/~s/g' msgs.h
-// perl -pi -e 's/\\\"/@/g' msgs.h
-// perl -pi -e "s/@/'/g" msgs.h
-// cc errmsgs.c
-// ./a.out
+typedef unsigned short USHORT;
+typedef USHORT ISC_USHORT;
+typedef intptr_t ISC_STATUS;
+typedef long SLONG;
 
+FILE *fp;
 
-#include "msgs.h"   
+#define stringify_literal(x) #x
+
+#define FB_IMPL_MSG_NO_SYMBOL(facility, number, text)
+
+#define FB_IMPL_MSG_SYMBOL(facility, number, symbol, text)
+
+#define FB_IMPL_MSG(facility, number, symbol, sqlCode, sqlClass, sqlSubClass, text) \
+    output_message(make_isc_code(FB_IMPL_MSG_FACILITY_##facility, number), stringify_literal(text));
+
+int make_isc_code(int facility, int code) {
+    ISC_USHORT t1 = facility;
+    t1 &= 0x1F;
+    ISC_STATUS t2 = t1;
+    t2 <<= 16;
+    ISC_STATUS t3 = code;
+    code &= 0x3FFF;
+    return t2 | t3 | ((ISC_STATUS) 0x14000000);
+}
+
+void process_messages() {
+    #include "firebird/impl/msg/all.h"
+}
+
+void output_message(int code, char* msg) {
+    fprintf(fp, "get_error_msg(%d) -> %s;\n", code, msg);
+}
 
 int main(int argc, char *argv[])
 {
     int i;
-    FILE *fp = fopen("../src/efirebirdsql_errmsgs.erl", "w");
+    fp = fopen("../src/efirebirdsql_errmsgs.erl", "w");
 
     fprintf(fp, "\
 \%% The contents of this file are subject to the Interbase Public\n\
@@ -50,9 +80,7 @@ int main(int argc, char *argv[])
 \%% or implied. See the License for the specific language governing\n\
 \%% rights and limitations under the License.\n\n");
     fprintf(fp, "-module(efirebirdsql_errmsgs).\n\n-export([get_error_msg/1]).\n\n");
-    for (i = 0; messages[i].code_text; i++) {
-        fprintf(fp, "get_error_msg(%ld) -> \"%s~n\";\n", messages[i].code_number, messages[i].code_text);
-    }
+    process_messages();
     fprintf(fp, "get_error_msg(_) -> \"\".\n");
 
     fclose(fp);
