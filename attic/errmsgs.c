@@ -25,6 +25,7 @@
 // 2. cc -I/path/to/firebird/src/include errmsgs.c
 // 3. ./a.out
 // 4. perl -pi -e 's/\@\d+/~s/g' ../src/efirebirdsql_errmsgs.erl
+// 5. perl -pi -e 's/";$/~n";/g' ../src/efirebirdsql_errmsgs.erl
 
 #include <stdio.h>
 #include <stdint.h>
