@@ -27,7 +27,7 @@ create_test_tables(C) ->
         CREATE TABLE foo (
             a INTEGER NOT NULL,
             b VARCHAR(30) NOT NULL UNIQUE,
-            c VARCHAR(1024),
+            c CHAR(1024),
             d DECIMAL(16,3) DEFAULT -0.123,
             e DATE DEFAULT '1967-08-11',
             f TIMESTAMP DEFAULT '1967-08-11 23:45:01',
@@ -62,7 +62,7 @@ create_test_tables(C) ->
 description() ->
     [{<<"A">>,long,0,4,false},
      {<<"B">>,varying,0,120,false},
-     {<<"C">>,varying,0,4096,true},
+     {<<"C">>,text,0,4096,true},
      {<<"D">>,int64,-3,8,true},
      {<<"E">>,date,0,4,true},
      {<<"F">>,timestamp,0,8,true},
