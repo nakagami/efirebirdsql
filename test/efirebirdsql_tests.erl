@@ -36,12 +36,13 @@ create_test_tables(C) ->
             h1 BLOB SUB_TYPE 1,
             i DOUBLE PRECISION DEFAULT 1.0,
             j FLOAT DEFAULT 2.0,
+            k BIGINT DEFAULT 123456789999999999,
             PRIMARY KEY (a),
             CONSTRAINT CHECK_A CHECK (a <> 0)
         )
     ">>),
     ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h0, h1) values (?,?,?,?,?)">>, [1, <<"b">>, <<"c">>, nil, <<"blob">>]),
-    ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h1) values (?,?,?,?)">>, [2, <<"B">>, <<"C">>, <<"BLOB">>]),
+    ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h1, k) values (?,?,?,?)">>, [2, <<"B">>, <<"C">>, <<"BLOB">>, 123456780000000000]),
 
     ok = efirebirdsql:execute(C, <<"
             CREATE PROCEDURE foo_proc
@@ -70,7 +71,8 @@ description() ->
      {<<"H0">>,blob,0,8,true},
      {<<"H1">>,blob,4,8,true},
      {<<"I">>,double,0,8,true},
-     {<<"J">>,float,0,4,true}].
+     {<<"J">>,float,0,4,true},
+     {<<"K">>,int64,0,8,true}].
 
 alias_description() ->
     [{<<"ALIAS_NAME">>,long,0,4,false}].
@@ -86,7 +88,8 @@ result1() ->
      {<<"H0">>,nil},
      {<<"H1">>,<<"blob">>},
      {<<"I">>,1.0},
-     {<<"J">>,2.0}].
+     {<<"J">>,2.0},
+     {<<"K">>,123456789999999999}].
 
 result2() ->
     [{<<"A">>,2},
@@ -99,7 +102,8 @@ result2() ->
      {<<"H0">>,nil},
      {<<"H1">>,<<"BLOB">>},
      {<<"I">>,1.0},
-     {<<"J">>,2.0}].
+     {<<"J">>,2.0},
+     {<<"K">>,123456780000000000}].
 
 basic_test() ->
     %% connect to bad database
