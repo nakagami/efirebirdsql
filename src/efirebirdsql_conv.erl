@@ -42,6 +42,25 @@ byte4(N, little) ->
 byte4(N) ->
     byte4(N, big).
 
+%%% big endian number list fill 8 byte alignment
+-spec byte8(integer(), atom()) -> list().
+byte8(N, big) ->
+    LB = binary:encode_unsigned(N, big),
+    LB8 = case size(LB) of
+    1 -> << <<0,0,0,0,0,0,0>>/binary, LB/binary >>;
+    2 -> << <<0,0,0,0,0,0>>/binary, LB/binary >>;
+    3 -> << <<0,0,0,0,0>>/binary, LB/binary >>;
+    4 -> << <<0,0,0,0>>/binary, LB/binary >>;
+    5 -> << <<0,0,0>>/binary, LB/binary >>;
+    6 -> << <<0,0>>/binary, LB/binary >>;
+    7 -> << <<0>>/binary, LB/binary >>;
+    8 -> LB
+    end,
+    binary_to_list(LB8).
+
+byte8(N) ->
+    byte8(N, big).
+
 %%% 4 byte padding
 -spec pad4(list()) -> list().
 pad4(L) ->
@@ -155,8 +174,10 @@ param_to_date(Year, Month, Day) ->
 param_to_time(Hour, Minute, Second, Microsecond) ->
     byte4((Hour*3600 + Minute*60 + Second) * 10000 + Microsecond div 100).
 
-param_to_blr(V, _) when is_integer(V) ->
+param_to_blr(V, _) when is_integer(V) and (V =< 16#7FFFFFFF) and (V >= -16#80000000) ->
     {[8, 0, 7, 0], byte4(V)};
+param_to_blr(V, _) when is_integer(V)  ->
+    {[16, 0, 7, 0], byte8(V)};
 param_to_blr(V, _) when is_binary(V) ->
     B = binary_to_list(V),
     {lists:flatten([14, byte2(length(B)), 7, 0]),
