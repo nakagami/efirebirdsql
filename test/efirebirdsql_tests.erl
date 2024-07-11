@@ -42,7 +42,7 @@ create_test_tables(C) ->
         )
     ">>),
     ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h0, h1) values (?,?,?,?,?)">>, [1, <<"b">>, <<"c">>, nil, <<"blob">>]),
-    ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h1, k) values (?,?,?,?,?)">>, [2, <<"B">>, <<"C">>, <<"BLOB">>, 123456780000000000]),
+    ok = efirebirdsql:execute(C, <<"insert into foo(a, b, c, h1, k) values (?,?,?,?,?)">>, [2, <<"B">>, <<"C">>, <<"BLOB">>, -1]),
 
     ok = efirebirdsql:execute(C, <<"
             CREATE PROCEDURE foo_proc
@@ -103,7 +103,7 @@ result2() ->
      {<<"H1">>,<<"BLOB">>},
      {<<"I">>,1.0},
      {<<"J">>,2.0},
-     {<<"K">>,123456780000000000}].
+     {<<"K">>,-1}].
 
 basic_test() ->
     %% connect to bad database
