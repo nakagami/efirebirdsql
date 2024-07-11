@@ -21,22 +21,10 @@ byte2(N) ->
 %%% big endian number list fill 4 byte alignment
 -spec byte4(integer(), atom()) -> list().
 byte4(N, big) ->
-    LB = binary:encode_unsigned(N, big),
-    LB4 = case size(LB) of
-    1 -> << <<0,0,0>>/binary, LB/binary >>;
-    2 -> << <<0,0>>/binary, LB/binary >>;
-    3 -> << <<0>>/binary, LB/binary >>;
-    4 -> LB
-    end,
+    LB4 = <<N:32/big-integer>>,
     binary_to_list(LB4);
 byte4(N, little) ->
-    LB = binary:encode_unsigned(N, little),
-    LB4 = case size(LB) of
-    1 -> << LB/binary, <<0,0,0>>/binary >>;
-    2 -> << LB/binary, <<0,0>>/binary >>;
-    3 -> << LB/binary, <<0>>/binary >>;
-    4 -> LB
-    end,
+    LB4 = <<N:32/little-integer>>,
     binary_to_list(LB4).
 
 byte4(N) ->
@@ -45,17 +33,10 @@ byte4(N) ->
 %%% big endian number list fill 8 byte alignment
 -spec byte8(integer(), atom()) -> list().
 byte8(N, big) ->
-    LB = binary:encode_unsigned(N, big),
-    LB8 = case size(LB) of
-    1 -> << <<0,0,0,0,0,0,0>>/binary, LB/binary >>;
-    2 -> << <<0,0,0,0,0,0>>/binary, LB/binary >>;
-    3 -> << <<0,0,0,0,0>>/binary, LB/binary >>;
-    4 -> << <<0,0,0,0>>/binary, LB/binary >>;
-    5 -> << <<0,0,0>>/binary, LB/binary >>;
-    6 -> << <<0,0>>/binary, LB/binary >>;
-    7 -> << <<0>>/binary, LB/binary >>;
-    8 -> LB
-    end,
+    LB8 = <<N:64/big-integer>>,
+    binary_to_list(LB8);
+byte8(N, little) ->
+    LB8 = <<N:64/little-integer>>,
     binary_to_list(LB8).
 
 byte8(N) ->
