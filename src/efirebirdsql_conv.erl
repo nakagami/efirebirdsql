@@ -34,9 +34,6 @@ byte4(N) ->
 -spec byte8(integer(), atom()) -> list().
 byte8(N, big) ->
     LB8 = <<N:64/big-integer>>,
-    binary_to_list(LB8);
-byte8(N, little) ->
-    LB8 = <<N:64/little-integer>>,
     binary_to_list(LB8).
 
 byte8(N) ->
