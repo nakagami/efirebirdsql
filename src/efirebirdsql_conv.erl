@@ -91,15 +91,27 @@ parse_timestamp(RawValue) ->
 -spec parse_time_tz(binary()) -> {{integer(), integer(), integer(), integer()}, binary(), binary()}.
 parse_time_tz(RawValue) ->
     <<HMSN:4/binary, TimeZoneID:16, OffsetID:16>> = RawValue,
-    TimeZone = maps:get(TimeZoneID, efirebirdsql_tz_map:timezone_name_by_id()),
-    Offset = maps:get(OffsetID, efirebirdsql_tz_map:timezone_name_by_id()),
+    case TimeZoneID of
+    0 ->
+        TimeZone = "UTC",
+        Offset = "UTC";
+    _ ->
+        TimeZone = maps:get(TimeZoneID, efirebirdsql_tz_map:timezone_name_by_id()),
+        Offset = maps:get(OffsetID, efirebirdsql_tz_map:timezone_name_by_id())
+    end,
     {parse_time(HMSN), TimeZone, Offset}.
 
 -spec parse_timestamp_tz(binary()) -> {{integer(), integer(), integer()}, {integer(), integer(), integer(), integer()}, binary(), binary()}.
 parse_timestamp_tz(RawValue) ->
     <<YMD:4/binary, HMSN:4/binary, TimeZoneID:16, OffsetID:16>> = RawValue,
-    TimeZone = maps:get(TimeZoneID, efirebirdsql_tz_map:timezone_name_by_id()),
-    Offset = maps:get(OffsetID, efirebirdsql_tz_map:timezone_name_by_id()),
+    case TimeZoneID of
+    0 ->
+        TimeZone = "UTC",
+        Offset = "UTC";
+    _ ->
+        TimeZone = maps:get(TimeZoneID, efirebirdsql_tz_map:timezone_name_by_id()),
+        Offset = maps:get(OffsetID, efirebirdsql_tz_map:timezone_name_by_id())
+    end,
     {parse_date(YMD), parse_time(HMSN), TimeZone, Offset}.
 
 fill0(S, 0) -> S;
