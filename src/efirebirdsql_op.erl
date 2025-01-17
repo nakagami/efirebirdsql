@@ -541,16 +541,28 @@ get_response(Conn) ->
         {error, 0, <<"Unknown response">>}
     end.
 
-wire_crypt_params(List, []) ->
+wire_crypt_nonce(List, []) ->
     List;
-wire_crypt_params(List, Buf) ->
+wire_crypt_nonce(List, Buf) ->
     [K | Rest1] = Buf,
     [Ln | Rest2] = Rest1,
     {V, Rest3} = lists:split(Ln, Rest2),
-    wire_crypt_params(maps:put(K, V, Map), Rest3).
+    if K =:= 3 ->
+        wire_crypt_params([{K, V } | List], Rest3);
+    K =/= 3 ->
+        wire_crypt_params(List, Rest3).
+
+is_nonce_prefix([], _List) -> true;
+is_nonce_prefix([H1 | T1], [H2 | T2]) when H1 =:= H2 -> is_prefix(T1, T2);
+is_nonce_prefix(_, _) -> false.
+
+find_nonce_prefix(Prefix, NonceList) ->
+    PrefixList
+    lists.filter(fun(List) -> is_prefix(Prefix, List) end, Lists).
+
 
 guess_wire_crypt(Buf) ->
-    Params = wire_crypt_params(maps:new(), binary_to_list(Buf)),
+    NonceList = wire_crypt_params(maps:new(), binary_to_list(Buf)),
 
     case maps:find(3, Params) of
         {ok, V1} ->
