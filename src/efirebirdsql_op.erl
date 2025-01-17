@@ -557,7 +557,7 @@ guess_wire_crypt(Buf) ->
                 true ->
                 {_, NonceRaw} = lists:split(7, V1),
                 {Nonce, _} = lists:split(length(NonceRaw)-4, NonceRaw),
-                {"ChaCha", string:concat([0, 0, 0, 0], Nonce)};
+                {"ChaCha", Nonce};
                 _ -> {"Arc4", ""}
             end;
         _ -> {"Arc4", ""}
@@ -574,8 +574,8 @@ wire_crypt(Conn, EncryptPlugin, SessionKey, IV) ->
         "ChaCha" ->
         Key = crypto:hash(sha256, SessionKey),
         Conn#conn{
-            read_state=crypto:crypto_init(chacha20, Key, IV, false),
-            write_state=crypto:crypto_init(chacha20, Key, IV, true)
+            read_state=crypto:crypto_init(chacha20, Key, string:concat([0, 0, 0, 0], IV), false),
+            write_state=crypto:crypto_init(chacha20, Key, string:concat([0, 0, 0, 0], IV), true)
         }
     end,
     {op_response,  _, _} = get_response(C2),
