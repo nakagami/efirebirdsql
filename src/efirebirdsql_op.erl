@@ -541,6 +541,8 @@ get_response(Conn) ->
         {error, 0, <<"Unknown response">>}
     end.
 
+%% guess wirecrypt plugin
+
 wire_crypt_nonce(List, []) ->
     List;
 wire_crypt_nonce(List, Buf) ->
@@ -551,18 +553,21 @@ wire_crypt_nonce(List, Buf) ->
         wire_crypt_params([{K, V } | List], Rest3);
     K =/= 3 ->
         wire_crypt_params(List, Rest3).
+wire_crypt_nonce(Buf) ->
+    wire_crypt_nonce([], Buf).
 
 is_nonce_prefix([], _List) -> true;
 is_nonce_prefix([H1 | T1], [H2 | T2]) when H1 =:= H2 -> is_prefix(T1, T2);
 is_nonce_prefix(_, _) -> false.
 
-find_nonce_prefix(Prefix, NonceList) ->
-    PrefixList
-    lists.filter(fun(List) -> is_prefix(Prefix, List) end, Lists).
-
+find_nonce(Prefix, NonceList) ->
+    case lists:dropwhile(fun(List) -> not is_prefix(Prefix, List) end, NonceLists) of
+        [] -> nil;
+        [Match | _] -> Match
+    end.
 
 guess_wire_crypt(Buf) ->
-    NonceList = wire_crypt_params(maps:new(), binary_to_list(Buf)),
+    NonceList = wire_crypt_nonce(binary_to_list(Buf)),
 
     case maps:find(3, Params) of
         {ok, V1} ->
@@ -575,6 +580,9 @@ guess_wire_crypt(Buf) ->
             end;
         _ -> {"Arc4", ""}
     end.
+
+
+%% wire encryption
 
 wire_crypt(Conn, EncryptPlugin, SessionKey, IV) ->
     efirebirdsql_socket:send(Conn, op_crypt(EncryptPlugin)),
