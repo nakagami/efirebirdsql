@@ -541,9 +541,9 @@ get_response(Conn) ->
         {error, 0, <<"Unknown response">>}
     end.
 
-wire_crypt_params(Map, []) ->
-    Map;
-wire_crypt_params(Map, Buf) ->
+wire_crypt_params(List, []) ->
+    List;
+wire_crypt_params(List, Buf) ->
     [K | Rest1] = Buf,
     [Ln | Rest2] = Rest1,
     {V, Rest3} = lists:split(Ln, Rest2),
@@ -551,6 +551,7 @@ wire_crypt_params(Map, Buf) ->
 
 guess_wire_crypt(Buf) ->
     Params = wire_crypt_params(maps:new(), binary_to_list(Buf)),
+
     case maps:find(3, Params) of
         {ok, V1} ->
             case lists:prefix(string:concat("ChaCha", [0]), V1) of
