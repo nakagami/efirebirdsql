@@ -541,27 +541,76 @@ get_response(Conn) ->
         {error, 0, <<"Unknown response">>}
     end.
 
-wire_crypt_params(Map, []) ->
-    Map;
-wire_crypt_params(Map, Buf) ->
+%% guess wirecrypt plugin
+
+split_plugin_names([]) ->
+    [[]];
+split_plugin_names(List) ->
+    split_plugin_names(List, []).
+
+split_plugin_names([], Acc) ->
+    [lists:reverse(Acc)];
+split_plugin_names([32 | Rest], Acc) ->
+    [lists:reverse(Acc) | split_plugin_names(Rest, [])];
+split_plugin_names([Head | Rest], Acc) ->
+    split_plugin_names(Rest, [Head | Acc]).
+
+plugin_names(List, []) ->
+    List;
+plugin_names(List, Buf) ->
     [K | Rest1] = Buf,
     [Ln | Rest2] = Rest1,
     {V, Rest3} = lists:split(Ln, Rest2),
-    wire_crypt_params(maps:put(K, V, Map), Rest3).
+    if K =:= 1 ->
+        plugin_names([V | List], Rest3);
+    K =/= 1 ->
+        plugin_names(List, Rest3)
+    end.
+plugin_names(Buf) ->
+    PluginNamesList = plugin_names([], Buf),
+    [PluginNames | _]  = PluginNamesList,
+    split_plugin_names(PluginNames).
+
+plugin_nonce_list(List, []) ->
+    List;
+plugin_nonce_list(List, Buf) ->
+    [K | Rest1] = Buf,
+    [Ln | Rest2] = Rest1,
+    {V, Rest3} = lists:split(Ln, Rest2),
+    if K =:= 3 ->
+        plugin_nonce_list([V | List], Rest3);
+    K =/= 3 ->
+        plugin_nonce_list(List, Rest3)
+    end.
+plugin_nonce_list(Buf) ->
+    plugin_nonce_list([], Buf).
+
+is_nonce_prefix([], _List) -> true;
+is_nonce_prefix([H1 | T1], [H2 | T2]) when H1 =:= H2 -> is_nonce_prefix(T1, T2);
+is_nonce_prefix(_, _) -> false.
+
+find_nonce(Prefix, NonceList) ->
+    case lists:dropwhile(fun(List) -> not is_nonce_prefix(Prefix, List) end, NonceList) of
+        [] -> nil;
+        [Match | _] -> lists:sublist(Match, 8, 12)
+    end.
 
 guess_wire_crypt(Buf) ->
-    Params = wire_crypt_params(maps:new(), binary_to_list(Buf)),
-    case maps:find(3, Params) of
-        {ok, V1} ->
-            case lists:prefix(string:concat("ChaCha", [0]), V1) of
-                true ->
-                {_, NonceRaw} = lists:split(7, V1),
-                {Nonce, _} = lists:split(length(NonceRaw)-4, NonceRaw),
-                {"ChaCha", Nonce};
-                _ -> {"Arc4", ""}
-            end;
-        _ -> {"Arc4", ""}
+    AvailablePlugins = plugin_names(binary_to_list(Buf)),
+    PluginNonceList = plugin_nonce_list(binary_to_list(Buf)),
+    HasChaChaPlugin = lists:member("ChaCha", AvailablePlugins),
+    HasArc4Plugin = lists:member("Arc4", AvailablePlugins),
+    if
+        HasChaChaPlugin =:= true ->
+            {"ChaCha", find_nonce(string:concat("ChaCha", [0]), PluginNonceList)};
+        HasArc4Plugin =:= true ->
+            {"Arc4", nil};
+        true ->
+            {nil, nil}
     end.
+
+
+%% wire encryption
 
 wire_crypt(Conn, EncryptPlugin, SessionKey, IV) ->
     efirebirdsql_socket:send(Conn, op_crypt(EncryptPlugin)),
@@ -629,12 +678,12 @@ get_connect_response(Op, Conn) ->
                 Conn#conn.user, Conn#conn.password, Salt,
                 Conn#conn.client_public, ServerPublic, Conn#conn.client_private, sha256);
         _ ->
-            AuthData = '',
-            SessionKey = ''
+            AuthData = nil,
+            SessionKey = nil
         end;
     true ->
-        AuthData = '',
-        SessionKey = ''
+        AuthData = nil,
+        SessionKey = nil
     end,
     C2 = Conn#conn{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)},
     case Op of
@@ -643,7 +692,7 @@ get_connect_response(Op, Conn) ->
             op_cont_auth(C2#conn.auth_data, C2#conn.auth_plugin, C2#conn.auth_plugin, "")),
         {op_response, _, Buf} = get_response(C2),
         {EncryptPlugin, IV} = guess_wire_crypt(Buf),
-        NewConn = case C2#conn.wire_crypt of
+        NewConn = case (EncryptPlugin =/= nil) and (C2#conn.wire_crypt =:= true) and (SessionKey =/= nil) of
         true -> wire_crypt(C2, EncryptPlugin, SessionKey, IV);
         false -> C2
         end;
