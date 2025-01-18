@@ -592,7 +592,7 @@ is_nonce_prefix(_, _) -> false.
 find_nonce(Prefix, NonceList) ->
     case lists:dropwhile(fun(List) -> not is_nonce_prefix(Prefix, List) end, NonceList) of
         [] -> nil;
-        [Match | _] -> Match
+        [Match | _] -> lists:sublist(Match, 8, 12)
     end.
 
 guess_wire_crypt(Buf) ->
