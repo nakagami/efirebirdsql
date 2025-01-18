@@ -555,21 +555,38 @@ split_plugin_names([32 | Rest], Acc) ->
 split_plugin_names([Head | Rest], Acc) ->
     split_plugin_names(Rest, [Head | Acc]).
 
-wire_crypt_nonce(List, []) ->
+plugin_names(List, []) ->
     List;
-wire_crypt_nonce(List, Buf) ->
+plugin_names(List, Buf) ->
+    [K | Rest1] = Buf,
+    [Ln | Rest2] = Rest1,
+    {V, Rest3} = lists:split(Ln, Rest2),
+    if K =:= 1 ->
+        plugin_names([V | List], Rest3);
+    K =/= 1 ->
+        plugin_names(List, Rest3)
+    end.
+plugin_names(Buf) ->
+    PluginNamesList = plugin_names([], Buf),
+    [PluginNames | _]  = PluginNamesList,
+    split_plugin_names(PluginNames).
+
+plugin_nonce_list(List, []) ->
+    List;
+plugin_nonce_list(List, Buf) ->
     [K | Rest1] = Buf,
     [Ln | Rest2] = Rest1,
     {V, Rest3} = lists:split(Ln, Rest2),
     if K =:= 3 ->
-        wire_crypt_nonce([V | List], Rest3);
+        plugin_nonce_list([V | List], Rest3);
     K =/= 3 ->
-        wire_crypt_nonce(List, Rest3).
-wire_crypt_nonce(Buf) ->
-    wire_crypt_nonce([], Buf).
+        plugin_nonce_list(List, Rest3)
+    end.
+plugin_nonce_list(Buf) ->
+    plugin_nonce_list([], Buf).
 
 is_nonce_prefix([], _List) -> true;
-is_nonce_prefix([H1 | T1], [H2 | T2]) when H1 =:= H2 -> is_prefix(T1, T2);
+is_nonce_prefix([H1 | T1], [H2 | T2]) when H1 =:= H2 -> is_nonce_prefix(T1, T2);
 is_nonce_prefix(_, _) -> false.
 
 find_nonce(Prefix, NonceList) ->
@@ -579,18 +596,17 @@ find_nonce(Prefix, NonceList) ->
     end.
 
 guess_wire_crypt(Buf) ->
-    NonceList = wire_crypt_nonce(binary_to_list(Buf)),
-
-    case maps:find(3, Params) of
-        {ok, V1} ->
-            case lists:prefix(string:concat("ChaCha", [0]), V1) of
-                true ->
-                {_, NonceRaw} = lists:split(7, V1),
-                {Nonce, _} = lists:split(length(NonceRaw)-4, NonceRaw),
-                {"ChaCha", Nonce};
-                _ -> {"Arc4", ""}
-            end;
-        _ -> {"Arc4", ""}
+    AvailablePlugins = plugin_names(binary_to_list(Buf)),
+    PluginNonceList = plugin_nonce_list(binary_to_list(Buf)),
+    HasChaChaPlugin = lists:member("ChaCha", AvailablePlugins),
+    HasArc4Plugin = lists:member("Arc4", AvailablePlugins),
+    if
+        HasChaChaPlugin =:= true ->
+            {"ChaCha", find_nonce(string:concat("ChaCha", [0]), PluginNonceList)};
+        HasArc4Plugin =:= true ->
+            {"Arc4", nil};
+        true ->
+            {"", nil}
     end.
 
 
