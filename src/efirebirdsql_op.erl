@@ -543,6 +543,18 @@ get_response(Conn) ->
 
 %% guess wirecrypt plugin
 
+split_plugin_names([]) ->
+    [[]];
+split_plugin_names(List) ->
+    split_plugin_names(List, []).
+
+split_plugin_names([], Acc) ->
+    [lists:reverse(Acc)];
+split_plugin_names([32 | Rest], Acc) ->
+    [lists:reverse(Acc) | split_plugin_names(Rest, [])];
+split_plugin_names([Head | Rest], Acc) ->
+    split_plugin_names(Rest, [Head | Acc]).
+
 wire_crypt_nonce(List, []) ->
     List;
 wire_crypt_nonce(List, Buf) ->
@@ -550,9 +562,9 @@ wire_crypt_nonce(List, Buf) ->
     [Ln | Rest2] = Rest1,
     {V, Rest3} = lists:split(Ln, Rest2),
     if K =:= 3 ->
-        wire_crypt_params([{K, V } | List], Rest3);
+        wire_crypt_nonce([V | List], Rest3);
     K =/= 3 ->
-        wire_crypt_params(List, Rest3).
+        wire_crypt_nonce(List, Rest3).
 wire_crypt_nonce(Buf) ->
     wire_crypt_nonce([], Buf).
 
@@ -561,7 +573,7 @@ is_nonce_prefix([H1 | T1], [H2 | T2]) when H1 =:= H2 -> is_prefix(T1, T2);
 is_nonce_prefix(_, _) -> false.
 
 find_nonce(Prefix, NonceList) ->
-    case lists:dropwhile(fun(List) -> not is_prefix(Prefix, List) end, NonceLists) of
+    case lists:dropwhile(fun(List) -> not is_nonce_prefix(Prefix, List) end, NonceList) of
         [] -> nil;
         [Match | _] -> Match
     end.
