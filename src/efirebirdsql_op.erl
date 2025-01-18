@@ -606,7 +606,7 @@ guess_wire_crypt(Buf) ->
         HasArc4Plugin =:= true ->
             {"Arc4", nil};
         true ->
-            {"", nil}
+            {nil, nil}
     end.
 
 
@@ -678,12 +678,12 @@ get_connect_response(Op, Conn) ->
                 Conn#conn.user, Conn#conn.password, Salt,
                 Conn#conn.client_public, ServerPublic, Conn#conn.client_private, sha256);
         _ ->
-            AuthData = '',
-            SessionKey = ''
+            AuthData = nil,
+            SessionKey = nil
         end;
     true ->
-        AuthData = '',
-        SessionKey = ''
+        AuthData = nil,
+        SessionKey = nil
     end,
     C2 = Conn#conn{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)},
     case Op of
@@ -692,7 +692,7 @@ get_connect_response(Op, Conn) ->
             op_cont_auth(C2#conn.auth_data, C2#conn.auth_plugin, C2#conn.auth_plugin, "")),
         {op_response, _, Buf} = get_response(C2),
         {EncryptPlugin, IV} = guess_wire_crypt(Buf),
-        NewConn = case C2#conn.wire_crypt of
+        NewConn = case (EncryptPlugin =/= nil) and (C2#conn.wire_crypt =:= true) and (SessionKey =/= nil) of
         true -> wire_crypt(C2, EncryptPlugin, SessionKey, IV);
         false -> C2
         end;
