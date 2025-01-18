@@ -1,6 +1,6 @@
 {application,efirebirdsql, [
     {description,"Firebird Client"},
-    {vsn,"0.9.10"},
+    {vsn,"0.9.11"},
     {modules,[]},
     {registered,[]},
     {applications,[kernel,stdlib]},
