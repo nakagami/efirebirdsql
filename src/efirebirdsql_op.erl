@@ -433,6 +433,14 @@ op_open_blob(BlobId, TransHandle) ->
         efirebirdsql_conv:byte4(TransHandle)]),
     <<H/binary, BlobId/binary>>.
 
+op_open_blob2(BlobId, TransHandle) ->
+    ?DEBUG_FORMAT("op_open_blob2(trans_handle=~p,blob_id~p) -> ", [TransHandle, BlobId]),
+    H = list_to_binary([
+        efirebirdsql_conv:byte4(op_val(op_open_blob2)),
+        efirebirdsql_conv:byte4(0),
+        efirebirdsql_conv:byte4(TransHandle)]),
+    <<H/binary, BlobId/binary>>.
+
 op_get_segment(BlobHandle) ->
     ?DEBUG_FORMAT("op_get_segment(blob_handle=~p) -> ", [BlobHandle]),
     list_to_binary([
@@ -828,7 +836,7 @@ get_blob_segment(Conn, BlobHandle, SegmentList) ->
     end.
 
 get_blob_data(Conn, BlobId) ->
-    efirebirdsql_socket:send(Conn, op_open_blob(BlobId, Conn#conn.trans_handle)),
+    efirebirdsql_socket:send(Conn, op_open_blob2(BlobId, Conn#conn.trans_handle)),
     {op_response, BlobHandle, _} = get_response(Conn),
     SegmentList = get_blob_segment(Conn, BlobHandle, []),
     efirebirdsql_socket:send(Conn, op_close_blob(BlobHandle)),
@@ -1016,6 +1024,7 @@ op_name(49) -> op_cancel_events;
 op_name(50) -> op_commit_retaining;
 op_name(52) -> op_event;
 op_name(53) -> op_connect_request;
+op_name(56) -> op_open_blob2;
 op_name(57) -> op_create_blob2;
 op_name(62) -> op_allocate_statement;
 op_name(63) -> op_execute;
@@ -1074,6 +1083,7 @@ op_val(op_cancel_events) -> 49;
 op_val(op_commit_retaining) -> 50;
 op_val(op_event) -> 52;
 op_val(op_connect_request) -> 53;
+op_val(op_open_blob2) -> 56;
 op_val(op_create_blob2) -> 57;
 op_val(op_allocate_statement) -> 62;
 op_val(op_execute) -> 63;
