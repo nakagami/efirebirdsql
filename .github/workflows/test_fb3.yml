@@ -10,7 +10,7 @@ jobs:
 
   build:
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
@@ -21,6 +21,10 @@ jobs:
         sudo systemctl restart firebird3.0
         sudo chmod 0664 /etc/firebird/3.0/SYSDBA.password
         grep '=' /etc/firebird/3.0/SYSDBA.password |sed 's/^/export /' >test_user.env
+    - name: Set up Erlang
+      uses: erlef/setup-beam@v1
+      with:
+        otp-version: '26.0'
     - name: Run tests
       run: |
         source test_user.env

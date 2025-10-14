@@ -10,7 +10,7 @@ jobs:
   build:
 
     name: Build and test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout sources
@@ -20,5 +20,9 @@ jobs:
       with:
         version: '2.5-ss'
         isc_password: "masterkey"
+    - name: Set up Erlang
+      uses: erlef/setup-beam@v1
+      with:
+        otp-version: '26.0'
     - name: Run tests
       run: rebar3 eunit
