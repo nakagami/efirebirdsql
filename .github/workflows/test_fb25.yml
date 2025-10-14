@@ -24,5 +24,6 @@ jobs:
       uses: erlef/setup-beam@v1
       with:
         otp-version: '26.0'
+        rebar3-version: '3'
     - name: Run tests
       run: rebar3 eunit
