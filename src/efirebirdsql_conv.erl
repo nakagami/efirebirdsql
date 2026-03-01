@@ -180,12 +180,14 @@ param_to_blr(V, TimeZoneIdByName) when is_float(V) ->
     param_to_blr(float_to_binary(V), TimeZoneIdByName);
 param_to_blr({{Hour, Minute, Second, Microsecond}, TimeZone}, TimeZoneIdByName) ->
     %% time with timezone
+    %% time must be in UTC value
     TimeZoneId = maps:get(TimeZone, TimeZoneIdByName),
     {[28, 7, 0], lists:flatten(
         [param_to_time(Hour, Minute, Second, Microsecond), byte4(TimeZoneId, big)]
     )};
 param_to_blr({{Year, Month, Day}, {Hour, Minute, Second, Microsecond}, TimeZone}, TimeZoneIdByName) ->
     %% timestamp with timezone
+    %% timestamp must be in UTC value
     TimeZoneId = maps:get(TimeZone, TimeZoneIdByName),
     {[29, 7, 0], lists:flatten([param_to_date(Year, Month, Day),
         param_to_time(Hour, Minute, Second, Microsecond), byte4(TimeZoneId, big)])};
