@@ -10,6 +10,7 @@
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/2,
     op_execute/3, op_execute2/3, op_exec_immediate/2, op_ping/0, op_info_sql/2, op_fetch/2,
     op_commit_retaining/1, op_commit/1, op_rollback_retaining/1, op_rollback/1,
+    op_open_blob/2,
     convert_row/3, get_response/1, get_connect_response/1, get_fetch_response/2,
     get_sql_response/2, get_prepare_statement_response/2]).
 
