@@ -323,6 +323,29 @@ create_fb4_test_tables(C) ->
     ok = efirebirdsql:execute(C, <<"insert into tz_test (id, t, ts) values (2, '12:34:56 Asia/Seoul', '1967-08-11 23:45:01.0000 Asia/Seoul')">>),
     ok = efirebirdsql:execute(C, <<"insert into tz_test (id, t, ts) values (3, '03:34:56 UTC', '1967-08-11 14:45:01.0000 UTC')">>).
 
+% Verify that a server-side error raised mid-fetch (after at least one row has
+% been returned) propagates the real Firebird error message to the caller
+% instead of the opaque "opFetchResponse:Internal Error".
+issue264_test() ->
+    DbName = tmp_dbname(),
+    C = create_test_db(DbName),
+    ok = efirebirdsql:execute(C, <<"CREATE EXCEPTION EX_ISSUE264 'issue264 error message'">>),
+    ok = efirebirdsql:execute(C, <<"
+        CREATE PROCEDURE PROC_ISSUE264
+        RETURNS (N INTEGER)
+        AS
+        BEGIN
+          N = 1;
+          SUSPEND;
+          EXCEPTION EX_ISSUE264 'issue264 error message';
+        END">>),
+    ok = efirebirdsql:execute(C, <<"SELECT * FROM PROC_ISSUE264">>),
+    Result = efirebirdsql:fetchall(C),
+    ?assertMatch({error, _}, Result),
+    {error, ErrMsg} = Result,
+    ?assertEqual(nomatch, binary:match(ErrMsg, <<"opFetchResponse:Internal Error">>)),
+    ?assertNotEqual(nomatch, binary:match(ErrMsg, <<"issue264 error message">>)).
+
 fb4_test() ->
     DbName = tmp_dbname(),
     CreatedConn = create_test_db(DbName),

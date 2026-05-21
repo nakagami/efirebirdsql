@@ -97,12 +97,20 @@ handle_call({execute, Params}, _From, State) ->
     {error, ErrNo, Reason} -> {reply, {error, execute}, State#state{error_no=ErrNo, error_message=Reason}}
     end;
 handle_call(fetchone, _From, State) ->
-    {ConvertedRow, Stmt} = efirebirdsql_protocol:fetchone(State#state.connection, State#state.statement),
-    {reply, {ok, ConvertedRow}, State#state{statement=Stmt}};
+    case efirebirdsql_protocol:fetchone(State#state.connection, State#state.statement) of
+    {ConvertedRow, Stmt} ->
+        {reply, {ok, ConvertedRow}, State#state{statement=Stmt}};
+    {error, ErrNo, Msg} ->
+        {reply, {error, fetchone}, State#state{error_no=ErrNo, error_message=Msg}}
+    end;
 handle_call(fetchall, _From, State) ->
-    {ok, Rows, S2} = efirebirdsql_protocol:fetchall(
-        State#state.connection, State#state.statement),
-    {reply, {ok, Rows}, State#state{connection=State#state.connection, statement=S2}};
+    case efirebirdsql_protocol:fetchall(
+            State#state.connection, State#state.statement) of
+    {ok, Rows, S2} ->
+        {reply, {ok, Rows}, State#state{connection=State#state.connection, statement=S2}};
+    {error, ErrNo, Msg} ->
+        {reply, {error, fetchall}, State#state{error_no=ErrNo, error_message=Msg}}
+    end;
 handle_call(description, _From, State) ->
     case State#state.statement#stmt.stmt_type of
     isc_info_sql_stmt_select

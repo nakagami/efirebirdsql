@@ -42,21 +42,25 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
         {error, Reason, NewConn}
     end.
 
--spec ready_fetch_segment(conn(), stmt()) -> stmt().
+-spec ready_fetch_segment(conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
 ready_fetch_segment(Conn, Stmt) when Stmt#stmt.rows =:= [], Stmt#stmt.more_data =:= true ->
     StmtHandle = Stmt#stmt.stmt_handle,
     XSqlVars = Stmt#stmt.xsqlvars,
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_fetch(StmtHandle, XSqlVars)),
-    {ok, Rows, MoreData} = efirebirdsql_op:get_fetch_response(Conn, Stmt),
-    Stmt2 = Stmt#stmt{rows=Rows, more_data=MoreData},
-    {ok, Stmt3} = if
-        MoreData =:= true -> {ok, Stmt2};
-        MoreData =:= false -> free_statement(Conn, Stmt2, close)
-    end,
-    Stmt3;
+    case efirebirdsql_op:get_fetch_response(Conn, Stmt) of
+    {ok, Rows, MoreData} ->
+        Stmt2 = Stmt#stmt{rows=Rows, more_data=MoreData},
+        {ok, Stmt3} = if
+            MoreData =:= true -> {ok, Stmt2};
+            MoreData =:= false -> free_statement(Conn, Stmt2, close)
+        end,
+        {ok, Stmt3};
+    {error, ErrNo, Msg} ->
+        {error, ErrNo, Msg}
+    end;
 ready_fetch_segment(_Conn, Stmt) ->
-    Stmt.
+    {ok, Stmt}.
 
 fetchrow(Conn, Stmt) ->
     Rows = Stmt#stmt.rows,
@@ -313,23 +317,35 @@ ping(Conn) ->
 
 %% Fetch
 
--spec fetchone(conn(), stmt()) -> {list() | nil, stmt()}.
+-spec fetchone(conn(), stmt()) -> {list() | nil, stmt()} | {error, integer(), binary()}.
 fetchone(Conn, Stmt) ->
-    Stmt2 = ready_fetch_segment(Conn, Stmt),
-    fetchrow(Conn, Stmt2).
+    case ready_fetch_segment(Conn, Stmt) of
+    {ok, Stmt2} ->
+        fetchrow(Conn, Stmt2);
+    {error, ErrNo, Msg} ->
+        {error, ErrNo, Msg}
+    end.
 
 fetch_all(_Conn, Rows, nil, Stmt) ->
     {ok, lists:reverse(Rows), Stmt};
 fetch_all(Conn, Rows, Row, Stmt) ->
-    {NextRow, Stmt2} = fetchone(Conn, Stmt),
-    fetch_all(Conn, [Row | Rows], NextRow, Stmt2).
+    case fetchone(Conn, Stmt) of
+    {NextRow, Stmt2} ->
+        fetch_all(Conn, [Row | Rows], NextRow, Stmt2);
+    {error, ErrNo, Msg} ->
+        {error, ErrNo, Msg}
+    end.
 
--spec fetchall(conn(), stmt()) -> {ok, list() | nil, stmt()}.
+-spec fetchall(conn(), stmt()) -> {ok, list() | nil, stmt()} | {error, integer(), binary()}.
 fetchall(_Conn, Stmt) when Stmt#stmt.rows =:= nil ->
     {ok, nil, Stmt};
 fetchall(Conn, Stmt) ->
-    {NextRow, Stmt2} = fetchone(Conn, Stmt),
-    fetch_all(Conn, [], NextRow, Stmt2).
+    case fetchone(Conn, Stmt) of
+    {NextRow, Stmt2} ->
+        fetch_all(Conn, [], NextRow, Stmt2);
+    {error, ErrNo, Msg} ->
+        {error, ErrNo, Msg}
+    end.
 
 %% Description
 -spec description(stmt()) -> list().

@@ -976,14 +976,42 @@ get_fetch_response(Conn, Stmt, _Status, _Count, XSqlVars, Results) ->
             get_row(Conn, XSqlVars, [])
         end,
     NewResults = [Row | Results],
-    {ok, <<_:32, NewStatus:32, NewCount:32>>} = efirebirdsql_socket:recv(S3, 12),
-    get_fetch_response(Conn, Stmt, NewStatus, NewCount, XSqlVars, NewResults).
+    % Peek at the next opcode before committing to a full op_fetch_response read.
+    % Firebird may send op_response (an error) here instead of another
+    % op_fetch_response continuation header when an exception occurs mid-batch.
+    {ok, <<NextOpCode:32>>} = efirebirdsql_socket:recv(S3, 4),
+    case op_name(NextOpCode) of
+    op_fetch_response ->
+        {ok, <<NewStatus:32, NewCount:32>>} = efirebirdsql_socket:recv(S3, 8),
+        get_fetch_response(Conn, Stmt, NewStatus, NewCount, XSqlVars, NewResults);
+    op_response ->
+        {ok, <<_Handle:32, _ObjectID:64, Len:32>>} = efirebirdsql_socket:recv(S3, 16),
+        if
+            Len =/= 0 -> efirebirdsql_socket:recv_align(S3, Len);
+            true -> ok
+        end,
+        {ErrNo, Msg} = get_error_message(S3),
+        case Msg of
+        <<>> -> {error, 0, <<"opFetchResponse:Internal Error">>};
+        _ -> {error, ErrNo, Msg}
+        end;
+    _ ->
+        {error, 0, <<"opFetchResponse:Internal Error">>}
+    end.
 
--spec get_fetch_response(conn(), stmt()) -> {ok, list(), boolean()}.
+-spec get_fetch_response(conn(), stmt()) -> {ok, list(), boolean()} | {error, integer(), binary()}.
 get_fetch_response(Conn, Stmt) ->
-    {op_fetch_response, Status, Count} = get_response(Conn),
-    {Results, MoreData} = get_fetch_response(Conn, Stmt, Status, Count, Stmt#stmt.xsqlvars, []),
-    {ok, Results, MoreData}.
+    case get_response(Conn) of
+    {op_fetch_response, Status, Count} ->
+        case get_fetch_response(Conn, Stmt, Status, Count, Stmt#stmt.xsqlvars, []) of
+        {Results, MoreData} ->
+            {ok, Results, MoreData};
+        {error, ErrNo, Msg} ->
+            {error, ErrNo, Msg}
+        end;
+    {error, ErrNo, Msg} ->
+        {error, ErrNo, Msg}
+    end.
 
 get_sql_response(Conn, Stmt) ->
     {op_sql_response, Count} = get_response(Conn),
