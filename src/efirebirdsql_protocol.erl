@@ -132,21 +132,28 @@ connect(Host, Username, Password, Database, Options) ->
 -spec close(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 close(Conn) ->
     ?DEBUG_FORMAT("close() db_handle=~p~n", [Conn#conn.db_handle]),
-    efirebirdsql_socket:send(Conn,
-        efirebirdsql_op:op_detach(Conn#conn.db_handle)),
-    case efirebirdsql_op:get_response(Conn) of
-    {op_response, _, _} ->
-        gen_tcp:close(Conn#conn.sock),
-        {ok, Conn#conn{sock=undefined}};
-    {error, ErrNo, Msg} ->
-        if
-            ErrNo =:= 335544357 ->  % cannot disconnect database with open transactions
-                gen_tcp:close(Conn#conn.sock),
-                {ok, Conn#conn{sock=undefined}};
-            ErrNo =/= 335544357 ->
-                ?DEBUG_FORMAT("close() error ~p~p~n", [ErrNo, Msg]),
-                {error, ErrNo, Msg, Conn}
-        end
+    %% The op_detach exchange is best effort: after a request timeout the
+    %% socket can be left with a pending recv ({error, ealready}) or in a
+    %% otherwise broken state, and the exchange fails. The socket must be
+    %% closed regardless, so the server drops the attachment and rolls back
+    %% open transactions immediately instead of leaving them orphaned.
+    Response = try
+        efirebirdsql_socket:send(Conn,
+            efirebirdsql_op:op_detach(Conn#conn.db_handle)),
+        efirebirdsql_op:get_response(Conn)
+    catch
+        _Class:Reason ->
+            ?DEBUG_FORMAT("close() detach failed ~p:~p~n", [_Class, Reason]),
+            {error, detach_failed, Reason}
+    end,
+    gen_tcp:close(Conn#conn.sock),
+    case Response of
+    {error, ErrNo, Msg} when ErrNo =/= 335544357, ErrNo =/= detach_failed ->
+        %% 335544357: cannot disconnect database with open transactions
+        ?DEBUG_FORMAT("close() error ~p~p~n", [ErrNo, Msg]),
+        {error, ErrNo, Msg, Conn#conn{sock=undefined}};
+    _ ->
+        {ok, Conn#conn{sock=undefined}}
     end.
 
 %% Transaction

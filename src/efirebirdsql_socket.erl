@@ -18,9 +18,12 @@ recv(_Conn, Len) when Len =:= 0 ->
 recv(Conn, Len) when Conn#conn.read_state =:= undefined ->
     gen_tcp:recv(Conn#conn.sock, Len);
 recv(Conn, Len) ->
-    {T, Encrypted} = gen_tcp:recv(Conn#conn.sock, Len),
-    Message = crypto:crypto_update(Conn#conn.read_state, Encrypted),
-    {T, Message}.
+    case gen_tcp:recv(Conn#conn.sock, Len) of
+        {ok, Encrypted} ->
+            {ok, crypto:crypto_update(Conn#conn.read_state, Encrypted)};
+        {error, _Reason} = Error ->
+            Error
+    end.
 
 recv_align(Conn, Len) ->
     {T, V} = recv(Conn, Len),
