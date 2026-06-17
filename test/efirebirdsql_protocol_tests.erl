@@ -115,3 +115,15 @@ connect_error_test() ->
     {error, ErrNo, Reason, _Conn} = efirebirdsql_protocol:connect("localhost", os:getenv("ISC_USER", "sysdba"), os:getenv("ISC_PASSWORD", "masterkey"), "something_wrong_database", []),
     ?assertEqual(ErrNo, 335544734),
     ?assertNotEqual(Reason, nil).
+
+lock_timeout_tpb_test() ->
+    %% nil (default): no isc_tpb_lock_timeout, historical behavior preserved.
+    ?assertEqual([3, 9, 6, 15, 17], efirebirdsql_protocol:tpb(false, nil)),
+    ?assertEqual([3, 9, 6, 15, 17, 16], efirebirdsql_protocol:tpb(true, nil)),
+    %% integer seconds: appends isc_tpb_lock_timeout (21) + length 4 + value (little-endian).
+    ?assertEqual([21, 4, 12, 0, 0, 0], lists:nthtail(5, efirebirdsql_protocol:tpb(false, 12))),
+    ?assertEqual([21, 4, 12, 0, 0, 0], lists:nthtail(6, efirebirdsql_protocol:tpb(true, 12))),
+    %% values >255 are encoded across the 4 little-endian bytes (e.g. 300 = 16#012C).
+    ?assertEqual([21, 4, 16#2C, 16#01, 0, 0], lists:nthtail(5, efirebirdsql_protocol:tpb(false, 300))),
+    %% read committed base is preserved (version3, write, wait, read_committed, rec_version)
+    ?assertEqual([3, 9, 6, 15, 17], lists:sublist(efirebirdsql_protocol:tpb(false, 12), 5)).

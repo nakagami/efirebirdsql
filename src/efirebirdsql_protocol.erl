@@ -6,7 +6,7 @@
 %%% -define(DEBUG_FORMAT(X,Y), io:format(standard_error, X, Y)).
 -define(DEBUG_FORMAT(X,Y), ok).
 
--export([connect/5, close/1, begin_transaction/2]).
+-export([connect/5, close/1, begin_transaction/2, tpb/2]).
 -export([unallocate_statement/1, allocate_statement/1, allocate_statement/2]).
 -export([prepare_statement/3, prepare_statement/2, free_statement/3]).
 -export([columns/1]).
@@ -100,7 +100,8 @@ connect(Host, Username, Password, Database, Options) ->
             client_public=Public,
             auth_plugin=proplists:get_value(auth_plugin, Options, "Srp256"),
             wire_crypt=proplists:get_value(wire_crypt, Options, true),
-            timezone=proplists:get_value(timezone, Options, nil)
+            timezone=proplists:get_value(timezone, Options, nil),
+            lock_timeout=proplists:get_value(lock_timeout, Options, nil)
         },
         case Conn#conn.auto_commit of 
             true ->
@@ -157,17 +158,35 @@ close(Conn) ->
     end.
 
 %% Transaction
+
+%% TPB (Transaction Parameter Buffer): ISOLATION_LEVEL_READ_COMMITTED.
+%% isc_tpb_version3, isc_tpb_write, isc_tpb_wait, isc_tpb_read_committed, isc_tpb_rec_version
+%% Optionally appends isc_tpb_lock_timeout when LockTimeout is an integer (seconds):
+%% a transaction blocked on a lock conflict then fails fast instead of waiting
+%% indefinitely. nil (the default) preserves the historical behavior (wait forever).
+-spec tpb(boolean(), integer() | nil) -> [integer()].
+tpb(AutoCommit, LockTimeout) ->
+    Base = case AutoCommit of
+        true -> [3, 9, 6, 15, 17, 16];   %% + isc_tpb_autocommit
+        false -> [3, 9, 6, 15, 17]
+    end,
+    Base ++ lock_timeout_tpb(LockTimeout).
+
+%% isc_tpb_lock_timeout (21) + length 4 + seconds (32-bit little-endian).
+-spec lock_timeout_tpb(integer() | nil) -> [integer()].
+lock_timeout_tpb(nil) -> [];
+lock_timeout_tpb(Seconds) when is_integer(Seconds) ->
+    [21, 4,
+     Seconds band 16#FF,
+     (Seconds bsr 8) band 16#FF,
+     (Seconds bsr 16) band 16#FF,
+     (Seconds bsr 24) band 16#FF].
+
 -spec begin_transaction(boolean(), conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 begin_transaction(AutoCommit, Conn) ->
     ?DEBUG_FORMAT("begin_transaction() db_handle=~p~n", [Conn#conn.db_handle]),
-    %% ISOLATION_LEVEL_READ_COMMITED
-    %% isc_tpb_version3,isc_tpb_write,isc_tpb_wait,isc_tpb_read_committed,isc_tpb_rec_version
-    Tpb = if
-        AutoCommit =:= true -> [3, 9, 6, 15, 17, 16];   % +isc_tpb_autocommit
-        AutoCommit =:= false -> [3, 9, 6, 15, 17]
-        end,
     efirebirdsql_socket:send(Conn,
-        efirebirdsql_op:op_transaction(Conn#conn.db_handle, Tpb)),
+        efirebirdsql_op:op_transaction(Conn#conn.db_handle, tpb(AutoCommit, Conn#conn.lock_timeout))),
     case efirebirdsql_op:get_response(Conn) of
     {op_response, Handle, _} -> {ok, Conn#conn{trans_handle=Handle}};
     {error, ErrNo, Msg} -> {error, ErrNo, Msg, Conn}

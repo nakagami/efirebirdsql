@@ -28,7 +28,8 @@
     db_handle,
     trans_handle,
     accept_version,
-    timezone :: string() | nil
+    timezone :: string() | nil,
+    lock_timeout :: integer() | nil   %% isc_tpb_lock_timeout seconds, nil = disabled
 }).
 
 -type conn() :: #conn{}.
