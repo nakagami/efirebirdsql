@@ -346,6 +346,41 @@ issue264_test() ->
     ?assertEqual(nomatch, binary:match(ErrMsg, <<"opFetchResponse:Internal Error">>)),
     ?assertNotEqual(nomatch, binary:match(ErrMsg, <<"issue264 error message">>)).
 
+% Verify that a server-side error raised during an INSERT ... RETURNING (which
+% Firebird describes and executes as a singleton exec_procedure statement)
+% propagates the real Firebird error message to the caller instead of crashing
+% the connection. This covers the write path, mirroring issue264_test for the
+% read/fetch path.
+insert_returning_error_test() ->
+    DbName = tmp_dbname(),
+    C = create_test_db(DbName),
+    ok = efirebirdsql:execute(C, <<"
+        CREATE TABLE returning_err (
+            id INTEGER NOT NULL PRIMARY KEY,
+            name VARCHAR(10) NOT NULL
+        )
+    ">>),
+
+    %% Success path of exec_procedure is unchanged: a valid INSERT ... RETURNING
+    %% still returns the projected row.
+    ok = efirebirdsql:execute(C, <<"insert into returning_err (id, name) values (1, 'ok') returning id">>),
+    {ok, ResultOk} = efirebirdsql:fetchone(C),
+    ?assertEqual([{<<"ID">>, 1}], ResultOk),
+
+    %% A NOT NULL violation during INSERT ... RETURNING must surface as
+    %% {error, Msg} instead of crashing the connection. The server replies with
+    %% an op_sql_response carrying zero rows followed by the error response.
+    Result = efirebirdsql:execute(C, <<"insert into returning_err (id, name) values (2, null) returning id">>),
+    ?assertMatch({error, _}, Result),
+    {error, ErrMsg} = Result,
+    ?assertNotEqual(nomatch, binary:match(ErrMsg, <<"validation error for column">>)),
+
+    %% The connection survived the error: a follow-up statement still works and
+    %% the rejected row was not inserted.
+    ok = efirebirdsql:execute(C, <<"select id from returning_err order by id">>),
+    {ok, ResultAfter} = efirebirdsql:fetchall(C),
+    ?assertEqual([[{<<"ID">>, 1}]], ResultAfter).
+
 fb4_test() ->
     DbName = tmp_dbname(),
     CreatedConn = create_test_db(DbName),

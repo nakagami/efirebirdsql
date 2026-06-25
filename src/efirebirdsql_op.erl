@@ -1014,18 +1014,22 @@ get_fetch_response(Conn, Stmt) ->
     end.
 
 get_sql_response(Conn, Stmt) ->
-    {op_sql_response, Count} = get_response(Conn),
-    case Count of
-    0 ->
-        {[], conn};
-    _ ->
-        if
-            Conn#conn.accept_version >= 13 ->
-                NullBitmap = efirebirdsql_socket:recv_null_bitmap(Conn, length(Stmt#stmt.xsqlvars)),
-                get_row(Conn, Stmt#stmt.xsqlvars, [], NullBitmap, 0);
-            Conn#conn.accept_version < 13 ->
-                get_row(Conn, Stmt#stmt.xsqlvars, [])
-        end
+    case get_response(Conn) of
+    {op_sql_response, Count} ->
+        case Count of
+        0 ->
+            {[], Conn};
+        _ ->
+            if
+                Conn#conn.accept_version >= 13 ->
+                    NullBitmap = efirebirdsql_socket:recv_null_bitmap(Conn, length(Stmt#stmt.xsqlvars)),
+                    get_row(Conn, Stmt#stmt.xsqlvars, [], NullBitmap, 0);
+                Conn#conn.accept_version < 13 ->
+                    get_row(Conn, Stmt#stmt.xsqlvars, [])
+            end
+        end;
+    {error, ErrNo, Msg} ->
+        {error, ErrNo, Msg}
     end.
 
 op_name(1) -> op_connect;

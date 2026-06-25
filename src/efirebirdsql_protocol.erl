@@ -241,10 +241,13 @@ columns(Stmt) ->
 
 execute(Conn, Stmt, Params, isc_info_sql_stmt_exec_procedure) ->
     efirebirdsql_socket:send(Conn, efirebirdsql_op:op_execute2(Conn, Stmt, Params)),
-    {Row, C3} = efirebirdsql_op:get_sql_response(Conn, Stmt),
-    case efirebirdsql_op:get_response(C3) of
-    {op_response, _, _} -> {ok, Stmt#stmt{rows=[Row], more_data=false}};
-    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+    case efirebirdsql_op:get_sql_response(Conn, Stmt) of
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg};
+    {Row, C3} ->
+        case efirebirdsql_op:get_response(C3) of
+        {op_response, _, _} -> {ok, Stmt#stmt{rows=[Row], more_data=false}};
+        {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+        end
     end;
 execute(Conn, Stmt, Params, isc_info_sql_stmt_select) ->
     efirebirdsql_socket:send(Conn, efirebirdsql_op:op_execute(Conn, Stmt, Params)),
