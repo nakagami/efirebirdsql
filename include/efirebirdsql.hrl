@@ -29,7 +29,9 @@
     trans_handle,
     accept_version,
     timezone :: string() | nil,
-    lock_timeout :: integer() | nil   %% isc_tpb_lock_timeout seconds, nil = disabled
+    lock_timeout :: integer() | nil,  %% isc_tpb_lock_timeout seconds, nil = disabled
+    process_name :: string() | nil,   %% isc_dpb_process_name, nil = not sent
+    process_id :: integer() | nil     %% isc_dpb_process_id, nil = not sent
 }).
 
 -type conn() :: #conn{}.
