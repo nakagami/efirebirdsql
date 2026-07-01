@@ -101,7 +101,9 @@ connect(Host, Username, Password, Database, Options) ->
             auth_plugin=proplists:get_value(auth_plugin, Options, "Srp256"),
             wire_crypt=proplists:get_value(wire_crypt, Options, true),
             timezone=proplists:get_value(timezone, Options, nil),
-            lock_timeout=proplists:get_value(lock_timeout, Options, nil)
+            lock_timeout=proplists:get_value(lock_timeout, Options, nil),
+            process_name=proplists:get_value(process_name, Options, nil),
+            process_id=proplists:get_value(process_id, Options, nil)
         },
         case Conn#conn.auto_commit of 
             true ->
