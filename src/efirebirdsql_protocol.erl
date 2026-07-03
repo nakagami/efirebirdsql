@@ -6,7 +6,7 @@
 %%% -define(DEBUG_FORMAT(X,Y), io:format(standard_error, X, Y)).
 -define(DEBUG_FORMAT(X,Y), ok).
 
--export([connect/5, close/1, begin_transaction/2, tpb/2]).
+-export([connect/5, close/1, begin_transaction/2, tpb/2, sock_options/1]).
 -export([unallocate_statement/1, allocate_statement/1, allocate_statement/2]).
 -export([prepare_statement/3, prepare_statement/2, free_statement/3]).
 -export([columns/1]).
@@ -80,7 +80,7 @@ fetchrow(Conn, Stmt) ->
 -spec connect(string(), string(), string(), string(), list()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 connect(Host, Username, Password, Database, Options) ->
     ?DEBUG_FORMAT("connect()~n", []),
-    SockOptions = [{active, false}, {packet, raw}, binary],
+    SockOptions = sock_options(Options),
     Port = proplists:get_value(port, Options, 3050),
     Charset = proplists:get_value(charset, Options, utf_8),
     IsCreateDB = proplists:get_value(createdb, Options, false),
@@ -128,6 +128,33 @@ connect(Host, Username, Password, Database, Options) ->
             auto_commit=proplists:get_value(auto_commit, Options, false),
             timezone=proplists:get_value(timezone, Options, nil)
         }}
+    end.
+
+%% Builds the gen_tcp options for the connection socket.
+%%
+%% On top of the base options (passive mode, raw packets, binary) this enables
+%% SO_KEEPALIVE by default, so the operating system can detect a peer that went
+%% away silently (network drop, killed client, half-open connection) and tear
+%% the socket down. Without it a half-open socket can keep its server-side
+%% attachment — and any open transaction — alive for a long time, blocking
+%% garbage collection (orphan transactions that lock rows).
+%%
+%% send_timeout is opt-in (default nil, historical behavior preserved). When set
+%% to an integer number of milliseconds, a send that cannot make progress fails
+%% with {error, timeout} and, because send_timeout_close is enabled, the socket
+%% is closed. Together with close/1 (which now closes unconditionally) this turns
+%% a silently dead peer into an immediate disconnect and a server-side rollback
+%% instead of an orphan. Keep it conservative: too low a value can close
+%% healthy-but-slow connections.
+-spec sock_options(list()) -> list().
+sock_options(Options) ->
+    Base = [{active, false}, {packet, raw}, binary,
+            {keepalive, proplists:get_value(keepalive, Options, true)}],
+    case proplists:get_value(send_timeout, Options, nil) of
+        Ms when is_integer(Ms) ->
+            Base ++ [{send_timeout, Ms}, {send_timeout_close, true}];
+        _ ->
+            Base
     end.
 
 -spec close(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.

@@ -127,3 +127,30 @@ lock_timeout_tpb_test() ->
     ?assertEqual([21, 4, 16#2C, 16#01, 0, 0], lists:nthtail(5, efirebirdsql_protocol:tpb(false, 300))),
     %% read committed base is preserved (version3, write, wait, read_committed, rec_version)
     ?assertEqual([3, 9, 6, 15, 17], lists:sublist(efirebirdsql_protocol:tpb(false, 12), 5)).
+
+sock_options_test() ->
+    %% Default: keepalive enabled so the OS can reap a silently dead peer, and
+    %% no send_timeout (historical behavior preserved).
+    Default = efirebirdsql_protocol:sock_options([]),
+    ?assert(lists:member({keepalive, true}, Default)),
+    ?assertNot(lists:keymember(send_timeout, 1, Default)),
+    ?assertNot(lists:keymember(send_timeout_close, 1, Default)),
+    %% Base options are still present.
+    ?assert(lists:member({active, false}, Default)),
+    ?assert(lists:member({packet, raw}, Default)),
+    ?assert(lists:member(binary, Default)),
+
+    %% keepalive can be turned off explicitly.
+    Off = efirebirdsql_protocol:sock_options([{keepalive, false}]),
+    ?assert(lists:member({keepalive, false}, Off)),
+
+    %% send_timeout (integer ms) appends send_timeout + send_timeout_close, so a
+    %% stuck send fails fast and closes the socket instead of blocking.
+    WithTimeout = efirebirdsql_protocol:sock_options([{send_timeout, 15000}]),
+    ?assert(lists:member({send_timeout, 15000}, WithTimeout)),
+    ?assert(lists:member({send_timeout_close, true}, WithTimeout)),
+    ?assert(lists:member({keepalive, true}, WithTimeout)),
+
+    %% A non-integer send_timeout is ignored (stays disabled).
+    Ignored = efirebirdsql_protocol:sock_options([{send_timeout, nil}]),
+    ?assertNot(lists:keymember(send_timeout, 1, Ignored)).
