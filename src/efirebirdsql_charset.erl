@@ -9,7 +9,7 @@
 get_database_charset(utf_8) -> "UTF8";
 get_database_charset(cp932) -> "SJIS_0208";
 get_database_charset(euc_jp) -> "EUCJ_0208";
-get_database_charset(cp727) -> "DOS737";
+get_database_charset(cp737) -> "DOS737";
 get_database_charset(cp437) -> "DOS437";
 get_database_charset(cp850) -> "DOS850";
 get_database_charset(cp865) -> "DOS865";

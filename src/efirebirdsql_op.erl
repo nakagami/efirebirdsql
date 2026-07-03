@@ -883,7 +883,7 @@ convert_raw_value(Conn, XSqlVar, RawValue) ->
             {ok, B} = get_blob_data(Conn, RawValue),
             B;
         boolean ->
-            if RawValue =/= <<0,0,0,0>> -> true; true -> false end;
+            if RawValue =:= <<1>> -> true; true -> false end;
         text ->
             list_to_binary(lists:reverse(lists:dropwhile(fun(32) -> true; (_) -> false end, lists:reverse(binary_to_list(RawValue)))));
         _ ->

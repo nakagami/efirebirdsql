@@ -287,7 +287,7 @@ fb3_test() ->
         ok = efirebirdsql:execute(C, <<"select True AS C from rdb$relations">>),
         ?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C)),
         ok = efirebirdsql:execute(C, <<"select False AS C from rdb$relations">>),
-        ?assertEqual({ok, [{<<"C">>, true}]}, efirebirdsql:fetchone(C)),
+        ?assertEqual({ok, [{<<"C">>, false}]}, efirebirdsql:fetchone(C)),
 
         ok = efirebirdsql:commit(C),
         ok = efirebirdsql:close(C);

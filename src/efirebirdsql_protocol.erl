@@ -126,7 +126,8 @@ connect(Host, Username, Password, Database, Options) ->
             auth_plugin=proplists:get_value(auth_plugin, Options, "Srp256"),
             wire_crypt=proplists:get_value(wire_crypt, Options, true),
             auto_commit=proplists:get_value(auto_commit, Options, false),
-            timezone=proplists:get_value(timezone, Options, nil)
+            timezone=proplists:get_value(timezone, Options, nil),
+            lock_timeout=nil
         }}
     end.
 

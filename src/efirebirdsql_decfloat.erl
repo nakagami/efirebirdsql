@@ -87,8 +87,8 @@ decimal128_to_sign_digits_exponent(Bin) ->
     if
         Combination band 2#11111000000000000 =:= 2#11111000000000000, Sign =:= 0 -> "NaN";
         Combination band 2#11111000000000000 =:= 2#11111000000000000, Sign =:= 1 -> "-NaN";
-        Combination band 2#11111000000000000 =:= 2#11110000000000000, Sign =:= 0 -> "-Infinity";
-        Combination band 2#11111000000000000 =:= 2#11110000000000000, Sign =:= 1 -> "Infinity";
+        Combination band 2#11111000000000000 =:= 2#11110000000000000, Sign =:= 0 -> "Infinity";
+        Combination band 2#11111000000000000 =:= 2#11110000000000000, Sign =:= 1 -> "-Infinity";
         true ->
             Exponent = if
                 Combination band 2#11000000000000000 =:= 2#00000000000000000 ->
@@ -165,7 +165,7 @@ decimal64_to_decimal(Bin) ->
                     Combination band 2#111;
                 Combination band 2#11000 =:= 2#11000 ->
                     8 + (Combination band 2#1);
-                Combination band 2#11000 =:= 2#11100 ->
+                Combination band 2#11000 =:= 2#11010 ->
                     8 + (Combination band 2#1);
                 Combination band 2#11000 =:= 2#11100 ->
                     8 + (Combination band 2#1)

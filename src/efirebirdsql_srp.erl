@@ -27,14 +27,9 @@ int_to_bin(Int, BytesLen) ->
     Bits = BytesLen * 8,
     <<Int:Bits>>.
 
--spec trim_list(list()) -> list().
-trim_list(List) when is_list(List) ->
-    [R | Rest] = List,
-    if R =:= 0 -> trim_list(Rest); R =/= 0 -> List end.
 -spec pad(integer(), integer()) -> binary().
 pad(Int, MaxBytesLen) ->
-    List = trim_list(binary_to_list(int_to_bin(Int, MaxBytesLen))),
-    list_to_binary(List).
+    int_to_bin(Int, MaxBytesLen).
 
 -spec bin_to_int(binary()) -> integer().
 bin_to_int(Bin) ->

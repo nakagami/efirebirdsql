@@ -20,7 +20,7 @@ start_link() ->
 
 get_parameter(C, Name) when is_list(Name) ->
     gen_server:call(C, {get_parameter, list_to_binary(Name)}, infinity);
-get_parameter(C, Name) when is_list(Name) ->
+get_parameter(C, Name) when is_binary(Name) ->
     gen_server:call(C, {get_parameter, Name}, infinity).
 
 
@@ -125,8 +125,14 @@ handle_call({get_parameter, Name}, _From, State) ->
         end,
     {reply, {ok, Value1}, State};
 handle_call(get_last_error, _From, State) ->
-    {reply, {ok, State#state.error_no, State#state.error_message}, State}.
+    {reply, {ok, State#state.error_no, State#state.error_message}, State};
+handle_call(sync, _From, State) ->
+    {reply, ok, State}.
 
+handle_cast(cancel, State) ->
+    {noreply, State};
+handle_cast(stop, State) ->
+    {stop, normal, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 

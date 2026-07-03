@@ -129,9 +129,12 @@ get_last_error(C) ->
     {ok, ErrNo, Msg} = gen_server:call(C, get_last_error, infinity),
     {ErrNo, Msg}.
 
+-spec cancel(connection()) -> ok.
 cancel(C) ->
-    gen_server:cast(C, cancel).
+    gen_server:cast(C, cancel),
+    ok.
 
+-spec sync(connection()) -> ok.
 sync(C) ->
     gen_server:call(C, sync).
 
