@@ -639,7 +639,10 @@ wire_crypt(Conn, EncryptPlugin, SessionKey, IV) ->
     {op_response,  _, _} = get_response(C2),
     C2.
 
-get_auth_data([], PluginName, Conn) ->
+%% No auth data in the first response: continue the handshake. The guard accepts
+%% both the empty binary and the empty list because recv/2 used to answer a zero
+%% length read with [].
+get_auth_data(Empty, PluginName, Conn) when Empty =:= <<>>; Empty =:= [] ->
     AuthData = efirebirdsql_srp:to_hex(Conn#conn.client_public),
     efirebirdsql_socket:send(Conn,
         op_cont_auth(AuthData, binary_to_list(PluginName), Conn#conn.auth_plugin, "")),
