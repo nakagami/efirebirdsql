@@ -13,8 +13,11 @@ send(Conn, Message) ->
     Encrypted = crypto:crypto_update(Conn#conn.write_state, Message),
     gen_tcp:send(Conn#conn.sock, Encrypted).
 
+%% A zero length read must still yield a binary: callers pattern match on
+%% binaries (and pass the result to binary_to_list/1), so returning the empty
+%% list made every zero length field crash with badarg.
 recv(_Conn, Len) when Len =:= 0 ->
-    {ok, []};
+    {ok, <<>>};
 recv(Conn, Len) when Conn#conn.read_state =:= undefined ->
     gen_tcp:recv(Conn#conn.sock, Len);
 recv(Conn, Len) ->

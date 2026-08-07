@@ -20,6 +20,24 @@ recv_error_returns_error_tuple_test() ->
     gen_tcp:close(Sock),
     gen_tcp:close(Listen).
 
+%% A zero length read must yield a binary, not the empty list. Firebird sends
+%% zero length strings inside the status vector of an error response, and
+%% parse_status_vector_string/1 feeds the result to binary_to_list/1: with the
+%% empty list it crashed with badarg while parsing the error message, killing
+%% the connection and hiding the error that Firebird actually reported.
+recv_zero_length_returns_binary_test() ->
+    Conn = #conn{sock=undefined},
+    ?assertEqual({ok, <<>>}, efirebirdsql_socket:recv(Conn, 0)),
+    {ok, Bin} = efirebirdsql_socket:recv(Conn, 0),
+    ?assert(is_binary(Bin)),
+    ?assertEqual([], binary_to_list(Bin)).
+
+%% recv_align/2 pads to a 4 byte boundary; with a zero length it must not
+%% touch the socket and must return a binary as well.
+recv_align_zero_length_returns_binary_test() ->
+    Conn = #conn{sock=undefined},
+    ?assertEqual({ok, <<>>}, efirebirdsql_socket:recv_align(Conn, 0)).
+
 %% close/1 must close the socket even if the op_detach exchange fails
 %% (broken socket after a request timeout). Otherwise the server keeps the
 %% attachment alive and its open transactions are left orphaned until the
