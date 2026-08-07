@@ -58,7 +58,7 @@ list_to_xdr_bytes(L) ->
 
 parse_date(RawValue) ->
     L = size(RawValue) * 8,
-    <<Num:L>> = RawValue,
+    <<Num:L/signed>> = RawValue,
     NDay1 = Num + 678882,
     Century = (4 * NDay1 -1) div 146097,
     NDay2 = 4 * NDay1 - 1 -  146097 * Century,
