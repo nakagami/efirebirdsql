@@ -12,7 +12,8 @@
     op_commit_retaining/1, op_commit/1, op_rollback_retaining/1, op_rollback/1,
     op_open_blob/2,
     convert_row/3, get_response/1, get_connect_response/1, get_fetch_response/2,
-    get_sql_response/2, get_prepare_statement_response/2]).
+    get_sql_response/2, get_prepare_statement_response/2,
+    process_dpb/2]).
 
 -include("efirebirdsql.hrl").
 
@@ -174,12 +175,38 @@ op_attach(Conn, Database) ->
             91, length(TimeZone), TimeZone  %% isc_dpb_session_time_zone = 91
         ])
     end,
+    Dpb3 = lists:flatten([Dpb2,
+        process_dpb(Conn#conn.process_name, Conn#conn.process_id)]),
 
     list_to_binary(lists:flatten([
         efirebirdsql_conv:byte4(op_val(op_attach)),
         efirebirdsql_conv:byte4(0),
         efirebirdsql_conv:list_to_xdr_string(Database),
-        efirebirdsql_conv:list_to_xdr_bytes(Dpb2)])).
+        efirebirdsql_conv:list_to_xdr_bytes(Dpb3)])).
+
+%% isc_dpb_process_name (74) and isc_dpb_process_id (71) DPB items: let the client identify
+%% itself in the monitoring tables (MON$ATTACHMENTS.MON$REMOTE_PROCESS / MON$REMOTE_PID).
+%% Both are optional; nil yields an empty list, so by default the attach sends nothing extra
+%% (no behavior change). Exported so the encoding can be unit-tested without a server round-trip.
+-spec process_dpb(string() | nil, integer() | nil) -> [integer()].
+process_dpb(ProcessName, ProcessId) ->
+    process_name_dpb(ProcessName) ++ process_id_dpb(ProcessId).
+
+%% isc_dpb_process_name (74) + length + name bytes.
+process_name_dpb(Name) when is_list(Name), Name =/= [] ->
+    [74, length(Name)] ++ Name;
+process_name_dpb(_) ->
+    [].
+
+%% isc_dpb_process_id (71) + length 4 + pid as a 32-bit little-endian integer.
+process_id_dpb(Pid) when is_integer(Pid) ->
+    [71, 4,
+     Pid band 16#FF,
+     (Pid bsr 8) band 16#FF,
+     (Pid bsr 16) band 16#FF,
+     (Pid bsr 24) band 16#FF];
+process_id_dpb(_) ->
+    [].
 
 op_detach(DbHandle) ->
     ?DEBUG_FORMAT("op_detatch -> ", []),
