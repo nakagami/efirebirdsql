@@ -129,7 +129,9 @@ connect(Host, Username, Password, Database, Options) ->
             wire_crypt=proplists:get_value(wire_crypt, Options, true),
             auto_commit=proplists:get_value(auto_commit, Options, false),
             timezone=proplists:get_value(timezone, Options, nil),
-            lock_timeout=nil
+            lock_timeout=nil,
+            process_name=proplists:get_value(process_name, Options, nil),
+            process_id=proplists:get_value(process_id, Options, nil)
         }}
     end.
 
