@@ -154,3 +154,41 @@ sock_options_test() ->
     %% A non-integer send_timeout is ignored (stays disabled).
     Ignored = efirebirdsql_protocol:sock_options([{send_timeout, nil}]),
     ?assertNot(lists:keymember(send_timeout, 1, Ignored)).
+
+%% isc_login: "Your user name and password are not defined..."
+-define(ISC_LOGIN, 335544472).
+
+%% A rejected password is a normal protocol answer, not a driver failure. The
+%% response to op_cont_auth used to be strict matched against op_response, so a
+%% refusal raised badmatch inside efirebirdsql_op and killed the caller (under
+%% DBConnection, a gen_statem crash report) instead of returning an error.
+wrong_password_returns_error_test() ->
+    lists:foreach(fun(Plugin) ->
+        Result = efirebirdsql_protocol:connect(
+            "localhost",
+            os:getenv("ISC_USER", "sysdba"),
+            "deliberately-wrong-password",
+            tmp_dbname(),
+            [{auth_plugin, Plugin}]),
+        ?assertMatch({error, ?ISC_LOGIN, _, _}, Result),
+        {error, _, Reason, Conn} = Result,
+        ?assert(is_binary(Reason)),
+        %% a failed connect must not hand back a live socket
+        ?assertEqual(undefined, Conn#conn.sock)
+    end, ["Srp", "Srp256"]).
+
+%% An unknown user is refused earlier in the handshake: the server answers the
+%% op_connect itself with op_response. get_connect_response/1 already built a
+%% four element error there, but connect_database/5 only matched the three
+%% element shape, so this path ended in case_clause.
+unknown_user_returns_error_test() ->
+    Result = efirebirdsql_protocol:connect(
+        "localhost",
+        "efirebirdsql_no_such_user",
+        "whatever",
+        tmp_dbname(),
+        [{auth_plugin, "Srp"}]),
+    ?assertMatch({error, _, _, _}, Result),
+    {error, ErrNo, Reason, _} = Result,
+    ?assert(is_integer(ErrNo)),
+    ?assert(is_binary(Reason)).

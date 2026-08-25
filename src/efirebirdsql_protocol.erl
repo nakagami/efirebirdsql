@@ -34,12 +34,12 @@ connect_database(Conn, Host, Database, IsCreateDB, PageSize) ->
         end,
         case efirebirdsql_op:get_response(NewConn) of
         {op_response, Handle, _} -> {ok, NewConn#conn{db_handle=Handle}};
-        {op_fetch_response, _, _} -> {error, <<"Unknown op_fetch_response">>, NewConn};
-        {op_sql_response, _} -> {error, <<"Unknown op_sql_response">>, NewConn};
+        {op_fetch_response, _, _} -> {error, 0, <<"Unknown op_fetch_response">>, NewConn};
+        {op_sql_response, _} -> {error, 0, <<"Unknown op_sql_response">>, NewConn};
         {error, ErrNo, Msg} -> {error, ErrNo, Msg, NewConn}
         end;
-    {error, Reason, NewConn} ->
-        {error, Reason, NewConn}
+    {error, ErrNo, Msg, NewConn} ->
+        {error, ErrNo, Msg, NewConn}
     end.
 
 -spec ready_fetch_segment(conn(), stmt()) -> {ok, stmt()} | {error, integer(), binary()}.
@@ -77,6 +77,16 @@ fetchrow(Conn, Stmt) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % public functions
 
+%% Close a socket that never reached a usable attachment. There is no db_handle
+%% yet, so op_detach is not an option; the record is kept for diagnostics with
+%% sock = undefined so nothing downstream can reuse a dead socket.
+-spec discard_socket(conn()) -> conn().
+discard_socket(Conn) when Conn#conn.sock =:= undefined ->
+    Conn;
+discard_socket(Conn) ->
+    catch gen_tcp:close(Conn#conn.sock),
+    Conn#conn{sock=undefined}.
+
 -spec connect(string(), string(), string(), string(), list()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 connect(Host, Username, Password, Database, Options) ->
     ?DEBUG_FORMAT("connect()~n", []),
@@ -106,19 +116,19 @@ connect(Host, Username, Password, Database, Options) ->
             process_id=proplists:get_value(process_id, Options, nil),
             ping_timeout=proplists:get_value(ping_timeout, Options, 15000)
         },
-        case Conn#conn.auto_commit of 
+        Result = case Conn#conn.auto_commit of
             true ->
                 case connect_database(Conn, Host, Database, IsCreateDB, PageSize) of
-                    {ok, C2} ->
-                        case begin_transaction(AutoCommit, C2) of
-                        {ok, C3} -> {ok, C3};
-                        {error, ErrNo, Reason, C3} -> {error, ErrNo, Reason, C3}
-                        end;
-                    {error, ErrNo, Reason, C2} ->
-                        {error, ErrNo, Reason, C2}
+                    {ok, C2} -> begin_transaction(AutoCommit, C2);
+                    {error, ErrNo, Reason, C2} -> {error, ErrNo, Reason, C2}
                 end;
             false ->
                 connect_database(Conn, Host, Database, IsCreateDB, PageSize)
+        end,
+        %% A failed connect never hands a live socket back to the caller.
+        case Result of
+            {ok, _} = Ok -> Ok;
+            {error, ErrNo2, Reason2, ErrConn} -> {error, ErrNo2, Reason2, discard_socket(ErrConn)}
         end;
     {error, Reason} ->
         {error, 0, atom_to_binary(Reason, latin1), #conn{

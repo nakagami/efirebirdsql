@@ -684,8 +684,22 @@ wire_crypt(Conn, EncryptPlugin, SessionKey, IV) ->
             write_state=crypto:crypto_init(chacha20, Key, string:concat([0, 0, 0, 0], IV), true)
         }
     end,
-    {op_response,  _, _} = get_response(C2),
-    C2.
+    case get_response(C2) of
+    {op_response, _, _} -> {ok, C2};
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg, C2};
+    Other -> {error, 0, unexpected_response(Other), C2}
+    end.
+
+%% Describe an unexpected protocol response as data instead of raising.
+-spec unexpected_response(term()) -> binary().
+unexpected_response(Response) ->
+    list_to_binary(io_lib:format("Unexpected response from server: ~p", [Response])).
+
+%% Read the status vector of an op_response error and return it as data.
+-spec recv_error_response(conn()) -> {integer(), binary()}.
+recv_error_response(Conn) ->
+    {ok, <<_Handle:32, _ObjectID:64, _Len:32>>} = efirebirdsql_socket:recv(Conn, 16),
+    get_error_message(Conn).
 
 %% No auth data in the first response: continue the handshake. The guard accepts
 %% both the empty binary and the empty list because recv/2 used to answer a zero
@@ -695,18 +709,26 @@ get_auth_data(Empty, PluginName, Conn) when Empty =:= <<>>; Empty =:= [] ->
     efirebirdsql_socket:send(Conn,
         op_cont_auth(AuthData, binary_to_list(PluginName), Conn#conn.auth_plugin, "")),
     {ok, <<OpCode:32>>} = efirebirdsql_socket:recv(Conn, 4),
-    op_cont_auth = op_name(OpCode),
-    {ok, <<Len1:32>>} = efirebirdsql_socket:recv(Conn, 4),
-    {ok, Data} = efirebirdsql_socket:recv_align(Conn, Len1),
-    {ok, <<Len2:32>>} = efirebirdsql_socket:recv(Conn, 4),
-    {ok, _PluginName} = efirebirdsql_socket:recv_align(Conn, Len2),
-    {ok, <<Len3:32>>} = efirebirdsql_socket:recv(Conn, 4),
-    {ok, _PluginList} = efirebirdsql_socket:recv_align(Conn, Len3),
-    {ok, <<Len4:32>>} = efirebirdsql_socket:recv(Conn, 4),
-    {ok, _Keys} = efirebirdsql_socket:recv_align(Conn, Len4),
-    Data;
+    case op_name(OpCode) of
+    op_cont_auth ->
+        {ok, <<Len1:32>>} = efirebirdsql_socket:recv(Conn, 4),
+        {ok, Data} = efirebirdsql_socket:recv_align(Conn, Len1),
+        {ok, <<Len2:32>>} = efirebirdsql_socket:recv(Conn, 4),
+        {ok, _PluginName} = efirebirdsql_socket:recv_align(Conn, Len2),
+        {ok, <<Len3:32>>} = efirebirdsql_socket:recv(Conn, 4),
+        {ok, _PluginList} = efirebirdsql_socket:recv_align(Conn, Len3),
+        {ok, <<Len4:32>>} = efirebirdsql_socket:recv(Conn, 4),
+        {ok, _Keys} = efirebirdsql_socket:recv_align(Conn, Len4),
+        {ok, Data};
+    op_response ->
+        %% The server can refuse here instead of sending the challenge.
+        {ErrNo, Msg} = recv_error_response(Conn),
+        {error, ErrNo, Msg};
+    Op ->
+        {error, 0, unexpected_response(Op)}
+    end;
 get_auth_data(Data, _PluginName, _Conn) ->
-    Data.
+    {ok, Data}.
 
 %% receive and parse connect() response
 get_connect_response(op_accept, Conn) ->
@@ -722,46 +744,64 @@ get_connect_response(Op, Conn) ->
     {ok, PluginName} = efirebirdsql_socket:recv_align(Conn, Len2),
     {ok, <<IsAuthenticated:32>>} = efirebirdsql_socket:recv(Conn, 4),
     {ok, <<_:32>>} = efirebirdsql_socket:recv(Conn, 4),
-    if IsAuthenticated == 0 ->
-        ServerAuthData = get_auth_data(Data, PluginName, Conn),
-        case binary_to_list(PluginName) of
-        "Srp" ->
-            <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = ServerAuthData,
-            ServerPublic = binary_to_integer(Bin, 16),
-            {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
-                Conn#conn.user, Conn#conn.password, Salt,
-                Conn#conn.client_public, ServerPublic, Conn#conn.client_private, sha);
-        "Srp256" ->
-            <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = ServerAuthData,
-            ServerPublic = binary_to_integer(Bin, 16),
-            {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
-                Conn#conn.user, Conn#conn.password, Salt,
-                Conn#conn.client_public, ServerPublic, Conn#conn.client_private, sha256);
-        _ ->
-            AuthData = nil,
-            SessionKey = nil
-        end;
-    true ->
-        AuthData = nil,
-        SessionKey = nil
+    Authentication = if
+        IsAuthenticated =:= 0 -> client_authentication(Data, PluginName, Conn);
+        true -> {ok, nil, nil}
     end,
-    C2 = Conn#conn{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)},
-    case Op of
-    op_cond_accept ->
-        efirebirdsql_socket:send(C2,
-            op_cont_auth(C2#conn.auth_data, C2#conn.auth_plugin, C2#conn.auth_plugin, "")),
-        {op_response, _, Buf} = get_response(C2),
-        {EncryptPlugin, IV} = guess_wire_crypt(Buf),
-        NewConn = case (EncryptPlugin =/= nil) and (C2#conn.wire_crypt =:= true) and (SessionKey =/= nil) of
-        true -> wire_crypt(C2, EncryptPlugin, SessionKey, IV);
-        false -> C2
-        end;
-    _ ->
-        NewConn = C2
-    end,
-    {ok, NewConn}.
+    case Authentication of
+    {error, ErrNo, Msg} ->
+        {error, ErrNo, Msg, Conn};
+    {ok, AuthData, SessionKey} ->
+        C2 = Conn#conn{accept_version=AcceptVersion, auth_data=efirebirdsql_srp:to_hex(AuthData)},
+        case Op of
+        op_cond_accept -> continue_authentication(C2, SessionKey);
+        _ -> {ok, C2}
+        end
+    end.
 
--spec get_connect_response(conn()) -> {ok, conn()} | {error, binary(), conn()}.
+%% Compute the client proof for the plugin the server negotiated.
+-spec client_authentication(binary() | list(), binary(), conn()) ->
+    {ok, binary() | nil, binary() | nil} | {error, integer(), binary()}.
+client_authentication(Data, PluginName, Conn) ->
+    case get_auth_data(Data, PluginName, Conn) of
+    {error, ErrNo, Msg} ->
+        {error, ErrNo, Msg};
+    {ok, ServerAuthData} ->
+        case binary_to_list(PluginName) of
+        "Srp" -> srp_client_proof(ServerAuthData, Conn, sha);
+        "Srp256" -> srp_client_proof(ServerAuthData, Conn, sha256);
+        _ -> {ok, nil, nil}
+        end
+    end.
+
+srp_client_proof(ServerAuthData, Conn, Algo) ->
+    <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = ServerAuthData,
+    ServerPublic = binary_to_integer(Bin, 16),
+    {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
+        Conn#conn.user, Conn#conn.password, Salt,
+        Conn#conn.client_public, ServerPublic, Conn#conn.client_private, Algo),
+    {ok, AuthData, SessionKey}.
+
+%% Send the proof and negotiate wire encryption. A rejected proof is a normal
+%% protocol answer and must travel as data, not as a badmatch.
+-spec continue_authentication(conn(), binary() | nil) -> {ok, conn()} | {error, integer(), binary(), conn()}.
+continue_authentication(C2, SessionKey) ->
+    efirebirdsql_socket:send(C2,
+        op_cont_auth(C2#conn.auth_data, C2#conn.auth_plugin, C2#conn.auth_plugin, "")),
+    case get_response(C2) of
+    {op_response, _, Buf} ->
+        {EncryptPlugin, IV} = guess_wire_crypt(Buf),
+        case (EncryptPlugin =/= nil) and (C2#conn.wire_crypt =:= true) and (SessionKey =/= nil) of
+        true -> wire_crypt(C2, EncryptPlugin, SessionKey, IV);
+        false -> {ok, C2}
+        end;
+    {error, ErrNo, Msg} ->
+        {error, ErrNo, Msg, C2};
+    Other ->
+        {error, 0, unexpected_response(Other), C2}
+    end.
+
+-spec get_connect_response(conn()) -> {ok, conn()} | {error, integer(), binary(), conn()}.
 get_connect_response(Conn) ->
     ?DEBUG_FORMAT("get_connect_response()~n", []),
     {ok, <<OpCode:32>>} = efirebirdsql_socket:recv(Conn, 4),
@@ -772,13 +812,12 @@ get_connect_response(Conn) ->
         Op == op_dummy ->
             get_connect_response(Conn);
         Op == op_response ->
-            {ok, <<_Handle:32, _ObjectID:64, _Len:32>>} = efirebirdsql_socket:recv(Conn, 16),
-            {ErrNo, Msg} = get_error_message(Conn),
+            {ErrNo, Msg} = recv_error_response(Conn),
             {error, ErrNo, Msg, Conn};
         Op == op_reject ->
-            {error, <<"Connect rejected">>, Conn};
+            {error, 0, <<"Connect rejected">>, Conn};
         true ->
-            {error, <<"Unknown connect error">>, Conn}
+            {error, 0, <<"Unknown connect error">>, Conn}
     end.
 
 %% parse select items.
