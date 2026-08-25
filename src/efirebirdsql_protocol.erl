@@ -103,7 +103,8 @@ connect(Host, Username, Password, Database, Options) ->
             timezone=proplists:get_value(timezone, Options, nil),
             lock_timeout=proplists:get_value(lock_timeout, Options, nil),
             process_name=proplists:get_value(process_name, Options, nil),
-            process_id=proplists:get_value(process_id, Options, nil)
+            process_id=proplists:get_value(process_id, Options, nil),
+            ping_timeout=proplists:get_value(ping_timeout, Options, 15000)
         },
         case Conn#conn.auto_commit of 
             true ->
@@ -371,9 +372,14 @@ ping(Conn) ->
     % [isc_info_ods_version, isc_info_end]
     efirebirdsql_socket:send(Conn,
         efirebirdsql_op:op_info_database(Conn#conn.db_handle, [32, 1])),
-    case efirebirdsql_op:get_response(Conn) of
+    %% Read the response with a finite timeout (ping_timeout, default 15000 ms).
+    %% A ping is a liveness check: if the server stops responding, get_response/2
+    %% returns {error, timeout} instead of blocking on gen_tcp:recv forever, so the
+    %% connection is reported as down and the pool can reap/replace it. The catch-all
+    %% covers both a server error ({error, _, _}) and the timeout ({error, _}).
+    case efirebirdsql_op:get_response(Conn, Conn#conn.ping_timeout) of
     {op_response, _, _} -> ok;
-    {error, _, _} -> error
+    _ -> error
     end.
 
 %% Fetch

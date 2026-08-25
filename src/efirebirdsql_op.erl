@@ -11,7 +11,7 @@
     op_execute/3, op_execute2/3, op_exec_immediate/2, op_ping/0, op_info_sql/2, op_fetch/2,
     op_commit_retaining/1, op_commit/1, op_rollback_retaining/1, op_rollback/1,
     op_open_blob/2,
-    convert_row/3, get_response/1, get_connect_response/1, get_fetch_response/2,
+    convert_row/3, get_response/1, get_response/2, get_connect_response/1, get_fetch_response/2,
     get_sql_response/2, get_prepare_statement_response/2,
     process_dpb/2]).
 
@@ -541,12 +541,33 @@ get_error_message(Conn) ->
     {op_response, integer(), binary()} |
     {op_fetch_response, integer(), integer()} |
     {op_sql_response, integer()} |
-    {error, integer(), binary()}.
+    {error, integer(), binary()} |
+    {error, term()}.
 get_response(Conn) ->
-    {ok, <<OpCode:32>>} = efirebirdsql_socket:recv(Conn, 4),
-    Op = op_name(OpCode),
+    get_response(Conn, infinity).
+
+%% get_response/2 reads the initial op code with an explicit timeout. It is used
+%% by ping/1 so a server that stopped responding yields {error, timeout} instead
+%% of blocking on gen_tcp:recv forever. Everything after the op code is read with
+%% the historical blocking behavior: once the peer started replying, the rest of
+%% the (small) response follows immediately, so only the first read needs guarding.
+-spec get_response(conn(), timeout()) ->
+    {op_response, integer(), binary()} |
+    {op_fetch_response, integer(), integer()} |
+    {op_sql_response, integer()} |
+    {error, integer(), binary()} |
+    {error, term()}.
+get_response(Conn, Timeout) ->
+    case efirebirdsql_socket:recv(Conn, 4, Timeout) of
+        {error, _Reason} = Error ->
+            Error;
+        {ok, <<OpCode:32>>} ->
+            get_response_body(Conn, op_name(OpCode))
+    end.
+
+get_response_body(Conn, Op) ->
     ?DEBUG_FORMAT("get_response() ~p", [Op]),
-    case Op of 
+    case Op of
     op_response ->
         {ok, <<Handle:32, _ObjectID:64, Len:32>>} = efirebirdsql_socket:recv(Conn, 16),
         ?DEBUG_FORMAT("=~p~n", [Handle]),

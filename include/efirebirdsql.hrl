@@ -31,7 +31,8 @@
     timezone :: string() | nil,
     lock_timeout :: integer() | nil,  %% isc_tpb_lock_timeout seconds, nil = disabled
     process_name :: string() | nil,   %% isc_dpb_process_name, nil = not sent
-    process_id :: integer() | nil     %% isc_dpb_process_id, nil = not sent
+    process_id :: integer() | nil,    %% isc_dpb_process_id, nil = not sent
+    ping_timeout = 15000 :: timeout() %% gen_tcp:recv timeout for ping/1 (ms); infinity = old blocking behavior
 }).
 
 -type conn() :: #conn{}.

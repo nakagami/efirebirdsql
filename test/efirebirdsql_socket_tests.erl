@@ -38,6 +38,25 @@ recv_align_zero_length_returns_binary_test() ->
     Conn = #conn{sock=undefined},
     ?assertEqual({ok, <<>>}, efirebirdsql_socket:recv_align(Conn, 0)).
 
+%% recv/3 passes an explicit timeout to gen_tcp:recv. Against a peer that is
+%% connected but never replies (a hung/unresponsive server), a finite timeout
+%% must return {error, timeout} instead of blocking forever. This is what lets
+%% ping/1 report a stuck connection as down instead of holding a pool worker
+%% (and eventually the whole pool) hostage.
+recv_with_timeout_on_silent_peer_returns_timeout_test() ->
+    {Sock, Listen, Peer} = silent_connection(),
+    Conn = #conn{sock=Sock},
+    ?assertEqual({error, timeout}, efirebirdsql_socket:recv(Conn, 4, 50)),
+    gen_tcp:close(Sock),
+    gen_tcp:close(Peer),
+    gen_tcp:close(Listen).
+
+%% recv/3 with a zero length read must short circuit and yield a binary
+%% without touching the socket, exactly like recv/2, regardless of the timeout.
+recv3_zero_length_returns_binary_test() ->
+    Conn = #conn{sock=undefined},
+    ?assertEqual({ok, <<>>}, efirebirdsql_socket:recv(Conn, 0, 50)).
+
 %% close/1 must close the socket even if the op_detach exchange fails
 %% (broken socket after a request timeout). Otherwise the server keeps the
 %% attachment alive and its open transactions are left orphaned until the
@@ -58,3 +77,12 @@ broken_connection() ->
     {ok, Peer} = gen_tcp:accept(Listen),
     ok = gen_tcp:close(Peer),
     {Sock, Listen}.
+
+%% client socket whose peer is connected but never sends anything, so a recv
+%% blocks until the timeout fires. Peer is returned so the caller can close it.
+silent_connection() ->
+    {ok, Listen} = gen_tcp:listen(0, [binary, {active, false}]),
+    {ok, Port} = inet:port(Listen),
+    {ok, Sock} = gen_tcp:connect("localhost", Port, [binary, {active, false}]),
+    {ok, Peer} = gen_tcp:accept(Listen),
+    {Sock, Listen, Peer}.

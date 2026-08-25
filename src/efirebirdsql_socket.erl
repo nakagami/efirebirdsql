@@ -3,7 +3,7 @@
 
 -module(efirebirdsql_socket).
 
--export([send/2, recv/2, recv_align/2, recv_null_bitmap/2]).
+-export([send/2, recv/2, recv/3, recv_align/2, recv_null_bitmap/2]).
 
 -include("efirebirdsql.hrl").
 
@@ -13,15 +13,23 @@ send(Conn, Message) ->
     Encrypted = crypto:crypto_update(Conn#conn.write_state, Message),
     gen_tcp:send(Conn#conn.sock, Encrypted).
 
+recv(Conn, Len) ->
+    recv(Conn, Len, infinity).
+
+%% recv/3 adds an explicit gen_tcp:recv timeout. recv/2 keeps the historical
+%% behavior (infinity), so normal reads are unchanged; only ping/1 passes a
+%% finite timeout so a server that stops responding fails the health-check fast
+%% instead of blocking the connection (and, in a pool, every idle worker) forever.
+%%
 %% A zero length read must still yield a binary: callers pattern match on
 %% binaries (and pass the result to binary_to_list/1), so returning the empty
 %% list made every zero length field crash with badarg.
-recv(_Conn, Len) when Len =:= 0 ->
+recv(_Conn, Len, _Timeout) when Len =:= 0 ->
     {ok, <<>>};
-recv(Conn, Len) when Conn#conn.read_state =:= undefined ->
-    gen_tcp:recv(Conn#conn.sock, Len);
-recv(Conn, Len) ->
-    case gen_tcp:recv(Conn#conn.sock, Len) of
+recv(Conn, Len, Timeout) when Conn#conn.read_state =:= undefined ->
+    gen_tcp:recv(Conn#conn.sock, Len, Timeout);
+recv(Conn, Len, Timeout) ->
+    case gen_tcp:recv(Conn#conn.sock, Len, Timeout) of
         {ok, Encrypted} ->
             {ok, crypto:crypto_update(Conn#conn.read_state, Encrypted)};
         {error, _Reason} = Error ->
