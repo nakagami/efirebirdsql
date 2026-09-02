@@ -162,6 +162,10 @@ sock_options_test() ->
 %% response to op_cont_auth used to be strict matched against op_response, so a
 %% refusal raised badmatch inside efirebirdsql_op and killed the caller (under
 %% DBConnection, a gen_statem crash report) instead of returning an error.
+%% The refusal reaches the client in one of two shapes, and both must come back
+%% the same way: an op_response with the status vector when the server has a
+%% single auth plugin, or another op_cont_auth asking for the next plugin when
+%% AuthServer lists several, as attic/firebird.conf does.
 wrong_password_returns_error_test() ->
     lists:foreach(fun(Plugin) ->
         Result = efirebirdsql_protocol:connect(
@@ -177,10 +181,12 @@ wrong_password_returns_error_test() ->
         ?assertEqual(undefined, Conn#conn.sock)
     end, ["Srp", "Srp256"]).
 
-%% An unknown user is refused earlier in the handshake: the server answers the
-%% op_connect itself with op_response. get_connect_response/1 already built a
-%% four element error there, but connect_database/5 only matched the three
-%% element shape, so this path ended in case_clause.
+%% An unknown user is refused earlier in the handshake, before there is a proof
+%% to check: the server answers the op_connect itself with op_response, or it
+%% sends a continuation with an empty challenge. get_connect_response/1 already
+%% built a four element error for the first, but connect_database/5 only matched
+%% the three element shape, so that path ended in case_clause; the second one
+%% ended in a badmatch on a salt that never arrived.
 unknown_user_returns_error_test() ->
     Result = efirebirdsql_protocol:connect(
         "localhost",
@@ -188,7 +194,7 @@ unknown_user_returns_error_test() ->
         "whatever",
         tmp_dbname(),
         [{auth_plugin, "Srp"}]),
-    ?assertMatch({error, _, _, _}, Result),
-    {error, ErrNo, Reason, _} = Result,
-    ?assert(is_integer(ErrNo)),
-    ?assert(is_binary(Reason)).
+    ?assertMatch({error, ?ISC_LOGIN, _, _}, Result),
+    {error, _, Reason, Conn} = Result,
+    ?assert(is_binary(Reason)),
+    ?assertEqual(undefined, Conn#conn.sock).

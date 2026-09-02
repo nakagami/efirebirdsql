@@ -18,6 +18,15 @@
 -include("efirebirdsql.hrl").
 
 -define(BUFSIZE, 1024).
+
+%% isc_login. Firebird refuses credentials in two shapes during the handshake:
+%% an op_response carrying the status vector, or an op_cont_auth asking the
+%% client to continue with the next plugin of its AuthServer list (the shape a
+%% server configured with Srp256,Srp,Legacy_Auth takes). This driver offers a
+%% single plugin per connection, so it has nothing left to try and both shapes
+%% are the same refusal for the caller.
+-define(ISC_LOGIN, 335544472).
+
 -define(INFO_SQL_SELECT_DESCRIBE_VARS, [
     4,      %% isc_info_sql_select
     7,      %% isc_info_sql_describe_vars
@@ -695,6 +704,27 @@ wire_crypt(Conn, EncryptPlugin, SessionKey, IV) ->
 unexpected_response(Response) ->
     list_to_binary(io_lib:format("Unexpected response from server: ~p", [Response])).
 
+%% The message Firebird sends for a refused login, taken from the driver's own
+%% table so it reads the same whichever shape the refusal arrived in.
+-spec login_error() -> {error, integer(), binary()}.
+login_error() ->
+    {error, ?ISC_LOGIN,
+        iolist_to_binary(io_lib:format(efirebirdsql_errmsgs:get_error_msg(?ISC_LOGIN), []))}.
+
+%% Read the answer to the client proof. op_cont_auth belongs to the handshake,
+%% so it is decoded here instead of in the general response parser: the server
+%% sends it to ask for the next auth plugin, and there is no next one.
+recv_proof_response(Conn) ->
+    case efirebirdsql_socket:recv(Conn, 4) of
+    {ok, <<OpCode:32>>} ->
+        case op_name(OpCode) of
+        op_cont_auth -> login_error();
+        Op -> get_response_body(Conn, Op)
+        end;
+    {error, Reason} ->
+        {error, 0, atom_to_binary(Reason, latin1)}
+    end.
+
 %% Read the status vector of an op_response error and return it as data.
 -spec recv_error_response(conn()) -> {integer(), binary()}.
 recv_error_response(Conn) ->
@@ -774,13 +804,23 @@ client_authentication(Data, PluginName, Conn) ->
         end
     end.
 
+%% The challenge is the salt followed by the server public value in hex. An
+%% unknown user gets no challenge at all: the server answers the first
+%% op_cont_auth with an empty one, which is a refusal and not something to
+%% parse.
+-spec srp_client_proof(binary() | list(), conn(), atom()) ->
+    {ok, binary(), binary()} | {error, integer(), binary()}.
 srp_client_proof(ServerAuthData, Conn, Algo) ->
-    <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> = ServerAuthData,
-    ServerPublic = binary_to_integer(Bin, 16),
-    {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
-        Conn#conn.user, Conn#conn.password, Salt,
-        Conn#conn.client_public, ServerPublic, Conn#conn.client_private, Algo),
-    {ok, AuthData, SessionKey}.
+    case ServerAuthData of
+    <<SaltLen:16/little-unsigned, Salt:SaltLen/binary, _KeyLen:16, Bin/binary>> when Bin =/= <<>> ->
+        ServerPublic = binary_to_integer(Bin, 16),
+        {AuthData, SessionKey} = efirebirdsql_srp:client_proof(
+            Conn#conn.user, Conn#conn.password, Salt,
+            Conn#conn.client_public, ServerPublic, Conn#conn.client_private, Algo),
+        {ok, AuthData, SessionKey};
+    _ ->
+        login_error()
+    end.
 
 %% Send the proof and negotiate wire encryption. A rejected proof is a normal
 %% protocol answer and must travel as data, not as a badmatch.
@@ -788,7 +828,7 @@ srp_client_proof(ServerAuthData, Conn, Algo) ->
 continue_authentication(C2, SessionKey) ->
     efirebirdsql_socket:send(C2,
         op_cont_auth(C2#conn.auth_data, C2#conn.auth_plugin, C2#conn.auth_plugin, "")),
-    case get_response(C2) of
+    case recv_proof_response(C2) of
     {op_response, _, Buf} ->
         {EncryptPlugin, IV} = guess_wire_crypt(Buf),
         case (EncryptPlugin =/= nil) and (C2#conn.wire_crypt =:= true) and (SessionKey =/= nil) of
