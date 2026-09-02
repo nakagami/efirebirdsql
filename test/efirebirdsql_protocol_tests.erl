@@ -178,3 +178,47 @@ repeated_connect_never_fails_test_() ->
             end, lists:seq(1, 500))
         end, ["Srp", "Srp256"])
     end}.
+
+%% isc_login: "Your user name and password are not defined..."
+-define(ISC_LOGIN, 335544472).
+
+%% A rejected password is a normal protocol answer, not a driver failure. The
+%% response to op_cont_auth used to be strict matched against op_response, so a
+%% refusal raised badmatch inside efirebirdsql_op and killed the caller (under
+%% DBConnection, a gen_statem crash report) instead of returning an error.
+%% The refusal reaches the client in one of two shapes, and both must come back
+%% the same way: an op_response with the status vector when the server has a
+%% single auth plugin, or another op_cont_auth asking for the next plugin when
+%% AuthServer lists several, as attic/firebird.conf does.
+wrong_password_returns_error_test() ->
+    lists:foreach(fun(Plugin) ->
+        Result = efirebirdsql_protocol:connect(
+            "localhost",
+            os:getenv("ISC_USER", "sysdba"),
+            "deliberately-wrong-password",
+            tmp_dbname(),
+            [{auth_plugin, Plugin}]),
+        ?assertMatch({error, ?ISC_LOGIN, _, _}, Result),
+        {error, _, Reason, Conn} = Result,
+        ?assert(is_binary(Reason)),
+        %% a failed connect must not hand back a live socket
+        ?assertEqual(undefined, Conn#conn.sock)
+    end, ["Srp", "Srp256"]).
+
+%% An unknown user is refused earlier in the handshake, before there is a proof
+%% to check: the server answers the op_connect itself with op_response, or it
+%% sends a continuation with an empty challenge. get_connect_response/1 already
+%% built a four element error for the first, but connect_database/5 only matched
+%% the three element shape, so that path ended in case_clause; the second one
+%% ended in a badmatch on a salt that never arrived.
+unknown_user_returns_error_test() ->
+    Result = efirebirdsql_protocol:connect(
+        "localhost",
+        "efirebirdsql_no_such_user",
+        "whatever",
+        tmp_dbname(),
+        [{auth_plugin, "Srp"}]),
+    ?assertMatch({error, ?ISC_LOGIN, _, _}, Result),
+    {error, _, Reason, Conn} = Result,
+    ?assert(is_binary(Reason)),
+    ?assertEqual(undefined, Conn#conn.sock).
