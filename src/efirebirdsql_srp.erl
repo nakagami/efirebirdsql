@@ -27,10 +27,6 @@ int_to_bin(Int, BytesLen) ->
     Bits = BytesLen * 8,
     <<Int:Bits>>.
 
--spec pad(integer(), integer()) -> binary().
-pad(Int, MaxBytesLen) ->
-    int_to_bin(Int, MaxBytesLen).
-
 -spec bin_to_int(binary()) -> integer().
 bin_to_int(Bin) ->
     Bits = byte_size(Bin) * 8,
@@ -101,9 +97,11 @@ server_public(V, PrivateKey) ->
 %% client session key
 -spec client_session(list(), list(), binary(), integer(), integer(), integer()) -> binary().
 client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate) ->
+    %% Firebird hashes A and B as minimal big-endian magnitudes (BigInteger::getBytes),
+    %% so a value shorter than the modulus must NOT be left padded to the key size.
     User = list_to_binary(Username),
     Pass = list_to_binary(Password),
-    U = bin_to_int(crypto:hash(sha, [pad(ClientPublic, get_key_size()), pad(ServerPublic, get_key_size())])),
+    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic), int_to_bin(ServerPublic)])),
     X = get_user_hash(User, Pass, Salt),
     GX = bin_to_int(crypto:mod_pow(get_generator(), X, get_prime())),
     KGX = remainder(get_k() * GX, get_prime()),
@@ -117,7 +115,7 @@ client_session(Username, Password, Salt, ClientPublic, ServerPublic, ClientPriva
 %% server session key
 -spec server_session(list(), list(), binary(), integer(), integer(), integer()) -> binary().
 server_session(Username, Password, Salt, ClientPublic, ServerPublic, ServerPrivate) ->
-    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic, get_key_size()), int_to_bin(ServerPublic, get_key_size())])),
+    U = bin_to_int(crypto:hash(sha, [int_to_bin(ClientPublic), int_to_bin(ServerPublic)])),
     V = get_verifier(Username, Password, Salt),
     VU = bin_to_int(crypto:mod_pow(V, U, get_prime())),
     AVU = remainder(ClientPublic * VU, get_prime()),
@@ -137,8 +135,8 @@ client_proof(Username, Password, Salt, ClientPublic, ServerPublic, ClientPrivate
         crypto:mod_pow(N1, N2, get_prime()),
         crypto:hash(sha, User),
         Salt,
-        pad(ClientPublic, get_key_size()),
-        pad(ServerPublic, get_key_size()),
+        int_to_bin(ClientPublic),
+        int_to_bin(ServerPublic),
         K
     ]),
     {M, K}.
