@@ -725,6 +725,21 @@ recv_proof_response(Conn) ->
         {error, 0, atom_to_binary(Reason, latin1)}
     end.
 
+%% A socket failure (the peer closed the connection, or a read timed out) reaches
+%% the readers below as the two element {error, Reason} that get_response/2
+%% documents in its spec. They only matched the three element form used for server
+%% errors, so that shape fell through the case and crashed the caller with a
+%% case_clause instead of surfacing as a query error. It is a normal outcome, not a
+%% bug in the caller: a pool that reaps a connection while a fetch is in flight
+%% produces exactly this. Normalizing to the three element form keeps every
+%% existing caller working unchanged, and matches what the handshake path already
+%% does for a refused login.
+-spec socket_error(term()) -> {error, integer(), binary()}.
+socket_error(Reason) when is_atom(Reason) ->
+    {error, 0, atom_to_binary(Reason, latin1)};
+socket_error(Reason) ->
+    {error, 0, iolist_to_binary(io_lib:format("~p", [Reason]))}.
+
 %% Read the status vector of an op_response error and return it as data.
 -spec recv_error_response(conn()) -> {integer(), binary()}.
 recv_error_response(Conn) ->
@@ -948,7 +963,8 @@ get_prepare_statement_response(Conn, Stmt) ->
             _ -> {Conn, []}
             end,
         {ok, Stmt2#stmt{xsqlvars=XSqlVars, rows=[]}};
-    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg};
+    {error, Reason} -> socket_error(Reason)
     end.
 
 get_blob_segment_list(<<>>, SegmentList) ->
@@ -1140,7 +1156,9 @@ get_fetch_response(Conn, Stmt) ->
             {error, ErrNo, Msg}
         end;
     {error, ErrNo, Msg} ->
-        {error, ErrNo, Msg}
+        {error, ErrNo, Msg};
+    {error, Reason} ->
+        socket_error(Reason)
     end.
 
 get_sql_response(Conn, Stmt) ->
@@ -1159,7 +1177,9 @@ get_sql_response(Conn, Stmt) ->
             end
         end;
     {error, ErrNo, Msg} ->
-        {error, ErrNo, Msg}
+        {error, ErrNo, Msg};
+    {error, Reason} ->
+        socket_error(Reason)
     end.
 
 op_name(1) -> op_connect;
