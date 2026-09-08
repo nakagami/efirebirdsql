@@ -546,14 +546,23 @@ get_error_message(Conn) ->
     {ErrNo, iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(Msg)), lists:reverse(Arg)))}.
 
 %% receive and parse response
+%%
+%% Socket failures go through socket_error/1 for the same reason the response
+%% readers do: every caller of get_response/1 in efirebirdsql_protocol (execute/4,
+%% prepare_statement/2, free_statement/3, rowcount/2, commit/1, rollback/1,
+%% begin_transaction/2 and the attach path) matches only {op_response, _, _} and
+%% {error, ErrNo, Msg}, so the two element form matched no clause and crashed the
+%% caller with case_clause instead of reporting a dead connection.
 -spec get_response(conn()) ->
     {op_response, integer(), binary()} |
     {op_fetch_response, integer(), integer()} |
     {op_sql_response, integer()} |
-    {error, integer(), binary()} |
-    {error, term()}.
+    {error, integer(), binary()}.
 get_response(Conn) ->
-    get_response(Conn, infinity).
+    case get_response(Conn, infinity) of
+        {error, Reason} -> socket_error(Reason);
+        Response -> Response
+    end.
 
 %% get_response/2 reads the initial op code with an explicit timeout. It is used
 %% by ping/1 so a server that stopped responding yields {error, timeout} instead
@@ -726,19 +735,22 @@ recv_proof_response(Conn) ->
     end.
 
 %% A socket failure (the peer closed the connection, or a read timed out) reaches
-%% the readers below as the two element {error, Reason} that get_response/2
+%% the response readers as the two element {error, Reason} that get_response/2
 %% documents in its spec. They only matched the three element form used for server
 %% errors, so that shape fell through the case and crashed the caller with a
 %% case_clause instead of surfacing as a query error. It is a normal outcome, not a
 %% bug in the caller: a pool that reaps a connection while a fetch is in flight
-%% produces exactly this. Normalizing to the three element form keeps every
-%% existing caller working unchanged, and matches what the handshake path already
-%% does for a refused login.
+%% produces exactly this.
+%%
+%% Normalizing to the three element form keeps every existing caller working
+%% unchanged. isc_net_read_err (335544726) is the Firebird code for exactly this
+%% condition, so the failure travels like any other server error and a caller that
+%% classifies errors can tell a lost connection from a bug of its own; the reason
+%% from the socket stays visible in the message.
 -spec socket_error(term()) -> {error, integer(), binary()}.
-socket_error(Reason) when is_atom(Reason) ->
-    {error, 0, atom_to_binary(Reason, latin1)};
 socket_error(Reason) ->
-    {error, 0, iolist_to_binary(io_lib:format("~p", [Reason]))}.
+    {error, 335544726,
+     iolist_to_binary(io_lib:format("Error reading data from the connection. (~p)", [Reason]))}.
 
 %% Read the status vector of an op_response error and return it as data.
 -spec recv_error_response(conn()) -> {integer(), binary()}.

@@ -192,8 +192,11 @@ close(Conn) ->
     end,
     gen_tcp:close(Conn#conn.sock),
     case Response of
-    {error, ErrNo, Msg} when ErrNo =/= 335544357, ErrNo =/= detach_failed ->
+    {error, ErrNo, Msg} when ErrNo =/= 335544357, ErrNo =/= 335544726,
+                             ErrNo =/= detach_failed ->
         %% 335544357: cannot disconnect database with open transactions
+        %% 335544726: the socket was already gone, so there is nothing to detach:
+        %%            the attachment dies with the connection and close/1 succeeded
         ?DEBUG_FORMAT("close() error ~p~p~n", [ErrNo, Msg]),
         {error, ErrNo, Msg, Conn#conn{sock=undefined}};
     _ ->
