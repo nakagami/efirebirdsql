@@ -546,14 +546,28 @@ get_error_message(Conn) ->
     {ErrNo, iolist_to_binary(io_lib:format(lists:flatten(lists:reverse(Msg)), lists:reverse(Arg)))}.
 
 %% receive and parse response
+%%
+%% Socket failures are reported with the SAME 3-tuple shape as a server error.
+%% get_response/2 answers {error, Reason} when the read fails (a peer that went
+%% away gives {error, closed}), but every caller of get_response/1 in
+%% efirebirdsql_protocol matches only {op_response, _, _} and {error, ErrNo, Msg}:
+%% a 2-tuple matched no clause and crashed the caller with case_clause instead of
+%% reporting a dead connection. isc_net_read_err (335544726) is the Firebird code
+%% for exactly this condition, so the error travels like any other and the reason
+%% stays visible in the message.
 -spec get_response(conn()) ->
     {op_response, integer(), binary()} |
     {op_fetch_response, integer(), integer()} |
     {op_sql_response, integer()} |
-    {error, integer(), binary()} |
-    {error, term()}.
+    {error, integer(), binary()}.
 get_response(Conn) ->
-    get_response(Conn, infinity).
+    case get_response(Conn, infinity) of
+        {error, Reason} -> {error, 335544726, socket_error_message(Reason)};  %% isc_net_read_err
+        Response -> Response
+    end.
+
+socket_error_message(Reason) ->
+    iolist_to_binary(io_lib:format("Error reading data from the connection. (~p)", [Reason])).
 
 %% get_response/2 reads the initial op code with an explicit timeout. It is used
 %% by ping/1 so a server that stopped responding yields {error, timeout} instead
