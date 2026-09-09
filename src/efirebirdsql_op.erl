@@ -975,8 +975,7 @@ get_prepare_statement_response(Conn, Stmt) ->
             _ -> {Conn, []}
             end,
         {ok, Stmt2#stmt{xsqlvars=XSqlVars, rows=[]}};
-    {error, ErrNo, Msg} -> {error, ErrNo, Msg};
-    {error, Reason} -> socket_error(Reason)
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
     end.
 
 get_blob_segment_list(<<>>, SegmentList) ->
@@ -1168,9 +1167,7 @@ get_fetch_response(Conn, Stmt) ->
             {error, ErrNo, Msg}
         end;
     {error, ErrNo, Msg} ->
-        {error, ErrNo, Msg};
-    {error, Reason} ->
-        socket_error(Reason)
+        {error, ErrNo, Msg}
     end.
 
 get_sql_response(Conn, Stmt) ->
@@ -1189,9 +1186,7 @@ get_sql_response(Conn, Stmt) ->
             end
         end;
     {error, ErrNo, Msg} ->
-        {error, ErrNo, Msg};
-    {error, Reason} ->
-        socket_error(Reason)
+        {error, ErrNo, Msg}
     end.
 
 op_name(1) -> op_connect;
