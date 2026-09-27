@@ -56,3 +56,20 @@ parse_timestamp_test() ->
     Midnight = <<0, 0, 0, 0>>,
     Old = <<(date_wire_bytes({100, 1, 1}))/binary, Midnight/binary>>,
     ?assertEqual({{100, 1, 1}, {0, 0, 0, 0}}, efirebirdsql_conv:parse_timestamp(Old)).
+
+float_param_to_blr_test() ->
+    %% A float travels as blr_double (27) with its 8 IEEE 754 bytes, not as
+    %% text: 0.09 is 16#3FB70A3D70A3D70A.
+    {Blr, Value} = efirebirdsql_conv:params_to_blr(13, maps:new(), [0.09]),
+    ?assertEqual("0502040002001B0700FF4C", efirebirdsql_srp:to_hex(Blr)),
+    ?assertEqual("000000003FB70A3D70A3D70A", efirebirdsql_srp:to_hex(Value)),
+
+    % Firebird 2.5: the null indicator follows the value
+    {Blr1, Value1} = efirebirdsql_conv:params_to_blr(11, maps:new(), [-0.09]),
+    ?assertEqual("0502040002001B0700FF4C", efirebirdsql_srp:to_hex(Blr1)),
+    ?assertEqual("BFB70A3D70A3D70A00000000", efirebirdsql_srp:to_hex(Value1)),
+
+    %% Mixed with other parameters and a null
+    {Blr2, Value2} = efirebirdsql_conv:params_to_blr(13, maps:new(), [1, 2.5, nil]),
+    ?assertEqual("050204000600080007001B07000E00000700FF4C", efirebirdsql_srp:to_hex(Blr2)),
+    ?assertEqual("04000000000000014004000000000000", efirebirdsql_srp:to_hex(Value2)).

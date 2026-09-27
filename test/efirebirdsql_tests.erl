@@ -416,3 +416,44 @@ fb4_test() ->
     FirebirdMajorVersion < 4 ->
         ok
     end.
+
+%% Float parameters must reach the server with the exact value the caller
+%% had. They used to travel as the 20 digit text of float_to_binary/1, which
+%% the server parsed back with an error in the last bit (0.09 was stored as
+%% 0.08999999999999998) and which overflowed any NUMERIC or integer target.
+float_param_test() ->
+    DbName = tmp_dbname(),
+    C = create_test_db(DbName),
+    ok = efirebirdsql:execute(C, <<"
+        CREATE TABLE float_test (
+            id INTEGER NOT NULL,
+            d DOUBLE PRECISION,
+            n NUMERIC(18, 15),
+            m NUMERIC(15, 2),
+            i INTEGER)
+    ">>),
+    %% 122.36292812327073 is also misread from its shortest text, so sending
+    %% float_to_binary(V, [short]) would not be enough.
+    Values = [0.09, -0.09, 0.1, 1.0e-7, 1234.5678, 122.36292812327073],
+    lists:foreach(fun({Id, V}) ->
+        ok = efirebirdsql:execute(C,
+            <<"insert into float_test (id, d, n, m, i) values (?, ?, ?, ?, ?)">>, [Id, V, V, V, V])
+    end, lists:zip(lists:seq(1, length(Values)), Values)),
+
+    ok = efirebirdsql:execute(C, <<"select d from float_test order by id">>),
+    {ok, Doubles} = efirebirdsql:fetchall(C),
+    ?assertEqual([[{<<"D">>, V}] || V <- Values], Doubles),
+
+    ok = efirebirdsql:execute(C, <<"select n, m, i from float_test where id = 1">>),
+    ?assertEqual({ok, [{<<"N">>, "0.090000000000000"}, {<<"M">>, "0.09"}, {<<"I">>, 0}]},
+                 efirebirdsql:fetchone(C)),
+
+    %% a float parameter compared with a DOUBLE PRECISION column
+    ok = efirebirdsql:execute(C, <<"select id from float_test where d = ?">>, [0.09]),
+    ?assertEqual({ok, [[{<<"ID">>, 1}]]}, efirebirdsql:fetchall(C)),
+
+    ok = efirebirdsql:execute(C, <<"select cast(? as double precision) from rdb$database">>, [0.09]),
+    ?assertEqual({ok, [{<<"CAST">>, 0.09}]}, efirebirdsql:fetchone(C)),
+
+    ok = efirebirdsql:commit(C),
+    ok = efirebirdsql:close(C).

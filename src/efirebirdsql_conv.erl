@@ -175,9 +175,10 @@ param_to_blr(V, _) when is_binary(V) ->
 param_to_blr(V, TimeZoneIdByName) when is_list(V) ->
     %% decimal
     param_to_blr(list_to_binary(V), TimeZoneIdByName);
-param_to_blr(V, TimeZoneIdByName) when is_float(V) ->
-    %% float
-    param_to_blr(float_to_binary(V), TimeZoneIdByName);
+param_to_blr(V, _) when is_float(V) ->
+    %% double: send the IEEE 754 value itself (blr_double, 8 bytes XDR),
+    %% so the server receives exactly the bits the caller had.
+    {[27, 7, 0], binary_to_list(<<V:64/float>>)};
 param_to_blr({{Hour, Minute, Second, Microsecond}, TimeZone}, TimeZoneIdByName) ->
     %% time with timezone
     %% time must be in UTC value
