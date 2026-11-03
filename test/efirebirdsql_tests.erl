@@ -457,3 +457,42 @@ float_param_test() ->
 
     ok = efirebirdsql:commit(C),
     ok = efirebirdsql:close(C).
+
+%% A binary parameter longer than 65535 bytes does not fit in blr_text, whose
+%% length has 2 bytes: it used to crash in efirebirdsql_conv:byte2/1 with
+%% case_clause before reaching the server. It is now uploaded as a blob.
+large_blob_param_test() ->
+    DbName = tmp_dbname(),
+    C = create_test_db(DbName),
+    ok = efirebirdsql:execute(C, <<"
+        CREATE TABLE blob_test (
+            id INTEGER NOT NULL,
+            h0 BLOB SUB_TYPE 0,
+            h1 BLOB SUB_TYPE 1)
+    ">>),
+    %% every byte value, past one 32000 byte segment and past 65535 bytes
+    Binary = binary:copy(list_to_binary(lists:seq(0, 255)), 400),
+    %% multibyte UTF-8 text: 'ñ' and 'ó' take 2 bytes each
+    Text = binary:copy(<<"año, canción "/utf8>>, 5000),
+    ?assert(byte_size(Binary) > 65535),
+    ?assert(byte_size(Text) > 65535),
+    %% 65535 bytes still go inline, 65536 bytes are the first blob
+    Inline = binary:copy(<<"x">>, 65535),
+    Boundary = binary:copy(<<"y">>, 65536),
+    Rows = [{1, Binary, Text}, {2, Inline, Boundary}],
+    lists:foreach(fun({Id, H0, H1}) ->
+        ok = efirebirdsql:execute(C,
+            <<"insert into blob_test (id, h0, h1) values (?, ?, ?)">>, [Id, H0, H1])
+    end, Rows),
+
+    ok = efirebirdsql:execute(C, <<"select id, h0, h1 from blob_test order by id">>),
+    ?assertEqual({ok, [[{<<"ID">>, Id}, {<<"H0">>, H0}, {<<"H1">>, H1}] || {Id, H0, H1} <- Rows]},
+                 efirebirdsql:fetchall(C)),
+
+    %% the same in an update, mixed with a short parameter
+    ok = efirebirdsql:execute(C, <<"update blob_test set h0 = ? where id = ?">>, [Binary, 2]),
+    ok = efirebirdsql:execute(C, <<"select h0 from blob_test where id = 2">>),
+    ?assertEqual({ok, [{<<"H0">>, Binary}]}, efirebirdsql:fetchone(C)),
+
+    ok = efirebirdsql:commit(C),
+    ok = efirebirdsql:close(C).

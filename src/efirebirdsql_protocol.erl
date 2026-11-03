@@ -338,7 +338,22 @@ execute(Conn, Stmt, Params) when Stmt#stmt.stmt_handle =:= nil ->
     end;
 execute(Conn, Stmt, Params) when Stmt#stmt.stmt_handle =/= nil ->
     ?DEBUG_FORMAT("execute() stmt_type=~p,stmt_handle=~p:~p:~p~n", [Stmt#stmt.stmt_type, Stmt#stmt.stmt_handle, Stmt#stmt.sql, Params]),
-    execute(Conn, Stmt, Params, Stmt#stmt.stmt_type).
+    case blob_params(Conn, Params, []) of
+        {ok, Params2} -> execute(Conn, Stmt, Params2, Stmt#stmt.stmt_type);
+        {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+    end.
+
+%% blr_text carries its length in 2 bytes, so a binary longer than 65535 bytes
+%% cannot be sent inline: upload it as a blob first and send its blob id.
+blob_params(_Conn, [], Acc) ->
+    {ok, lists:reverse(Acc)};
+blob_params(Conn, [V | Rest], Acc) when is_binary(V), byte_size(V) > 65535 ->
+    case efirebirdsql_op:create_blob(Conn, V) of
+        {ok, BlobId} -> blob_params(Conn, Rest, [{blob, BlobId} | Acc]);
+        {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+    end;
+blob_params(Conn, [V | Rest], Acc) ->
+    blob_params(Conn, Rest, [V | Acc]).
 
 execute(Conn, Stmt) ->
     execute(Conn, Stmt, []).
