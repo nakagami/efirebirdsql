@@ -494,5 +494,19 @@ large_blob_param_test() ->
     ok = efirebirdsql:execute(C, <<"select h0 from blob_test where id = 2">>),
     ?assertEqual({ok, [{<<"H0">>, Binary}]}, efirebirdsql:fetchone(C)),
 
+    %% RETURNING goes through op_execute2
+    ok = efirebirdsql:execute(C,
+        <<"insert into blob_test (id, h0) values (?, ?) returning id">>, [3, Binary]),
+    ?assertEqual({ok, [{<<"ID">>, 3}]}, efirebirdsql:fetchone(C)),
+
+    %% a server error after the upload is returned, and the connection stays usable
+    ok = efirebirdsql:execute(C, <<"alter table blob_test add constraint pk_blob_test primary key (id)">>),
+    ok = efirebirdsql:commit(C),
+    ?assertMatch({error, _},
+        efirebirdsql:execute(C, <<"insert into blob_test (id, h0) values (?, ?)">>, [3, Binary])),
+    ok = efirebirdsql:rollback(C),
+    ok = efirebirdsql:execute(C, <<"select count(*) from blob_test">>),
+    ?assertEqual({ok, [{<<"COUNT">>, 3}]}, efirebirdsql:fetchone(C)),
+
     ok = efirebirdsql:commit(C),
     ok = efirebirdsql:close(C).
