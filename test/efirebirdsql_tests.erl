@@ -476,8 +476,11 @@ large_blob_param_test() ->
     Text = binary:copy(<<"año, canción "/utf8>>, 5000),
     ?assert(byte_size(Binary) > 65535),
     ?assert(byte_size(Text) > 65535),
-    %% 65535 bytes still go inline, 65536 bytes are the first blob
-    Inline = binary:copy(<<"x">>, 65535),
+    %% 65536 bytes is the first value that goes as a blob; the inline value next to it
+    %% stays well under 64 KB because Firebird 2.5 keeps the message length in a
+    %% USHORT (rem_fmt::fmt_length): a message whose parameters plus null indicators
+    %% reach 65536 bytes wraps it and fbserver dies, with or without this change.
+    Inline = binary:copy(<<"x">>, 60000),
     Boundary = binary:copy(<<"y">>, 65536),
     Rows = [{1, Binary, Text}, {2, Inline, Boundary}],
     lists:foreach(fun({Id, H0, H1}) ->
