@@ -10,7 +10,7 @@
     op_allocate_statement/1, op_prepare_statement/3, op_free_statement/2,
     op_execute/3, op_execute2/3, op_exec_immediate/2, op_ping/0, op_info_sql/2, op_fetch/2,
     op_commit_retaining/1, op_commit/1, op_rollback_retaining/1, op_rollback/1,
-    op_open_blob/2,
+    op_open_blob/2, op_create_blob2/1, op_put_segment/2, create_blob/2,
     convert_row/3, get_response/1, get_response/2, get_connect_response/1, get_fetch_response/2,
     get_sql_response/2, get_prepare_statement_response/2,
     process_dpb/2]).
@@ -18,6 +18,7 @@
 -include("efirebirdsql.hrl").
 
 -define(BUFSIZE, 1024).
+-define(BLOB_SEGMENT_SIZE, 32000).
 
 %% isc_login. Firebird refuses credentials in two shapes during the handshake:
 %% an op_response carrying the status vector, or an op_cont_auth asking the
@@ -491,6 +492,23 @@ op_close_blob(BlobHandle) ->
     list_to_binary([
         efirebirdsql_conv:byte4(op_val(op_close_blob)),
         efirebirdsql_conv:byte4(BlobHandle)]).
+
+op_create_blob2(TransHandle) ->
+    ?DEBUG_FORMAT("op_create_blob2(trans_handle=~p) -> ", [TransHandle]),
+    list_to_binary([
+        efirebirdsql_conv:byte4(op_val(op_create_blob2)),
+        efirebirdsql_conv:list_to_xdr_bytes([]),    % empty BPB
+        efirebirdsql_conv:byte4(TransHandle),
+        efirebirdsql_conv:byte4(0),                 % blob id, assigned by the server
+        efirebirdsql_conv:byte4(0)]).
+
+op_put_segment(BlobHandle, Segment) ->
+    ?DEBUG_FORMAT("op_put_segment(blob_handle=~p,length=~p) -> ", [BlobHandle, byte_size(Segment)]),
+    list_to_binary([
+        efirebirdsql_conv:byte4(op_val(op_put_segment)),
+        efirebirdsql_conv:byte4(BlobHandle),
+        efirebirdsql_conv:byte4(byte_size(Segment)),
+        efirebirdsql_conv:list_to_xdr_bytes(binary_to_list(Segment))]).
 
 op_cont_auth(AuthData, PluginName, PluginNameList, Keys) ->
     ?DEBUG_FORMAT("op_cont_auth -> ", []),
@@ -1001,6 +1019,61 @@ get_blob_data(Conn, BlobId) ->
     {op_response, 0, _} = get_response(Conn),
     R = list_to_binary(SegmentList),
     {ok, R}.
+
+%% Upload Bin as a new blob in the current transaction and return its blob id,
+%% which the caller then sends as a blr_quad parameter.
+-spec create_blob(conn(), binary()) -> {ok, binary()} | {error, integer(), binary()}.
+create_blob(Conn, Bin) ->
+    efirebirdsql_socket:send(Conn, op_create_blob2(Conn#conn.trans_handle)),
+    case get_create_blob_response(Conn) of
+    {ok, BlobHandle, BlobId} ->
+        case put_blob_segments(Conn, BlobHandle, Bin) of
+        ok ->
+            efirebirdsql_socket:send(Conn, op_close_blob(BlobHandle)),
+            case get_response(Conn) of
+            {op_response, _, _} -> {ok, BlobId};
+            {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+            end;
+        {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+        end;
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+    end.
+
+put_blob_segments(_Conn, _BlobHandle, <<>>) ->
+    ok;
+put_blob_segments(Conn, BlobHandle, Bin) ->
+    Len = min(byte_size(Bin), ?BLOB_SEGMENT_SIZE),
+    <<Segment:Len/binary, Rest/binary>> = Bin,
+    efirebirdsql_socket:send(Conn, op_put_segment(BlobHandle, Segment)),
+    case get_response(Conn) of
+    {op_response, _, _} -> put_blob_segments(Conn, BlobHandle, Rest);
+    {error, ErrNo, Msg} -> {error, ErrNo, Msg}
+    end.
+
+%% The op_response to op_create_blob2 carries the blob handle in its handle
+%% field and the new blob id in its object id field, which get_response/1 drops.
+get_create_blob_response(Conn) ->
+    case efirebirdsql_socket:recv(Conn, 4) of
+    {ok, <<OpCode:32>>} ->
+        case op_name(OpCode) of
+        op_response ->
+            {ok, <<BlobHandle:32, BlobId:8/binary, Len:32>>} = efirebirdsql_socket:recv(Conn, 16),
+            if
+                Len =/= 0 -> {ok, _} = efirebirdsql_socket:recv_align(Conn, Len);
+                true -> ok
+            end,
+            case get_error_message(Conn) of
+            {_, <<>>} -> {ok, BlobHandle, BlobId};
+            {ErrNo, Msg} -> {error, ErrNo, Msg}
+            end;
+        op_dummy ->
+            get_create_blob_response(Conn);
+        _ ->
+            {error, 0, <<"Unknown response">>}
+        end;
+    {error, Reason} ->
+        socket_error(Reason)
+    end.
 
 convert_raw_value(_Conn, _XSqlVar, nil) ->
     nil;

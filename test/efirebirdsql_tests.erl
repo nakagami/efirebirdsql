@@ -457,3 +457,59 @@ float_param_test() ->
 
     ok = efirebirdsql:commit(C),
     ok = efirebirdsql:close(C).
+
+%% A binary parameter longer than 65535 bytes does not fit in blr_text, whose
+%% length has 2 bytes: it used to crash in efirebirdsql_conv:byte2/1 with
+%% case_clause before reaching the server. It is now uploaded as a blob.
+large_blob_param_test() ->
+    DbName = tmp_dbname(),
+    C = create_test_db(DbName),
+    ok = efirebirdsql:execute(C, <<"
+        CREATE TABLE blob_test (
+            id INTEGER NOT NULL,
+            h0 BLOB SUB_TYPE 0,
+            h1 BLOB SUB_TYPE 1)
+    ">>),
+    %% every byte value, past one 32000 byte segment and past 65535 bytes
+    Binary = binary:copy(list_to_binary(lists:seq(0, 255)), 400),
+    %% multibyte UTF-8 text: 'ñ' and 'ó' take 2 bytes each
+    Text = binary:copy(<<"año, canción "/utf8>>, 5000),
+    ?assert(byte_size(Binary) > 65535),
+    ?assert(byte_size(Text) > 65535),
+    %% 65536 bytes is the first value that goes as a blob; the inline value next to it
+    %% stays well under 64 KB because Firebird 2.5 keeps the message length in a
+    %% USHORT (rem_fmt::fmt_length): a message whose parameters plus null indicators
+    %% reach 65536 bytes wraps it and fbserver dies, with or without this change.
+    Inline = binary:copy(<<"x">>, 60000),
+    Boundary = binary:copy(<<"y">>, 65536),
+    Rows = [{1, Binary, Text}, {2, Inline, Boundary}],
+    lists:foreach(fun({Id, H0, H1}) ->
+        ok = efirebirdsql:execute(C,
+            <<"insert into blob_test (id, h0, h1) values (?, ?, ?)">>, [Id, H0, H1])
+    end, Rows),
+
+    ok = efirebirdsql:execute(C, <<"select id, h0, h1 from blob_test order by id">>),
+    ?assertEqual({ok, [[{<<"ID">>, Id}, {<<"H0">>, H0}, {<<"H1">>, H1}] || {Id, H0, H1} <- Rows]},
+                 efirebirdsql:fetchall(C)),
+
+    %% the same in an update, mixed with a short parameter
+    ok = efirebirdsql:execute(C, <<"update blob_test set h0 = ? where id = ?">>, [Binary, 2]),
+    ok = efirebirdsql:execute(C, <<"select h0 from blob_test where id = 2">>),
+    ?assertEqual({ok, [{<<"H0">>, Binary}]}, efirebirdsql:fetchone(C)),
+
+    %% RETURNING goes through op_execute2
+    ok = efirebirdsql:execute(C,
+        <<"insert into blob_test (id, h0) values (?, ?) returning id">>, [3, Binary]),
+    ?assertEqual({ok, [{<<"ID">>, 3}]}, efirebirdsql:fetchone(C)),
+
+    %% a server error after the upload is returned, and the connection stays usable
+    ok = efirebirdsql:execute(C, <<"alter table blob_test add constraint pk_blob_test primary key (id)">>),
+    ok = efirebirdsql:commit(C),
+    ?assertMatch({error, _},
+        efirebirdsql:execute(C, <<"insert into blob_test (id, h0) values (?, ?)">>, [3, Binary])),
+    ok = efirebirdsql:rollback(C),
+    ok = efirebirdsql:execute(C, <<"select count(*) from blob_test">>),
+    ?assertEqual({ok, [{<<"COUNT">>, 3}]}, efirebirdsql:fetchone(C)),
+
+    ok = efirebirdsql:commit(C),
+    ok = efirebirdsql:close(C).

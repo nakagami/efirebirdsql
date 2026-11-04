@@ -73,3 +73,15 @@ float_param_to_blr_test() ->
     {Blr2, Value2} = efirebirdsql_conv:params_to_blr(13, maps:new(), [1, 2.5, nil]),
     ?assertEqual("050204000600080007001B07000E00000700FF4C", efirebirdsql_srp:to_hex(Blr2)),
     ?assertEqual("04000000000000014004000000000000", efirebirdsql_srp:to_hex(Value2)).
+
+blob_id_param_to_blr_test() ->
+    %% A value uploaded as a blob travels as blr_quad (9) with its 8 byte blob id.
+    BlobId = <<1, 2, 3, 4, 5, 6, 7, 8>>,
+    {Blr, Value} = efirebirdsql_conv:params_to_blr(13, maps:new(), [{blob, BlobId}]),
+    ?assertEqual("05020400020009000700FF4C", efirebirdsql_srp:to_hex(Blr)),
+    ?assertEqual("000000000102030405060708", efirebirdsql_srp:to_hex(Value)),
+
+    % Firebird 2.5: the null indicator follows the value
+    {Blr1, Value1} = efirebirdsql_conv:params_to_blr(11, maps:new(), [{blob, BlobId}]),
+    ?assertEqual("05020400020009000700FF4C", efirebirdsql_srp:to_hex(Blr1)),
+    ?assertEqual("010203040506070800000000", efirebirdsql_srp:to_hex(Value1)).

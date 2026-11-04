@@ -179,6 +179,10 @@ param_to_blr(V, _) when is_float(V) ->
     %% double: send the IEEE 754 value itself (blr_double, 8 bytes XDR),
     %% so the server receives exactly the bits the caller had.
     {[27, 7, 0], binary_to_list(<<V:64/float>>)};
+param_to_blr({blob, BlobId}, _) when is_binary(BlobId) ->
+    %% blob id (blr_quad) of a value already uploaded as a blob,
+    %% see efirebirdsql_protocol:execute/3.
+    {[9, 0, 7, 0], binary_to_list(BlobId)};
 param_to_blr({{Hour, Minute, Second, Microsecond}, TimeZone}, TimeZoneIdByName) ->
     %% time with timezone
     %% time must be in UTC value

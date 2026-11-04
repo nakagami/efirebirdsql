@@ -51,6 +51,16 @@ silent_connection() ->
     {ok, Peer} = gen_tcp:accept(Listen),
     {Sock, Listen, Peer}.
 
+op_create_blob2_test() ->
+    %% op code 57, empty BPB, transaction handle, blob id 0 (assigned by the server)
+    ?assertEqual("00000039" "00000000" "00000005" "00000000" "00000000",
+                 efirebirdsql_srp:to_hex(efirebirdsql_op:op_create_blob2(5))).
+
+op_put_segment_test() ->
+    %% op code 37, blob handle, segment length, then the segment as XDR bytes
+    ?assertEqual("00000025" "00000007" "00000005" "00000005" "6162636465" "000000",
+                 efirebirdsql_srp:to_hex(efirebirdsql_op:op_put_segment(7, <<"abcde">>))).
+
 process_dpb_test() ->
     %% nil/nil (the default): nothing is added, so the attach DPB is unchanged.
     ?assertEqual([], efirebirdsql_op:process_dpb(nil, nil)),
