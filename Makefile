@@ -19,7 +19,7 @@ dialyzer: build.plt compile
 	dialyzer --plt $< _build/default/lib/efirebirdsql/ebin/
 
 build.plt:
-	dialyzer -q --build_plt --apps erts kernel stdlib crypto --output_plt $@
+	dialyzer -q --build_plt --apps erts kernel stdlib crypto compiler parsetools --output_plt $@
 
 publish:
 	@$(REBAR) hex publish --yes
